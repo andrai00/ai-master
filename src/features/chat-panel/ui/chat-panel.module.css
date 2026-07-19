@@ -6,14 +6,20 @@
   overflow: hidden;
 }
 
-.messages {
+.inner {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.messages {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px 20px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
 }
 
 .message {
@@ -34,7 +40,7 @@
 
 .sender {
   font-size: 11px;
-  color: #777;
+  color: var(--text-dim);
   margin-bottom: 2px;
   padding: 0 4px;
 }
@@ -48,24 +54,16 @@
 }
 
 .player .bubble {
-  background: #2a2a2a;
-  color: #d4d4d4;
+  background: var(--bg-hover);
+  color: var(--text-primary);
   border-bottom-right-radius: 4px;
 }
 
 .master .bubble {
   background: #1f1f1f;
   color: #cccccc;
-  border: 1px solid #2d2d2d;
+  border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
-}
-
-.master .bubble p {
-  margin: 0 0 6px;
-}
-
-.master .bubble p:last-child {
-  margin-bottom: 0;
 }
 
 .inputBar {
@@ -73,17 +71,26 @@
   align-items: flex-end;
   gap: 8px;
   padding: 10px 16px;
-  background: #1a1a1a;
-  border-top: 1px solid #2a2a2a;
+  background: var(--bg-input);
+  border-top: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.inputInner {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
 }
 
 .input {
   flex: 1;
   font-size: 13px;
-  background: #242424;
+  background: var(--bg-hover);
   border-color: #333;
-  color: #d4d4d4;
+  color: var(--text-primary);
   border-radius: 8px;
   resize: none;
 }
@@ -101,14 +108,14 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #2a2a2a;
+  background: var(--bg-hover);
   border-color: #333;
-  color: #999;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .sendBtn:hover {
-  color: #d4d4d4 !important;
+  color: var(--text-primary) !important;
   border-color: #444 !important;
   background: #333 !important;
 }

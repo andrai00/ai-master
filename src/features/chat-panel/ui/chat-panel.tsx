@@ -29,25 +29,29 @@ export const ChatPanel = ({ messages, placeholder = "Введите сообще
 
   return (
     <div className={styles.panel}>
-      <div className={styles.messages} ref={scrollRef}>
-        {messages.map((msg) => (
-          <div key={msg.id} className={`${styles.message} ${msg.role === "master" ? styles.master : styles.player}`}>
-            <div className={styles.sender}>{msg.sender}</div>
-            <div className={styles.bubble}>{msg.text}</div>
-          </div>
-        ))}
+      <div className={styles.inner} ref={scrollRef}>
+        <div className={styles.messages}>
+          {messages.map((msg) => (
+            <div key={msg.id} className={`${styles.message} ${msg.role === "master" ? styles.master : styles.player}`}>
+              <div className={styles.sender}>{msg.sender}</div>
+              <div className={styles.bubble}>{msg.text}</div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className={styles.inputBar}>
-        <Input.TextArea
-          placeholder={placeholder}
-          autoSize={{ minRows: 1, maxRows: 4 }}
-          className={styles.input}
-        />
-        <Button
-          type="default"
-          icon={<SendOutlined />}
-          className={styles.sendBtn}
-        />
+        <div className={styles.inputInner}>
+          <Input.TextArea
+            placeholder={placeholder}
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            className={styles.input}
+          />
+          <Button
+            type="default"
+            icon={<SendOutlined />}
+            className={styles.sendBtn}
+          />
+        </div>
       </div>
     </div>
   );

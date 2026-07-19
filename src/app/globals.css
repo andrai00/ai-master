@@ -1,3 +1,17 @@
+:root {
+  --border: #2a2a2a;
+  --bg-surface: #1e1e1e;
+  --bg-root: #1b1b1b;
+  --bg-hover: #242424;
+  --bg-active: #2d2d2d;
+  --bg-input: #1a1a1a;
+  --text-primary: #d4d4d4;
+  --text-secondary: #999;
+  --text-muted: #666;
+  --text-dim: #777;
+  --content-width: 760px;
+}
+
 html, body, #__next {
   height: 100%;
   margin: 0;
@@ -5,8 +19,8 @@ html, body, #__next {
 }
 
 body {
-  background: #1b1b1b;
-  color: #d4d4d4;
+  background: var(--bg-root);
+  color: var(--text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 13px;

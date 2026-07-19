@@ -1,0 +1,94 @@
+{
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "logout": "Выйти",
+    "upload": "Загрузить",
+    "loading": "Загрузка..."
+  },
+  "sidebar": {
+    "logo": "ai-master",
+    "collapse": "Свернуть панель",
+    "expand": "Развернуть панель",
+    "chatGame": "Чат игры",
+    "chatMaster": "Вопрос мастеру",
+    "unreadHint": "непрочитанных сообщений"
+  },
+  "profile": {
+    "settings": "Настройки профиля",
+    "appSettings": "Настройки",
+    "logout": "Выйти",
+    "logoutConfirm": "Выйти из аккаунта?",
+    "logoutMessage": "Вы будете перенаправлены на страницу входа.",
+    "role_player": "игрок",
+    "role_admin": "администратор"
+  },
+  "profileModal": {
+    "title": "Настройки профиля",
+    "avatar": "Аватар",
+    "avatarDelete": "Удалить аватар",
+    "avatarDeleteConfirm": "Удалить аватар?",
+    "avatarDeleted": "Аватар удалён",
+    "avatarTooBig": "Файл слишком большой (макс. 5MB)",
+    "avatarUploadError": "Ошибка загрузки",
+    "displayName": "Отображаемое имя",
+    "nameEmpty": "Имя не может быть пустым",
+    "profileUpdated": "Профиль обновлён",
+    "passwordTitle": "Сменить пароль",
+    "currentPassword": "Текущий пароль",
+    "newPassword": "Новый пароль",
+    "changePassword": "Сменить пароль",
+    "passwordChanged": "Пароль изменён",
+    "passwordWrong": "Неверный текущий пароль",
+    "passwordTooShort": "Пароль должен быть не менее 4 символов"
+  },
+  "settings": {
+    "title": "Настройки",
+    "darkTheme": "Тёмная тема",
+    "language": "Язык"
+  },
+  "auth": {
+    "login": "Войти",
+    "loginTitle": "ai-master",
+    "loginSubtitle": "Вход в игру",
+    "loginPlaceholder": "Логин",
+    "passwordPlaceholder": "Пароль",
+    "loginError": "Неверный логин или пароль",
+    "loginEmpty": "Введите логин и пароль",
+    "setupTitle": "Первоначальная настройка",
+    "setupDesc": "Создайте учётную запись администратора. Через неё вы сможете добавлять игроков.",
+    "setupBtn": "Создать администратора",
+    "setupExists": "Администратор уже существует"
+  },
+  "chat": {
+    "placeholder": "Введите сообщение...",
+    "master": "Мастер"
+  },
+  "tabs": {
+    "commonChat": "Общий чат",
+    "history": "История",
+    "character": "Гаррет",
+    "rules": "Боевые правила"
+  },
+  "fileTree": {
+    "myCharacter": "Мой персонаж",
+    "sheet": "Гаррет (лист)",
+    "inventory": "Инвентарь",
+    "effects": "Эффекты",
+    "cheatsheet": "Шпаргалки",
+    "combatActions": "Боевые ходы",
+    "conditions": "Состояния",
+    "skillChecks": "Проверки",
+    "sharedSheets": "Общие листы",
+    "ship": "Корабль «Морской волк»",
+    "partyLoot": "Общий инвентарь",
+    "currentScene": "Текущая сцена",
+    "scene": "Таверна (бой)",
+    "initiative": "Порядок хода",
+    "adminPanel": "Админ панель",
+    "adminUsers": "Пользователи",
+    "adminMaster": "Настройки мастера",
+    "adminLogs": "Логи сессии"
+  }
+}

@@ -13,6 +13,7 @@ import {
   BulbOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
@@ -28,12 +29,8 @@ interface ISidebarProps {
   user?: ISessionPayload;
 }
 
-const roleLabels: Record<string, string> = {
-  admin: "администратор",
-  player: "игрок",
-};
-
 export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
+  const { t } = useTranslation();
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
@@ -44,10 +41,10 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
 
   const handleLogout = () => {
     Modal.confirm({
-      title: "Выйти из аккаунта?",
-      content: "Вы будете перенаправлены на страницу входа.",
-      okText: "Выйти",
-      cancelText: "Отмена",
+      title: t("profile.logoutConfirm"),
+      content: t("profile.logoutMessage"),
+      okText: t("profile.logout"),
+      cancelText: t("common.cancel"),
       okButtonProps: { danger: true },
       centered: true,
       onOk: async () => {
@@ -62,20 +59,20 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
     {
       key: "profile",
       icon: <SettingOutlined />,
-      label: "Настройки профиля",
+      label: t("profile.settings"),
       onClick: () => setSettingsOpen(true),
     },
     {
       key: "app",
       icon: <BulbOutlined />,
-      label: "Настройки",
+      label: t("profile.appSettings"),
       onClick: () => setAppSettingsOpen(true),
     },
     { type: "divider" },
     {
       key: "logout",
       icon: <LogoutOutlined />,
-      label: "Выйти",
+      label: t("profile.logout"),
       danger: true,
       onClick: handleLogout,
     },
@@ -85,7 +82,7 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const baseAvatarUrl = user ? `/api/avatar/${user.userId}` : "";
   const avatarUrl = baseAvatarUrl ? `${baseAvatarUrl}?v=${avatarVersion}` : "";
   const name = displayName;
-  const role = roleLabels[user?.role || ""] || user?.role || "";
+  const role = user?.role === "admin" ? t("profile.role_admin") : t("profile.role_player");
 
   const handleProfileUpdated = (newName: string) => {
     setDisplayName(newName);
@@ -114,7 +111,7 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
           </button>
           <ChatNav collapsed />
           <div className={styles.collapsedDivider} />
-          <Tooltip title="Развернуть панель" placement="right">
+          <Tooltip title={t("sidebar.expand")} placement="right">
             <button className={styles.collapsedIcon} onClick={onToggle}>
               <UnorderedListOutlined />
             </button>
@@ -136,14 +133,14 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
       <div className={styles.sidebar}>
         <div className={styles.header}>
           <div className={styles.headerInfo}>
-            <span className={styles.logo}>ai-master</span>
+            <span className={styles.logo}>{t("sidebar.logo")}</span>
             <span className={styles.session}>D&D 5e · Забытые Королевства</span>
           </div>
-          <Tooltip title="Свернуть панель" placement="right">
-            <button className={styles.collapseBtn} onClick={onToggle}>
-              <MenuFoldOutlined />
-            </button>
-          </Tooltip>
+        <Tooltip title={t("sidebar.collapse")} placement="right">
+          <button className={styles.collapseBtn} onClick={onToggle}>
+            <MenuFoldOutlined />
+          </button>
+        </Tooltip>
         </div>
 
         <ChatNav />

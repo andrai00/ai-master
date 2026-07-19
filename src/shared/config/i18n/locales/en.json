@@ -1,0 +1,94 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "logout": "Log out",
+    "upload": "Upload",
+    "loading": "Loading..."
+  },
+  "sidebar": {
+    "logo": "ai-master",
+    "collapse": "Collapse panel",
+    "expand": "Expand panel",
+    "chatGame": "Game Chat",
+    "chatMaster": "Ask Master",
+    "unreadHint": "unread messages"
+  },
+  "profile": {
+    "settings": "Profile Settings",
+    "appSettings": "Settings",
+    "logout": "Log out",
+    "logoutConfirm": "Log out of account?",
+    "logoutMessage": "You will be redirected to the login page.",
+    "role_player": "player",
+    "role_admin": "administrator"
+  },
+  "profileModal": {
+    "title": "Profile Settings",
+    "avatar": "Avatar",
+    "avatarDelete": "Delete avatar",
+    "avatarDeleteConfirm": "Delete avatar?",
+    "avatarDeleted": "Avatar deleted",
+    "avatarTooBig": "File too large (max 5MB)",
+    "avatarUploadError": "Upload error",
+    "displayName": "Display name",
+    "nameEmpty": "Name cannot be empty",
+    "profileUpdated": "Profile updated",
+    "passwordTitle": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "changePassword": "Change password",
+    "passwordChanged": "Password changed",
+    "passwordWrong": "Wrong current password",
+    "passwordTooShort": "Password must be at least 4 characters"
+  },
+  "settings": {
+    "title": "Settings",
+    "darkTheme": "Dark theme",
+    "language": "Language"
+  },
+  "auth": {
+    "login": "Log in",
+    "loginTitle": "ai-master",
+    "loginSubtitle": "Game login",
+    "loginPlaceholder": "Login",
+    "passwordPlaceholder": "Password",
+    "loginError": "Invalid login or password",
+    "loginEmpty": "Enter login and password",
+    "setupTitle": "Initial setup",
+    "setupDesc": "Create an administrator account. You will be able to add players through it.",
+    "setupBtn": "Create administrator",
+    "setupExists": "Administrator already exists"
+  },
+  "chat": {
+    "placeholder": "Type a message...",
+    "master": "Master"
+  },
+  "tabs": {
+    "commonChat": "Game Chat",
+    "history": "History",
+    "character": "Garret",
+    "rules": "Combat Rules"
+  },
+  "fileTree": {
+    "myCharacter": "My Character",
+    "sheet": "Garret (sheet)",
+    "inventory": "Inventory",
+    "effects": "Effects",
+    "cheatsheet": "Cheat Sheets",
+    "combatActions": "Combat Actions",
+    "conditions": "Conditions",
+    "skillChecks": "Skill Checks",
+    "sharedSheets": "Shared Sheets",
+    "ship": "Ship \"Sea Wolf\"",
+    "partyLoot": "Party Loot",
+    "currentScene": "Current Scene",
+    "scene": "Tavern (combat)",
+    "initiative": "Initiative Order",
+    "adminPanel": "Admin Panel",
+    "adminUsers": "Users",
+    "adminMaster": "Master Settings",
+    "adminLogs": "Session Logs"
+  }
+}

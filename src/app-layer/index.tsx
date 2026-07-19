@@ -6,6 +6,7 @@ import ruRU from "antd/locale/ru_RU";
 import { FC, ReactNode, Suspense, useState, useEffect, useMemo } from "react";
 import { queryClient } from "./providers/query-provider";
 import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "./theme-context";
+import "@/src/shared/config/i18n";
 
 const darkTokens = {
   colorPrimary: "#a0a0a0",

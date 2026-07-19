@@ -67,11 +67,11 @@ interface ITab {
 const tabs: ITab[] = [
   {
     key: "chat", icon: <CommentOutlined />, label: "Общий чат",
-    content: <ChatPanel messages={shortChat} placeholder="Введите сообщение..." />,
+    content: <ChatPanel messages={shortChat} />,
   },
   {
     key: "history", icon: <HistoryOutlined />, label: "История",
-    content: <ChatPanel messages={longChat} placeholder="Введите сообщение..." />,
+    content: <ChatPanel messages={longChat} />,
   },
   {
     key: "sheet", icon: <IdcardOutlined />, label: "Гаррет",

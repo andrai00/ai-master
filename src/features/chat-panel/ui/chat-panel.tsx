@@ -18,7 +18,7 @@ interface IChatPanelProps {
   placeholder?: string;
 }
 
-export const ChatPanel = ({ messages, placeholder = "Введите сообщение..." }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder }: IChatPanelProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

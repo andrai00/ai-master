@@ -2,11 +2,13 @@
 
 import { Button, Input, App } from "antd";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { setupFirstAdmin } from "@/src/shared/actions/auth/setup-admin";
 import { useRouter } from "next/navigation";
 import styles from "./setup-form.module.css";
 
 export const SetupForm = () => {
+  const { t } = useTranslation();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,22 +31,19 @@ export const SetupForm = () => {
   return (
     <div className={styles.wrapper}>
       <div className={styles.card}>
-        <h1 className={styles.title}>ai-master</h1>
-        <p className={styles.subtitle}>Первоначальная настройка</p>
-        <p className={styles.desc}>
-          Создайте учётную запись администратора.
-          Через неё вы сможете добавлять игроков.
-        </p>
+        <h1 className={styles.title}>{t("auth.loginTitle")}</h1>
+        <p className={styles.subtitle}>{t("auth.setupTitle")}</p>
+        <p className={styles.desc}>{t("auth.setupDesc")}</p>
         <div className={styles.fields}>
           <Input
-            placeholder="Логин"
+            placeholder={t("auth.loginPlaceholder")}
             value={login}
             onChange={(e) => setLogin(e.target.value)}
             onPressEnter={handleSubmit}
             className={styles.input}
           />
           <Input.Password
-            placeholder="Пароль"
+            placeholder={t("auth.passwordPlaceholder")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onPressEnter={handleSubmit}
@@ -57,7 +56,7 @@ export const SetupForm = () => {
             onClick={handleSubmit}
             className={styles.btn}
           >
-            Создать администратора
+            {t("auth.setupBtn")}
           </Button>
         </div>
       </div>

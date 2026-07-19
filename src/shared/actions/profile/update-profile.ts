@@ -1,7 +1,6 @@
 "use server";
 
-import { getDb } from "@/src/shared/lib/db/instance";
-import { updateUserProfile, updateUserPassword } from "@/src/shared/lib/db/users";
+import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession, createSessionToken, setSessionCookie } from "@/src/shared/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/src/shared/lib/auth/password";
 
@@ -12,12 +11,14 @@ export async function updateProfileAction(
   const session = await getSession();
   if (!session) return { success: false, error: "Не авторизован" };
 
-  if (!displayName.trim()) return { success: false, error: "Имя не может быть пустым" };
-
   const newDisplayName = displayName.trim();
+  if (!newDisplayName) return { success: false, error: "Имя не может быть пустым" };
 
-  await getDb();
-  await updateUserProfile(session.userId, newDisplayName, avatar);
+  const prisma = getPrisma();
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { displayName: newDisplayName, avatar },
+  });
 
   const newToken = await createSessionToken({
     userId: session.userId,
@@ -39,20 +40,18 @@ export async function changePasswordAction(
 
   if (newPassword.length < 4) return { success: false, error: "Пароль должен быть не менее 4 символов" };
 
-  const db = await getDb();
-  const stmt = db.prepare("SELECT password_hash FROM users WHERE id = ?");
-  stmt.bind([session.userId]);
-  if (!stmt.step()) {
-    stmt.free();
-    return { success: false, error: "Пользователь не найден" };
-  }
-  const row = stmt.getAsObject() as { password_hash: string };
-  stmt.free();
+  const prisma = getPrisma();
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) return { success: false, error: "Пользователь не найден" };
 
-  if (!verifyPassword(currentPassword, row.password_hash)) {
+  if (!verifyPassword(currentPassword, user.passwordHash)) {
     return { success: false, error: "Неверный текущий пароль" };
   }
 
-  await updateUserPassword(session.userId, hashPassword(newPassword));
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { passwordHash: hashPassword(newPassword) },
+  });
+
   return { success: true };
 }

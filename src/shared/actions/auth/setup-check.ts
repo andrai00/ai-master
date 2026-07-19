@@ -1,9 +1,9 @@
 "use server";
 
-import { getDb } from "@/src/shared/lib/db/instance";
-import { hasAnyAdmin } from "@/src/shared/lib/db/users";
+import { getPrisma } from "@/src/shared/lib/db/prisma";
 
 export async function needsSetup(): Promise<boolean> {
-  await getDb();
-  return !(await hasAnyAdmin());
+  const prisma = getPrisma();
+  const admin = await prisma.user.findFirst({ where: { role: "admin" } });
+  return !admin;
 }

@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
-import { getDb } from "@/src/shared/lib/db/instance";
-import { hasAnyAdmin } from "@/src/shared/lib/db/users";
+import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { Shell } from "@/src/widgets/shell";
 import { ChatGamePlaceholder } from "@/src/pages-layer/chat-game/ui/chat-game-placeholder";
 
 export default async function Home() {
-  await getDb();
+  const prisma = getPrisma();
+  const admin = await prisma.user.findFirst({ where: { role: "admin" } });
 
-  if (!(await hasAnyAdmin())) {
+  if (!admin) {
     redirect("/setup");
   }
 

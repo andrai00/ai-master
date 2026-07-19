@@ -36,6 +36,13 @@
   white-space: nowrap;
 }
 
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 12px;
+  flex-shrink: 0;
+}
+
 .tree {
   flex: 1;
   overflow-y: auto;
@@ -104,7 +111,7 @@
   align-items: center;
   height: 100%;
   padding: 10px 0;
-  gap: 4px;
+  gap: 0;
 }
 
 .collapsedBtn {
@@ -119,7 +126,7 @@
   cursor: pointer;
   border-radius: 6px;
   font-size: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -136,16 +143,19 @@
   height: 36px;
   border: none;
   background: transparent;
-  color: var(--text-dim);
   cursor: pointer;
   border-radius: 6px;
   font-size: 15px;
-  transition: color 0.15s, background 0.15s;
+  transition: background 0.15s;
+  padding: 4px 0;
 }
 
 .collapsedIcon:hover {
-  color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.collapsedIconText {
+  font-size: 14px;
 }
 
 .collapsedSpacer {

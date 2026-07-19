@@ -5,9 +5,8 @@ import {
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  FolderOutlined,
-  CalendarOutlined,
 } from "@ant-design/icons";
+import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
 import styles from "./sidebar.module.css";
 
@@ -23,16 +22,17 @@ export const Sidebar = ({ collapsed, onToggle }: ISidebarProps) => {
         <button className={styles.collapsedBtn} onClick={onToggle}>
           <MenuUnfoldOutlined />
         </button>
+
+        <ChatNav collapsed />
+
+        <div className={styles.divider} />
+
         <Tooltip title="Файлы" placement="right">
           <button className={styles.collapsedIcon}>
-            <FolderOutlined />
+            <span className={styles.collapsedIconText}>📁</span>
           </button>
         </Tooltip>
-        <Tooltip title="Сессии" placement="right">
-          <button className={styles.collapsedIcon}>
-            <CalendarOutlined />
-          </button>
-        </Tooltip>
+
         <div className={styles.collapsedSpacer} />
         <div className={styles.collapsedAvatar}>
           <Avatar size={26} icon={<UserOutlined />} />
@@ -54,6 +54,10 @@ export const Sidebar = ({ collapsed, onToggle }: ISidebarProps) => {
           </button>
         </Tooltip>
       </div>
+
+      <ChatNav />
+
+      <div className={styles.divider} />
 
       <div className={styles.tree}>
         <FileTree />

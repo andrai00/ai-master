@@ -1,0 +1,75 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+}
+
+.item:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.itemIcon {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemBadge {
+  flex-shrink: 0;
+}
+
+.collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.collapsedItem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 15px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.collapsedItem:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}

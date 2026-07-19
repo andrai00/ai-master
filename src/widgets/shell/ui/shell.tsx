@@ -193,24 +193,29 @@ export const Shell = () => {
       )}
 
       <Content className={styles.content}>
-        {isMobile && !mobileOpen && (
-          <button className={styles.mobileMenuBtn} onClick={toggleSidebar}>
-            <MenuOutlined />
-          </button>
-        )}
-
-        <div className={styles.tabBar}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              className={`${styles.tab} ${tab.key === activeTab ? styles.tabActive : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
+        {isMobile ? (
+          <div className={styles.mobileHeader}>
+            <button className={styles.mobileMenuBtn} onClick={toggleSidebar}>
+              <MenuOutlined />
             </button>
-          ))}
-        </div>
+            <span className={styles.mobileTitle}>
+              {tabs.find((t) => t.key === activeTab)?.label}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.tabBar}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`${styles.tab} ${tab.key === activeTab ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.tabBody}>
           {activeContent}

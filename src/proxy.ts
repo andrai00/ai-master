@@ -11,7 +11,7 @@ function getSecret(): Uint8Array {
 
 const publicPaths = ["/login", "/setup"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (publicPaths.includes(pathname)) return NextResponse.next();

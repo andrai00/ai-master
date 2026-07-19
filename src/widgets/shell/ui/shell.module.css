@@ -42,6 +42,13 @@
   overflow: hidden;
   background: var(--bg-root);
   height: 100%;
+  padding-top: 8px;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding-top: 52px;
+  }
 }
 
 .mobileMenuBtn {

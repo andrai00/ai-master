@@ -1,7 +1,7 @@
 "use client";
 
-import { Table, Button, Modal, Input, App } from "antd";
-import { UserAddOutlined } from "@ant-design/icons";
+import { Table, Button, Modal, Input, App, Avatar } from "antd";
+import { UserAddOutlined, UserOutlined, CrownOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -41,8 +41,21 @@ export const UsersTable = () => {
   };
 
   const columns: ColumnsType<IUserListItem> = [
+    {
+      title: "",
+      key: "avatar",
+      width: 48,
+      responsive: ["md"],
+      render: (_: unknown, record) => (
+        <Avatar
+          size={32}
+          src={`/api/avatar/${record.id}`}
+          icon={record.role === "admin" ? <CrownOutlined /> : <UserOutlined />}
+        />
+      ),
+    },
     { title: "Логин", dataIndex: "login", key: "login" },
-    { title: "Имя", dataIndex: "displayName", key: "displayName" },
+    { title: "Имя", dataIndex: "displayName", key: "displayName", responsive: ["md"] },
     {
       title: "Роль",
       dataIndex: "role",
@@ -53,13 +66,23 @@ export const UsersTable = () => {
       title: "Создан",
       dataIndex: "createdAt",
       key: "createdAt",
+      responsive: ["lg"],
       render: (d: Date) => new Date(d).toLocaleDateString(),
     },
   ];
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 900, margin: "0 auto", height: "100%", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 760,
+        margin: "0 auto",
+        padding: "24px 16px",
+        height: "100%",
+        overflow: "auto",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0, fontSize: 18, color: "var(--text-primary)" }}>Пользователи</h2>
         <Button icon={<UserAddOutlined />} onClick={() => setModalOpen(true)}>
           Добавить игрока
@@ -73,6 +96,7 @@ export const UsersTable = () => {
         loading={loading}
         pagination={false}
         size="middle"
+        scroll={{ x: "max-content" }}
         locale={{ emptyText: "Нет пользователей" }}
       />
 
@@ -87,16 +111,8 @@ export const UsersTable = () => {
         centered
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
-          <Input
-            placeholder="Логин"
-            value={newLogin}
-            onChange={(e) => setNewLogin(e.target.value)}
-          />
-          <Input.Password
-            placeholder="Пароль"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
+          <Input placeholder="Логин" value={newLogin} onChange={(e) => setNewLogin(e.target.value)} />
+          <Input.Password placeholder="Пароль" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
         </div>
       </Modal>
     </div>

@@ -145,6 +145,9 @@ export const UsersTable = () => {
         dataSource={users} columns={columns} rowKey="id" loading={loading}
         pagination={false} size="middle" scroll={{ x: "max-content" }}
         locale={{ emptyText: t("admin.noUsers") }}
+        onRow={(record) => ({
+          style: record.inCurrentGame ? undefined : { opacity: 0.45 },
+        })}
       />
 
       <Modal

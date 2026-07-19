@@ -121,7 +121,9 @@
     "loginPlaceholder": "Login",
     "passwordPlaceholder": "Password",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "inGame": "In current game",
+    "notInGame": "No access to game"
   },
   "gameSelector": {
     "createGame": "Create Game",

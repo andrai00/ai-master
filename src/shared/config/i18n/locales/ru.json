@@ -121,7 +121,9 @@
     "loginPlaceholder": "Логин",
     "passwordPlaceholder": "Пароль",
     "yes": "Да",
-    "no": "Нет"
+    "no": "Нет",
+    "inGame": "В текущей игре",
+    "notInGame": "Нет доступа к игре"
   },
   "gameSelector": {
     "createGame": "Создать игру",

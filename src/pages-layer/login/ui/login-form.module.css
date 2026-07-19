@@ -1,0 +1,47 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg-root);
+}
+
+.card {
+  width: 360px;
+  text-align: center;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 24px;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input {
+  height: 40px;
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-hover);
+  border-color: #333;
+  color: var(--text-primary);
+}
+
+.btn {
+  height: 40px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 4px;
+}

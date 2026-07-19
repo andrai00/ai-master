@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Sidebar } from "@/src/widgets/sidebar";
 import { ChatPanel } from "@/src/features/chat-panel";
 import { MdViewer } from "@/src/features/md-viewer";
+import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
 
 const { Content } = Layout;
@@ -143,7 +144,11 @@ const tabs: ITab[] = [
   },
 ];
 
-export const Shell = () => {
+interface IShellProps {
+  user?: ISessionPayload;
+}
+
+export const Shell = ({ user }: IShellProps) => {
   const [activeTab, setActiveTab] = useState("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -178,7 +183,7 @@ export const Shell = () => {
 
       {isMobile ? (
         <div className={`${styles.mobileDrawer} ${mobileOpen ? styles.mobileDrawerOpen : ""}`}>
-          <Sidebar collapsed={false} onToggle={toggleSidebar} />
+          <Sidebar collapsed={false} onToggle={toggleSidebar} user={user} />
         </div>
       ) : (
         <Layout.Sider
@@ -188,7 +193,7 @@ export const Shell = () => {
           className={styles.sider}
           trigger={null}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} user={user} />
         </Layout.Sider>
       )}
 

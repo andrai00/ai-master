@@ -81,6 +81,7 @@ export const ProfileSettingsModal = ({
 
   const handleDeleteAvatar = async () => {
     setAvatar("");
+    await fetch("/api/delete-avatar", { method: "POST" });
     await updateProfileAction(name, "");
     onProfileUpdated(name, "");
     notification.success({ title: "Аватар удалён" });
@@ -100,28 +101,28 @@ export const ProfileSettingsModal = ({
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Аватар</div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <Upload accept="image/*" showUploadList={false} beforeUpload={handleAvatarUpload}>
-              <Button icon={<UploadOutlined />}>Загрузить</Button>
-            </Upload>
-            {hasAvatar && (
-              <>
-                <Popconfirm
-                  title="Удалить аватар?"
-                  onConfirm={handleDeleteAvatar}
-                  okText="Да"
-                  cancelText="Нет"
-                >
-                  <Button icon={<DeleteOutlined />} danger size="small" />
-                </Popconfirm>
-                <img
-                  src={avatar}
-                  alt="avatar"
-                  style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
-                />
-              </>
-            )}
-          </div>
+          <Upload accept="image/*" showUploadList={false} beforeUpload={handleAvatarUpload}>
+            <Button icon={<UploadOutlined />}>Загрузить</Button>
+          </Upload>
+          {hasAvatar && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+              <img
+                src={avatar}
+                alt="avatar"
+                style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
+              />
+              <Popconfirm
+                title="Удалить аватар?"
+                onConfirm={handleDeleteAvatar}
+                okText="Да"
+                cancelText="Нет"
+              >
+                <Button icon={<DeleteOutlined />} danger size="small">
+                  Удалить
+                </Button>
+              </Popconfirm>
+            </div>
+          )}
         </div>
 
         <div>

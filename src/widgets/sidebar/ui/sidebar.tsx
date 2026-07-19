@@ -9,12 +9,14 @@ import {
   LogoutOutlined,
   SettingOutlined,
   CrownOutlined,
+  BulbOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
+import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./sidebar.module.css";
@@ -33,6 +35,7 @@ const roleLabels: Record<string, string> = {
 export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || user?.login || "Гость");
   const [avatarVersion, setAvatarVersion] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -56,10 +59,16 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
 
   const profileMenuItems: MenuProps["items"] = [
     {
-      key: "settings",
+      key: "profile",
       icon: <SettingOutlined />,
       label: "Настройки профиля",
       onClick: () => setSettingsOpen(true),
+    },
+    {
+      key: "app",
+      icon: <BulbOutlined />,
+      label: "Настройки",
+      onClick: () => setAppSettingsOpen(true),
     },
     { type: "divider" },
     {
@@ -83,13 +92,16 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   };
 
   const settingsModal = (
-    <ProfileSettingsModal
-      open={settingsOpen}
-      onClose={() => setSettingsOpen(false)}
-      currentName={displayName}
-      currentAvatar={avatarUrl}
-      onProfileUpdated={handleProfileUpdated}
-    />
+    <Fragment>
+      <ProfileSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        currentName={displayName}
+        currentAvatar={avatarUrl}
+        onProfileUpdated={handleProfileUpdated}
+      />
+      <AppSettingsModal open={appSettingsOpen} onClose={() => setAppSettingsOpen(false)} />
+    </Fragment>
   );
 
   if (collapsed) {

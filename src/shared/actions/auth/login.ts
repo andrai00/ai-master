@@ -18,6 +18,15 @@ export async function loginAction(
     return { success: false, error: "Неверный логин или пароль" };
   }
 
+  if (user.role === "player") {
+    const game = await prisma.master.findFirst({ where: { isCurrent: true } });
+    if (!game) return { success: false, error: "Администратор ещё не выбрал активную игру" };
+    const hasAccess =
+      game.ownerId === user.id ||
+      (await prisma.gameAccess.count({ where: { userId: user.id, masterId: game.id } })) > 0;
+    if (!hasAccess) return { success: false, error: "У вас нет доступа к текущей игре" };
+  }
+
   const token = await createSessionToken({
     userId: user.id,
     role: user.role as "admin" | "player",

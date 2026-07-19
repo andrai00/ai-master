@@ -17,6 +17,19 @@ export default async function Home() {
     redirect("/login");
   }
 
+  if (session.role === "player") {
+    const game = await prisma.master.findFirst({ where: { isCurrent: true } });
+    if (!game) {
+      redirect("/api/logout?redirect=/login");
+    }
+    const hasAccess =
+      game.ownerId === session.userId ||
+      (await prisma.gameAccess.count({ where: { userId: session.userId, masterId: game.id } })) > 0;
+    if (!hasAccess) {
+      redirect("/api/logout?redirect=/login");
+    }
+  }
+
   return (
     <Shell user={session}>
       <ChatGamePlaceholder />

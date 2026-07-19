@@ -1,0 +1,106 @@
+.viewer {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 32px 32px;
+  max-width: 760px;
+  margin: 0 auto;
+  color: #cccccc;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.content h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.content h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #d4d4d4;
+  margin: 24px 0 10px;
+}
+
+.content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+  margin: 18px 0 8px;
+}
+
+.content p {
+  margin: 0 0 10px;
+  color: #b0b0b0;
+}
+
+.content strong {
+  color: #d4d4d4;
+}
+
+.content ul,
+.content ol {
+  margin: 8px 0;
+  padding-left: 20px;
+  color: #b0b0b0;
+}
+
+.content li {
+  margin-bottom: 4px;
+}
+
+.content code {
+  background: #242424;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #a0a0a0;
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+.content blockquote {
+  border-left: 2px solid #444;
+  padding: 6px 14px;
+  margin: 10px 0;
+  color: #888;
+  font-style: italic;
+}
+
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.content table th,
+.content table td {
+  padding: 6px 12px;
+  border: 1px solid #2a2a2a;
+  text-align: left;
+}
+
+.content table th {
+  background: #1f1f1f;
+  color: #d4d4d4;
+  font-weight: 600;
+}
+
+.content table td {
+  color: #b0b0b0;
+}
+
+.content hr {
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  margin: 20px 0;
+}

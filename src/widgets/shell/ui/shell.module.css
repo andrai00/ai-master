@@ -1,0 +1,142 @@
+.shell {
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.sider {
+  border-right: 1px solid #2a2a2a !important;
+}
+
+.sider :global(.ant-layout-sider-zero-width-trigger) {
+  display: none;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+.mobileDrawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 266px;
+  background: #1e1e1e;
+  border-right: 1px solid #2a2a2a;
+  z-index: 100;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+.mobileDrawerOpen {
+  transform: translateX(0);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #1b1b1b;
+  position: relative;
+  height: 100%;
+}
+
+.mobileMenuBtn {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #242424;
+  color: #999;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.mobileMenuBtn:hover {
+  color: #d4d4d4;
+  background: #2d2d2d;
+}
+
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  padding: 5px 6px 0;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+  gap: 2px;
+  height: 37px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+  border-radius: 5px 5px 0 0;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.tab:hover {
+  color: #aaa;
+  background: #242424;
+}
+
+.tabActive {
+  color: #d4d4d4;
+  background: #1b1b1b;
+  position: relative;
+}
+
+.tabActive::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #888;
+  border-radius: 1px 1px 0 0;
+}
+
+.tabBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tabBody > * {
+  height: 100%;
+}
+
+@media (max-width: 767px) {
+  .tabBar {
+    padding-left: 42px;
+  }
+
+  .tab span {
+    display: none;
+  }
+
+  .tab {
+    padding: 4px 10px;
+  }
+}

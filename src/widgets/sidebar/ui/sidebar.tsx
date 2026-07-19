@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Tooltip, Modal, Dropdown } from "antd";
+import { Avatar, Tooltip, App, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import {
   UserOutlined,
@@ -31,6 +31,7 @@ interface ISidebarProps {
 
 export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const { t } = useTranslation();
+  const { modal } = App.useApp();
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
@@ -40,7 +41,7 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   useEffect(() => setMounted(true), []);
 
   const handleLogout = () => {
-    Modal.confirm({
+    modal.confirm({
       title: t("profile.logoutConfirm"),
       content: t("profile.logoutMessage"),
       okText: t("profile.logout"),

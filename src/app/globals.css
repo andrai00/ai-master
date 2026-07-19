@@ -67,6 +67,14 @@ body {
   background: #4a4a4a;
 }
 
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
@@ -74,4 +82,9 @@ body {
 ::selection {
   background: #3a3a3a;
   color: #e0e0e0;
+}
+
+[data-theme="light"] ::selection {
+  background: #c0c0c0;
+  color: #1a1a1a;
 }

@@ -93,6 +93,8 @@
   flex-shrink: 0;
   gap: 2px;
   height: 37px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .tab {
@@ -109,6 +111,7 @@
   transition: color 0.15s, background 0.15s;
   white-space: nowrap;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
 .tab:hover {

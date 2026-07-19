@@ -7,6 +7,12 @@ import {
   IdcardOutlined,
   BookOutlined,
   MenuOutlined,
+  EyeOutlined,
+  StarOutlined,
+  GlobalOutlined,
+  SoundOutlined,
+  ToolOutlined,
+  AppstoreOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Sidebar } from "@/src/widgets/sidebar";
@@ -160,6 +166,30 @@ const tabs: ITab[] = [
       </MdViewer>
     ),
   },
+  {
+    key: "npc", icon: <EyeOutlined />, label: "NPC",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>NPC</span><span className={styles.placeholderHint}>Список персонажей мастера</span></div>,
+  },
+  {
+    key: "spells", icon: <StarOutlined />, label: "Заклинания",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>Заклинания</span><span className={styles.placeholderHint}>Гримуар и подготовка</span></div>,
+  },
+  {
+    key: "map", icon: <GlobalOutlined />, label: "Карта",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>Карта мира</span><span className={styles.placeholderHint}>Забытые Королевства</span></div>,
+  },
+  {
+    key: "music", icon: <SoundOutlined />, label: "Музыка",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>Музыка</span><span className={styles.placeholderHint}>Атмосфера и плейлисты</span></div>,
+  },
+  {
+    key: "tools", icon: <ToolOutlined />, label: "Инструменты",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>Инструменты</span><span className={styles.placeholderHint}>Генераторы и таблицы</span></div>,
+  },
+  {
+    key: "dice", icon: <AppstoreOutlined />, label: "Кубы",
+    content: <div className={styles.tabPlaceholder}><span className={styles.placeholderText}>Бросок кубов</span><span className={styles.placeholderHint}>История бросков</span></div>,
+  },
 ];
 
 interface IShellProps {
@@ -226,7 +256,12 @@ export const Shell = ({ user }: IShellProps) => {
             </span>
           </div>
         ) : (
-          <div className={styles.tabBar}>
+          <div
+            className={styles.tabBar}
+            onWheel={(e) => {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }}
+          >
             {tabs.map((tab) => (
               <button
                 key={tab.key}

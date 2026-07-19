@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Space } from "antd";
+import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Space, Checkbox } from "antd";
 import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import {
@@ -10,6 +10,8 @@ import {
 import { createPlayerAction } from "@/src/shared/actions/admin/create-player";
 import { editUserAction } from "@/src/shared/actions/admin/edit-user";
 import { deleteUserAction } from "@/src/shared/actions/admin/delete-user";
+import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/games";
+import { getUserGameAccessAction, setUserGameAccessAction } from "@/src/shared/actions/admin/game-access";
 import type { ColumnsType } from "antd/es/table";
 
 export const UsersTable = () => {
@@ -27,26 +29,37 @@ export const UsersTable = () => {
   const [editPw, setEditPw] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editing, setEditing] = useState(false);
+  const [games, setGames] = useState<IGameItem[]>([]);
+  const [editGameAccess, setEditGameAccess] = useState<string[]>([]);
 
   const load = () => listUsersAction().then(setUsers).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
-  const openEdit = (user: IUserListItem) => {
+  const openEdit = async (user: IUserListItem) => {
     setEditUser(user);
     setEditName(user.displayName || user.login);
     setEditPw("");
     setEditRole(user.role);
+    const [gameList, access] = await Promise.all([
+      listGamesAction(),
+      getUserGameAccessAction(user.id),
+    ]);
+    setGames(gameList);
+    setEditGameAccess(access);
     setEditOpen(true);
   };
 
   const handleEdit = async () => {
     if (!editUser) return;
     setEditing(true);
-    const result = await editUserAction(editUser.id, {
-      displayName: editName,
-      password: editPw || undefined,
-      role: editRole !== editUser.role ? editRole : undefined,
-    });
+    const [result] = await Promise.all([
+      editUserAction(editUser.id, {
+        displayName: editName,
+        password: editPw || undefined,
+        role: editRole !== editUser.role ? editRole : undefined,
+      }),
+      setUserGameAccessAction(editUser.id, editGameAccess),
+    ]);
     setEditing(false);
     if (result.success) {
       notification.success({ title: "Пользователь обновлён" });
@@ -199,6 +212,28 @@ export const UsersTable = () => {
                 { value: "player", label: "Игрок" },
               ]}
             />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Доступ к играм</div>
+            {games.map((g) => (
+              <div key={g.id} style={{ marginBottom: 4 }}>
+                <Checkbox
+                  checked={editGameAccess.includes(g.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setEditGameAccess([...editGameAccess, g.id]);
+                    } else {
+                      setEditGameAccess(editGameAccess.filter((id) => id !== g.id));
+                    }
+                  }}
+                >
+                  {g.name}
+                </Checkbox>
+              </div>
+            ))}
+            {games.length === 0 && (
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Нет созданных игр</div>
+            )}
           </div>
         </div>
       </Modal>

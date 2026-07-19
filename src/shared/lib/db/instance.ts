@@ -10,6 +10,7 @@ const WASM_PATH = path.join(process.cwd(), "node_modules", "sql.js", "dist", "sq
 interface IDbGlobal {
   db: SqlJsDatabase | undefined;
   initPromise: Promise<SqlJsDatabase> | undefined;
+  migrated: boolean;
 }
 
 const globalDb = globalThis as unknown as IDbGlobal;
@@ -39,21 +40,28 @@ async function createDbInstance(): Promise<SqlJsDatabase> {
     )
   `);
 
-  try { instance.run("ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
-  try { instance.run("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
-
   return instance;
 }
 
 export async function getDb(): Promise<SqlJsDatabase> {
-  if (globalDb.db) return globalDb.db;
+  if (globalDb.db) {
+    if (!globalDb.migrated) runMigrations(globalDb.db);
+    return globalDb.db;
+  }
 
   if (!globalDb.initPromise) {
     globalDb.initPromise = createDbInstance();
   }
 
   globalDb.db = await globalDb.initPromise;
+  runMigrations(globalDb.db);
   return globalDb.db;
+}
+
+function runMigrations(db: SqlJsDatabase): void {
+  try { db.run("ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"); } catch { /* ok */ }
+  try { db.run("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''"); } catch { /* ok */ }
+  globalDb.migrated = true;
 }
 
 export function saveDb(): void {

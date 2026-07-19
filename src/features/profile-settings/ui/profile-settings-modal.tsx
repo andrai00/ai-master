@@ -1,7 +1,7 @@
 "use client";
 
-import { Modal, Input, Button, App, Upload } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
+import { Modal, Input, Button, App, Upload, Popconfirm } from "antd";
+import { UploadOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import type { RcFile } from "antd/es/upload";
 import {
@@ -14,7 +14,7 @@ interface IProfileSettingsProps {
   onClose: () => void;
   currentName: string;
   currentAvatar: string;
-  onNameChange: (name: string) => void;
+  onProfileUpdated: (name: string, avatar: string) => void;
 }
 
 export const ProfileSettingsModal = ({
@@ -22,7 +22,7 @@ export const ProfileSettingsModal = ({
   onClose,
   currentName,
   currentAvatar,
-  onNameChange,
+  onProfileUpdated,
 }: IProfileSettingsProps) => {
   const [name, setName] = useState(currentName);
   const [avatar, setAvatar] = useState(currentAvatar);
@@ -37,7 +37,7 @@ export const ProfileSettingsModal = ({
     const result = await updateProfileAction(name, avatar);
     setSaving(false);
     if (result.success) {
-      onNameChange(result.displayName || name);
+      onProfileUpdated(result.displayName || name, avatar);
       notification.success({ title: "Профиль обновлён" });
       onClose();
     } else {
@@ -58,16 +58,35 @@ export const ProfileSettingsModal = ({
     }
   };
 
-  const handleAvatarUpload = (file: RcFile): boolean => {
-    if (file.size > 200 * 1024) {
-      notification.error({ title: "Файл слишком большой (макс. 200KB)" });
+  const handleAvatarUpload = async (file: RcFile) => {
+    if (file.size > 5 * 1024 * 1024) {
+      notification.error({ title: "Файл слишком большой (макс. 5MB)" });
       return false;
     }
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
-    reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload-avatar", { method: "POST", body: formData });
+    const data = await res.json();
+
+    if (data.avatarPath) {
+      setAvatar(data.avatarPath);
+    } else {
+      notification.error({ title: data.error || "Ошибка загрузки" });
+    }
+
     return false;
   };
+
+  const handleDeleteAvatar = async () => {
+    setAvatar("");
+    await updateProfileAction(name, "");
+    onProfileUpdated(name, "");
+    notification.success({ title: "Аватар удалён" });
+  };
+
+  const hasAvatar = avatar && !avatar.includes("undefined");
 
   return (
     <Modal
@@ -81,16 +100,28 @@ export const ProfileSettingsModal = ({
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Аватар</div>
-          <Upload accept="image/*" showUploadList={false} beforeUpload={handleAvatarUpload}>
-            <Button icon={<UploadOutlined />}>Загрузить</Button>
-          </Upload>
-          {avatar && (
-            <img
-              src={avatar}
-              alt="avatar"
-              style={{ width: 48, height: 48, borderRadius: "50%", marginTop: 8, objectFit: "cover" }}
-            />
-          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <Upload accept="image/*" showUploadList={false} beforeUpload={handleAvatarUpload}>
+              <Button icon={<UploadOutlined />}>Загрузить</Button>
+            </Upload>
+            {hasAvatar && (
+              <>
+                <Popconfirm
+                  title="Удалить аватар?"
+                  onConfirm={handleDeleteAvatar}
+                  okText="Да"
+                  cancelText="Нет"
+                >
+                  <Button icon={<DeleteOutlined />} danger size="small" />
+                </Popconfirm>
+                <img
+                  src={avatar}
+                  alt="avatar"
+                  style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }}
+                />
+              </>
+            )}
+          </div>
         </div>
 
         <div>

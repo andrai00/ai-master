@@ -93,7 +93,6 @@
 
 .actions {
   display: flex;
-  flex-direction: column;
   gap: 2px;
   opacity: 0;
   transition: opacity 0.15s;
@@ -158,14 +157,24 @@
 .eventArrow {
   font-size: 10px;
   flex-shrink: 0;
+  color: var(--text-muted);
 }
 
 .expandedShared {
+  margin: 4px 0;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 0 4px;
-  opacity: 0.75;
+  gap: 10px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: 4px;
+  opacity: 0.85;
+}
+
+.expandedShared .messageRow {
+  max-width: 90%;
 }
 
 .inputBar {
@@ -206,8 +215,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   background: var(--bg-hover);
   border-color: var(--border);

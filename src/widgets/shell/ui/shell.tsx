@@ -27,6 +27,19 @@ const shortChat = [
     text: "Мастер, мой бонус скрытности +8 или +5?",
   },
   { id: 5, sender: "Мастер", role: "master" as const, shared: true, text: "Скрытность: 1d20 + 4 (ЛОВ) + 2 (бонус мастерства) = +8." },
+  { id: 6, sender: "Мастер", role: "master" as const, text: "Гоблины не обращают на вас внимания. Бармен предлагает выпить." },
+  { id: 7, sender: "Элен", role: "player" as const, text: "Я подхожу к стойке и заказываю эль." },
+  {
+    id: 8, sender: "Элен", role: "player" as const, shared: true,
+    text: "Мастер, напомни сколько у меня золота?",
+  },
+  { id: 9, sender: "Мастер", role: "master" as const, shared: true, text: "15 золотых после покупки зелья." },
+  {
+    id: 10, sender: "Гаррет", role: "player" as const, shared: true,
+    text: "А я могу попробовать обокрасть гоблинов пока они отвлеклись?",
+  },
+  { id: 11, sender: "Мастер", role: "master" as const, shared: true, text: "Да, сделай проверку ловкости рук — СЛ 14." },
+  { id: 12, sender: "Мастер", role: "master" as const, text: "Бармен ставит кружку перед Элен. «Редкий гость в наших краях», — говорит он." },
 ];
 
 const masterLines = [

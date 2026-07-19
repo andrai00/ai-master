@@ -35,12 +35,21 @@ function groupMessages(messages: IMessage[]) {
 
   for (const msg of messages) {
     if (msg.shared) {
-      sharedGroup.push(msg);
+      const groupInitiator = sharedGroup.length > 0 ? sharedGroup[0].sender : null;
+      if (groupInitiator && msg.role === "player" && msg.sender !== groupInitiator) {
+        result.push({
+          event: { ids: sharedGroup.map((m) => m.id), sender: sharedGroup[0].sender },
+          messages: [...sharedGroup],
+        });
+        sharedGroup = [msg];
+      } else {
+        sharedGroup.push(msg);
+      }
     } else {
       if (sharedGroup.length > 0) {
         result.push({
           event: { ids: sharedGroup.map((m) => m.id), sender: sharedGroup[0].sender },
-          messages: sharedGroup,
+          messages: [...sharedGroup],
         });
         sharedGroup = [];
       }
@@ -51,7 +60,7 @@ function groupMessages(messages: IMessage[]) {
   if (sharedGroup.length > 0) {
     result.push({
       event: { ids: sharedGroup.map((m) => m.id), sender: sharedGroup[0].sender },
-      messages: sharedGroup,
+      messages: [...sharedGroup],
     });
   }
 

@@ -68,7 +68,7 @@
 
 .avatar {
   flex-shrink: 0;
-  background: #3a3a3a;
+  background: var(--bg-active);
 }
 
 .profileText {
@@ -108,7 +108,7 @@
 }
 
 .collapseBtn:hover {
-  color: #b0b0b0;
+  color: var(--text-primary);
   background: var(--bg-hover);
 }
 

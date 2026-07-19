@@ -112,7 +112,7 @@
 }
 
 .tab:hover {
-  color: #aaa;
+  color: var(--text-primary);
   background: var(--bg-hover);
 }
 
@@ -129,7 +129,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #888;
+  background: var(--text-dim);
   border-radius: 1px 1px 0 0;
 }
 

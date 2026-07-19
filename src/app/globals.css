@@ -9,6 +9,7 @@
   --text-secondary: #999;
   --text-muted: #666;
   --text-dim: #777;
+  --bg-bubble: #1f1f1f;
   --content-width: 760px;
 }
 
@@ -23,6 +24,7 @@
   --text-secondary: #666;
   --text-muted: #999;
   --text-dim: #aaa;
+  --bg-bubble: #eef2ff;
 }
 
 html, body, #__next {

@@ -60,8 +60,8 @@
 }
 
 .master .bubble {
-  background: #1f1f1f;
-  color: #cccccc;
+  background: var(--bg-bubble);
+  color: var(--text-primary);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
 }
@@ -89,7 +89,7 @@
   flex: 1;
   font-size: 13px;
   background: var(--bg-hover);
-  border-color: #333;
+  border-color: var(--border);
   color: var(--text-primary);
   border-radius: 8px;
   resize: none;
@@ -97,8 +97,8 @@
 
 .input:hover,
 .input:focus {
-  border-color: #444;
-  background: #282828;
+  border-color: var(--text-dim);
+  background: var(--bg-active);
 }
 
 .sendBtn {
@@ -109,13 +109,13 @@
   height: 36px;
   border-radius: 8px;
   background: var(--bg-hover);
-  border-color: #333;
+  border-color: var(--border);
   color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .sendBtn:hover {
   color: var(--text-primary) !important;
-  border-color: #444 !important;
-  background: #333 !important;
+  border-color: var(--text-dim) !important;
+  background: var(--bg-active) !important;
 }

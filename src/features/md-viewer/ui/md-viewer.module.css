@@ -10,7 +10,7 @@
   padding: 24px 32px 32px;
   max-width: var(--content-width);
   margin: 0 auto;
-  color: #cccccc;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.7;
 }
@@ -18,7 +18,7 @@
 .content h1 {
   font-size: 22px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
@@ -34,13 +34,13 @@
 .content h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #ccc;
+  color: var(--text-primary);
   margin: 18px 0 8px;
 }
 
 .content p {
   margin: 0 0 10px;
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
 
 .content strong {
@@ -51,7 +51,7 @@
 .content ol {
   margin: 8px 0;
   padding-left: 20px;
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
 
 .content li {
@@ -63,15 +63,15 @@
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
-  color: #a0a0a0;
+  color: var(--text-secondary);
   font-family: "SF Mono", "Fira Code", monospace;
 }
 
 .content blockquote {
-  border-left: 2px solid #444;
+  border-left: 2px solid var(--text-muted);
   padding: 6px 14px;
   margin: 10px 0;
-  color: #888;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -90,17 +90,21 @@
 }
 
 .content table th {
-  background: #1f1f1f;
+  background: var(--bg-hover);
   color: var(--text-primary);
   font-weight: 600;
 }
 
 .content table td {
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
 
 .content hr {
   border: none;
   border-top: 1px solid var(--border);
   margin: 20px 0;
+}
+
+[data-theme="light"] .content table th {
+  background: var(--bg-active);
 }

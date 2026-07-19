@@ -34,14 +34,15 @@
     "avatarTooBig": "File too large (max 5MB)",
     "avatarUploadError": "Upload error",
     "displayName": "Display name",
+    "login": "Login",
     "nameEmpty": "Name cannot be empty",
     "profileUpdated": "Profile updated",
     "passwordTitle": "Change password",
-    "currentPassword": "Current password",
     "newPassword": "New password",
+    "confirmPassword": "Confirm password",
     "changePassword": "Change password",
     "passwordChanged": "Password changed",
-    "passwordWrong": "Wrong current password",
+    "passwordMismatch": "Passwords don't match",
     "passwordTooShort": "Password must be at least 4 characters"
   },
   "settings": {

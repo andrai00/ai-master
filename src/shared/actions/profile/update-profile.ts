@@ -2,7 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession, createSessionToken, setSessionCookie } from "@/src/shared/lib/auth/session";
-import { hashPassword, verifyPassword } from "@/src/shared/lib/auth/password";
+import { hashPassword } from "@/src/shared/lib/auth/password";
 
 export async function updateProfileAction(
   displayName: string,
@@ -32,7 +32,6 @@ export async function updateProfileAction(
 }
 
 export async function changePasswordAction(
-  currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
@@ -41,13 +40,6 @@ export async function changePasswordAction(
   if (newPassword.length < 4) return { success: false, error: "Пароль должен быть не менее 4 символов" };
 
   const prisma = getPrisma();
-  const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user) return { success: false, error: "Пользователь не найден" };
-
-  if (!verifyPassword(currentPassword, user.passwordHash)) {
-    return { success: false, error: "Неверный текущий пароль" };
-  }
-
   await prisma.user.update({
     where: { id: session.userId },
     data: { passwordHash: hashPassword(newPassword) },

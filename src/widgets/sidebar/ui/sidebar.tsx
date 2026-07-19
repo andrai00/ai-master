@@ -97,6 +97,7 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
         onClose={() => setSettingsOpen(false)}
         currentName={displayName}
         currentAvatar={avatarUrl}
+        login={user?.login || ""}
         onProfileUpdated={handleProfileUpdated}
       />
       <AppSettingsModal open={appSettingsOpen} onClose={() => setAppSettingsOpen(false)} />

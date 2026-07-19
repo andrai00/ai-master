@@ -34,14 +34,15 @@
     "avatarTooBig": "Файл слишком большой (макс. 5MB)",
     "avatarUploadError": "Ошибка загрузки",
     "displayName": "Отображаемое имя",
+    "login": "Логин",
     "nameEmpty": "Имя не может быть пустым",
     "profileUpdated": "Профиль обновлён",
     "passwordTitle": "Сменить пароль",
-    "currentPassword": "Текущий пароль",
     "newPassword": "Новый пароль",
+    "confirmPassword": "Подтвердите пароль",
     "changePassword": "Сменить пароль",
     "passwordChanged": "Пароль изменён",
-    "passwordWrong": "Неверный текущий пароль",
+    "passwordMismatch": "Пароли не совпадают",
     "passwordTooShort": "Пароль должен быть не менее 4 символов"
   },
   "settings": {

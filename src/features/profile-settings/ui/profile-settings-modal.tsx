@@ -15,6 +15,7 @@ interface IProfileSettingsProps {
   onClose: () => void;
   currentName: string;
   currentAvatar: string;
+  login: string;
   onProfileUpdated: (name: string, avatar: string) => void;
 }
 
@@ -23,15 +24,13 @@ export const ProfileSettingsModal = ({
   onClose,
   currentName,
   currentAvatar,
+  login,
   onProfileUpdated,
 }: IProfileSettingsProps) => {
   const { t } = useTranslation();
   const [name, setName] = useState(currentName);
   const [avatar, setAvatar] = useState(currentAvatar);
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
   const [saving, setSaving] = useState(false);
-  const [pwSaving, setPwSaving] = useState(false);
   const { notification } = App.useApp();
 
   const handleSaveProfile = async () => {
@@ -47,37 +46,20 @@ export const ProfileSettingsModal = ({
     }
   };
 
-  const handleChangePassword = async () => {
-    setPwSaving(true);
-    const result = await changePasswordAction(currentPw, newPw);
-    setPwSaving(false);
-    if (result.success) {
-      notification.success({ title: t("profileModal.passwordChanged") });
-      setCurrentPw("");
-      setNewPw("");
-    } else {
-      notification.error({ title: result.error });
-    }
-  };
-
   const handleAvatarUpload = async (file: RcFile) => {
     if (file.size > 5 * 1024 * 1024) {
       notification.error({ title: t("profileModal.avatarTooBig") });
       return false;
     }
-
     const formData = new FormData();
     formData.append("file", file);
-
     const res = await fetch("/api/upload-avatar", { method: "POST", body: formData });
     const data = await res.json();
-
     if (data.avatarPath) {
       setAvatar(data.avatarPath);
     } else {
       notification.error({ title: data.error || t("profileModal.avatarUploadError") });
     }
-
     return false;
   };
 
@@ -92,14 +74,7 @@ export const ProfileSettingsModal = ({
   const hasAvatar = avatar && !avatar.includes("undefined");
 
   return (
-    <Modal
-      title={t("profileModal.title")}
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      centered
-      width={400}
-    >
+    <Modal title={t("profileModal.title")} open={open} onCancel={onClose} footer={null} centered width={400}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.avatar")}</div>
@@ -112,8 +87,8 @@ export const ProfileSettingsModal = ({
               <Popconfirm
                 title={t("profileModal.avatarDeleteConfirm")}
                 onConfirm={handleDeleteAvatar}
-                okText={t("common.save")}
-                cancelText={t("common.cancel")}
+                okText="Да"
+                cancelText="Нет"
               >
                 <Button icon={<DeleteOutlined />} danger size="small">{t("profileModal.avatarDelete")}</Button>
               </Popconfirm>
@@ -122,36 +97,79 @@ export const ProfileSettingsModal = ({
         </div>
 
         <div>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.login")}</div>
+          <Input value={login} disabled />
+        </div>
+
+        <div>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.displayName")}</div>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </div>
+
         <Button loading={saving} onClick={handleSaveProfile}>
           {t("common.save")}
         </Button>
 
         <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
 
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>{t("profileModal.passwordTitle")}</div>
-        </div>
-        <Input.Password
-          placeholder={t("profileModal.currentPassword")}
-          value={currentPw}
-          onChange={(e) => setCurrentPw(e.target.value)}
-        />
-        <Input.Password
-          placeholder={t("profileModal.newPassword")}
-          value={newPw}
-          onChange={(e) => setNewPw(e.target.value)}
-        />
-        <Button
-          loading={pwSaving}
-          onClick={handleChangePassword}
-          disabled={!currentPw || !newPw}
-        >
-          {t("profileModal.changePassword")}
-        </Button>
+        <PasswordChangeModal />
       </div>
     </Modal>
   );
 };
+
+function PasswordChangeModal() {
+  const { t } = useTranslation();
+  const { notification } = App.useApp();
+  const [open, setOpen] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = async () => {
+    if (newPw !== confirmPw) {
+      notification.error({ title: t("profileModal.passwordMismatch") });
+      return;
+    }
+    setLoading(true);
+    const result = await changePasswordAction(newPw);
+    setLoading(false);
+    if (result.success) {
+      notification.success({ title: t("profileModal.passwordChanged") });
+      setNewPw("");
+      setConfirmPw("");
+      setOpen(false);
+    } else {
+      notification.error({ title: result.error });
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>{t("profileModal.changePassword")}</Button>
+      <Modal
+        title={t("profileModal.passwordTitle")}
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={handleChange}
+        confirmLoading={loading}
+        okText={t("profileModal.changePassword")}
+        cancelText={t("common.cancel")}
+        centered
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
+          <Input.Password
+            placeholder={t("profileModal.newPassword")}
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+          />
+          <Input.Password
+            placeholder={t("profileModal.confirmPassword")}
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+          />
+        </div>
+      </Modal>
+    </>
+  );
+}

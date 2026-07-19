@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge, Tooltip } from "antd";
-import { CommentOutlined, UserOutlined } from "@ant-design/icons";
+import { CommentOutlined, MessageOutlined } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import styles from "./chat-nav.module.css";
 
@@ -14,7 +14,7 @@ export interface IChatNavItem {
 
 const demoItems: IChatNavItem[] = [
   { key: "common", icon: <CommentOutlined />, label: "Чат игры", unread: 3 },
-  { key: "personal", icon: <UserOutlined />, label: "Вопрос мастеру", unread: 1 },
+  { key: "personal", icon: <MessageOutlined />, label: "Вопрос мастеру", unread: 1 },
 ];
 
 interface IChatNavProps {

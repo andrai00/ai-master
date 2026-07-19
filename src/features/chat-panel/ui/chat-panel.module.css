@@ -40,7 +40,6 @@
 
 .msgAvatar {
   flex-shrink: 0;
-  background: var(--bg-active);
 }
 
 .msgContent {

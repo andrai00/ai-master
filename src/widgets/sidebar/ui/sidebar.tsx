@@ -28,7 +28,7 @@ interface ISidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   user?: ISessionPayload;
-  onGameChange?: (id: string) => void;
+  onGameChange?: () => void;
 }
 
 export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarProps) => {
@@ -138,7 +138,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         <div className={styles.header}>
           <div className={styles.headerInfo}>
             <span className={styles.logo}>{t("sidebar.logo")}</span>
-            <GameSelector masterId={user?.masterId} onChange={onGameChange || (() => {})} />
+            <GameSelector isAdmin={isAdmin} onGameChange={onGameChange || (() => {})} />
           </div>
         <Tooltip title={t("sidebar.collapse")} placement="right">
           <button className={styles.collapseBtn} onClick={onToggle}>

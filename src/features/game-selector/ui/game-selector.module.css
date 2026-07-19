@@ -1,0 +1,53 @@
+.selector {
+  margin-top: 4px;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  width: 100%;
+  transition: color 0.15s, background 0.15s;
+}
+
+.triggerEmpty {
+  color: #d4756b;
+  background: rgba(212, 117, 107, 0.08);
+}
+
+.trigger:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.triggerEmpty:hover {
+  color: #d4756b;
+  background: rgba(212, 117, 107, 0.15);
+}
+
+.readonly {
+  cursor: default;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.arrow {
+  font-size: 8px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}

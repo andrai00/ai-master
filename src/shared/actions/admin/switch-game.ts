@@ -1,28 +1,20 @@
 "use server";
 
-import { getSession, createSessionToken, setSessionCookie } from "@/src/shared/lib/auth/session";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 
 export async function switchGameAction(
   masterId: string
-): Promise<{ success: boolean; error?: string; masterId?: string }> {
+): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session) return { success: false, error: "Не авторизован" };
+  if (!session || session.role !== "admin") return { success: false, error: "Только админ может переключать игру" };
 
   const prisma = getPrisma();
   const game = await prisma.master.findUnique({ where: { id: masterId } });
-  if (!game) return { success: false, error: "Игра не найдена" };
+  if (!game || game.ownerId !== session.userId) return { success: false, error: "Нет прав" };
 
-  const hasAccess =
-    game.ownerId === session.userId ||
-    (await prisma.gameAccess.count({
-      where: { userId: session.userId, masterId },
-    })) > 0;
+  await prisma.master.updateMany({ where: { ownerId: session.userId }, data: { isCurrent: false } });
+  await prisma.master.update({ where: { id: masterId }, data: { isCurrent: true } });
 
-  if (!hasAccess) return { success: false, error: "Нет доступа к этой игре" };
-
-  const token = await createSessionToken({ ...session, masterId });
-  await setSessionCookie(token);
-
-  return { success: true, masterId };
+  return { success: true };
 }

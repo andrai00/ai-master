@@ -1,43 +1,57 @@
 "use client";
 
-import { Select, Modal, Input, Button, App } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Dropdown, Modal, Input, App } from "antd";
+import { DownOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import {
   listGamesAction,
+  getCurrentGameAction,
   createGameAction,
   type IGameItem,
 } from "@/src/shared/actions/admin/games";
 import { switchGameAction } from "@/src/shared/actions/admin/switch-game";
+import styles from "./game-selector.module.css";
 
 interface IGameSelectorProps {
-  masterId?: string;
-  onChange: (id: string) => void;
+  isAdmin: boolean;
+  onGameChange: () => void;
 }
 
-export const GameSelector = ({ masterId, onChange }: IGameSelectorProps) => {
+export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
   const [games, setGames] = useState<IGameItem[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const { notification } = App.useApp();
 
   useEffect(() => {
-    listGamesAction().then(setGames);
+    loadGames();
   }, []);
+
+  const loadGames = async () => {
+    const [list, current] = await Promise.all([
+      listGamesAction(),
+      getCurrentGameAction(),
+    ]);
+    setGames(list);
+    setCurrentId(current?.id || null);
+  };
+
+  const currentGame = games.find((g) => g.id === currentId);
 
   const handleCreate = async () => {
     setCreating(true);
     const result = await createGameAction(newName);
     setCreating(false);
     if (result.success) {
-      const updated = await listGamesAction();
-      setGames(updated);
       setNewName("");
       setModalOpen(false);
       if (result.id) {
         await switchGameAction(result.id);
-        onChange(result.id);
+        await loadGames();
+        onGameChange();
       }
     } else {
       notification.error({ title: result.error });
@@ -45,43 +59,66 @@ export const GameSelector = ({ masterId, onChange }: IGameSelectorProps) => {
   };
 
   const handleSwitch = async (id: string) => {
+    setDropdownOpen(false);
     const result = await switchGameAction(id);
     if (result.success) {
-      onChange(id);
+      await loadGames();
+      onGameChange();
     }
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className={styles.selector}>
+        <div className={`${styles.trigger} ${styles.readonly} ${!currentId ? styles.triggerEmpty : ""}`}>
+          <span className={styles.label}>
+            {currentGame?.name || "Игра не выбрана"}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const menuItems = {
+    items: [
+      ...games.map((g) => ({
+        key: g.id,
+        label: (
+          <span>
+            {g.name}
+            {g.isCurrent && <span style={{ color: "var(--text-muted)", fontSize: 10, marginLeft: 6 }}>текущая</span>}
+          </span>
+        ),
+        onClick: () => handleSwitch(g.id),
+      })),
+      { type: "divider" as const },
+      {
+        key: "create",
+        label: "Создать игру",
+        icon: <PlusOutlined />,
+        onClick: () => setModalOpen(true),
+      },
+    ],
   };
 
   return (
     <>
-      <Select
-        value={masterId || undefined}
-        onChange={handleSwitch}
-        placeholder="Выберите игру"
-        style={{ width: "100%", marginTop: 6 }}
-        size="small"
-        variant="borderless"
-        dropdownRender={(menu) => (
-          <>
-            {menu}
-            <div style={{ padding: "4px 8px", borderTop: "1px solid var(--border)" }}>
-              <Button
-                type="text"
-                size="small"
-                icon={<PlusOutlined />}
-                block
-                style={{ textAlign: "left", fontSize: 12 }}
-                onClick={() => setModalOpen(true)}
-              >
-                Создать игру
-              </Button>
-            </div>
-          </>
-        )}
-        options={games.map((g) => ({
-          value: g.id,
-          label: g.name,
-        }))}
-      />
+      <div className={styles.selector}>
+        <Dropdown
+          menu={menuItems}
+          open={dropdownOpen}
+          onOpenChange={setDropdownOpen}
+          trigger={["click"]}
+          placement="bottomLeft"
+        >
+          <button className={`${styles.trigger} ${!currentId ? styles.triggerEmpty : ""}`}>
+            <span className={styles.label}>
+              {currentGame?.name || "Выберите игру"}
+            </span>
+            <DownOutlined className={styles.arrow} />
+          </button>
+        </Dropdown>
+      </div>
       <Modal
         title="Новая игра"
         open={modalOpen}

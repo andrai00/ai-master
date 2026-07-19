@@ -14,7 +14,6 @@ export interface ISessionPayload {
   role: "admin" | "player";
   login: string;
   displayName: string;
-  masterId?: string;
 }
 
 export async function createSessionToken(payload: ISessionPayload): Promise<string> {

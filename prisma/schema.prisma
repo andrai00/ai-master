@@ -24,6 +24,7 @@ model Master {
   ownerId     String
   name        String
   description String?
+  isCurrent   Boolean      @default(false)
   createdAt   DateTime     @default(now())
   owner       User         @relation("MasterOwner", fields: [ownerId], references: [id])
   access      GameAccess[]

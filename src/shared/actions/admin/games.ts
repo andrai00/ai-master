@@ -7,6 +7,7 @@ export interface IGameItem {
   id: string;
   name: string;
   description: string | null;
+  isCurrent: boolean;
 }
 
 export async function listGamesAction(): Promise<IGameItem[]> {
@@ -21,10 +22,28 @@ export async function listGamesAction(): Promise<IGameItem[]> {
         { access: { some: { userId: session.userId } } },
       ],
     },
-    select: { id: true, name: true, description: true },
+    select: { id: true, name: true, description: true, isCurrent: true },
     orderBy: { createdAt: "asc" },
   });
   return games;
+}
+
+export async function getCurrentGameAction(): Promise<IGameItem | null> {
+  const session = await getSession();
+  if (!session) return null;
+
+  const prisma = getPrisma();
+  const game = await prisma.master.findFirst({
+    where: {
+      isCurrent: true,
+      OR: [
+        { ownerId: session.userId },
+        { access: { some: { userId: session.userId } } },
+      ],
+    },
+    select: { id: true, name: true, description: true, isCurrent: true },
+  });
+  return game;
 }
 
 export async function createGameAction(

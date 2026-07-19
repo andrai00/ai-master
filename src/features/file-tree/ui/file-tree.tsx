@@ -82,7 +82,8 @@ export const FileTree = ({ isAdmin }: IFileTreeProps) => {
     <div className={styles.tree}>
       {visibleSections.map((section) => (
         <div key={section.label} className={styles.section}>
-          <div className={styles.sectionHeader}>{section.label}</div>
+          {section.adminOnly && <div className={styles.adminDivider} />}
+          <div className={`${styles.sectionHeader} ${section.adminOnly ? styles.adminHeader : ""}`}>{section.label}</div>
           {section.items.map((item) => (
             <button key={item.key} className={styles.item}>
               <span className={styles.itemIcon}>{item.icon}</span>

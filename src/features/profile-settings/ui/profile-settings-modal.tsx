@@ -166,8 +166,8 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
             <Popconfirm
               title={t("profileModal.avatarDeleteConfirm")}
               onConfirm={handleDelete}
-              okText="Да"
-              cancelText="Нет"
+                okText={t("admin.yes")}
+                cancelText={t("admin.no")}
             >
               <Button icon={<DeleteOutlined />} danger block>
                 {t("profileModal.avatarDelete")}

@@ -98,5 +98,39 @@
     "empty": "Нет доступных разделов",
     "adminMaster": "Настройки мастера",
     "adminLogs": "Логи сессии"
+  },
+  "admin": {
+    "users": "Пользователи",
+    "addPlayer": "Добавить игрока",
+    "editUser": "Редактировать пользователя",
+    "createPlayer": "Добавить игрока",
+    "loginCol": "Логин",
+    "nameCol": "Имя",
+    "roleCol": "Роль",
+    "createdCol": "Создан",
+    "roleAdmin": "Администратор",
+    "rolePlayer": "Игрок",
+    "userUpdated": "Пользователь обновлён",
+    "userDeleted": "Пользователь удалён",
+    "playerCreated": "Игрок создан",
+    "deleteConfirm": "Удалить пользователя?",
+    "noUsers": "Нет пользователей",
+    "gameAccess": "Доступ к играм",
+    "noGames": "Нет созданных игр",
+    "passwordHint": "Новый пароль (оставьте пустым чтобы не менять)",
+    "loginPlaceholder": "Логин",
+    "passwordPlaceholder": "Пароль",
+    "yes": "Да",
+    "no": "Нет"
+  },
+  "gameSelector": {
+    "createGame": "Создать игру",
+    "newGame": "Новая игра",
+    "chooseGame": "Выберите игру",
+    "noGame": "Игра не выбрана",
+    "current": "текущая",
+    "namePlaceholder": "Название игры",
+    "create": "Создать",
+    "cancel": "Отмена"
   }
 }

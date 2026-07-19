@@ -3,6 +3,7 @@
 import { Dropdown, Modal, Input, App } from "antd";
 import { DownOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   listGamesAction,
   getCurrentGameAction,
@@ -18,6 +19,7 @@ interface IGameSelectorProps {
 }
 
 export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
+  const { t } = useTranslation();
   const [games, setGames] = useState<IGameItem[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,15 +28,10 @@ export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
   const [creating, setCreating] = useState(false);
   const { notification } = App.useApp();
 
-  useEffect(() => {
-    loadGames();
-  }, []);
+  useEffect(() => { loadGames(); }, []);
 
   const loadGames = async () => {
-    const [list, current] = await Promise.all([
-      listGamesAction(),
-      getCurrentGameAction(),
-    ]);
+    const [list, current] = await Promise.all([listGamesAction(), getCurrentGameAction()]);
     setGames(list);
     setCurrentId(current?.id || null);
   };
@@ -71,9 +68,7 @@ export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
     return (
       <div className={styles.selector}>
         <div className={`${styles.trigger} ${styles.readonly} ${!currentId ? styles.triggerEmpty : ""}`}>
-          <span className={styles.label}>
-            {currentGame?.name || "Игра не выбрана"}
-          </span>
+          <span className={styles.label}>{currentGame?.name || t("gameSelector.noGame")}</span>
         </div>
       </div>
     );
@@ -84,57 +79,30 @@ export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
       ...games.map((g) => ({
         key: g.id,
         label: (
-          <span>
-            {g.name}
-            {g.isCurrent && <span style={{ color: "var(--text-muted)", fontSize: 10, marginLeft: 6 }}>текущая</span>}
-          </span>
+          <span>{g.name}{g.isCurrent && <span style={{ color: "var(--text-muted)", fontSize: 10, marginLeft: 6 }}>{t("gameSelector.current")}</span>}</span>
         ),
         onClick: () => handleSwitch(g.id),
       })),
       { type: "divider" as const },
-      {
-        key: "create",
-        label: "Создать игру",
-        icon: <PlusOutlined />,
-        onClick: () => setModalOpen(true),
-      },
+      { key: "create", label: t("gameSelector.createGame"), icon: <PlusOutlined />, onClick: () => setModalOpen(true) },
     ],
   };
 
   return (
     <>
       <div className={styles.selector}>
-        <Dropdown
-          menu={menuItems}
-          open={dropdownOpen}
-          onOpenChange={setDropdownOpen}
-          trigger={["click"]}
-          placement="bottomLeft"
-        >
+        <Dropdown menu={menuItems} open={dropdownOpen} onOpenChange={setDropdownOpen} trigger={["click"]} placement="bottomLeft">
           <button className={`${styles.trigger} ${!currentId ? styles.triggerEmpty : ""}`}>
-            <span className={styles.label}>
-              {currentGame?.name || "Выберите игру"}
-            </span>
+            <span className={styles.label}>{currentGame?.name || t("gameSelector.chooseGame")}</span>
             <DownOutlined className={styles.arrow} />
           </button>
         </Dropdown>
       </div>
       <Modal
-        title="Новая игра"
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        onOk={handleCreate}
-        confirmLoading={creating}
-        okText="Создать"
-        cancelText="Отмена"
-        centered
+        title={t("gameSelector.newGame")} open={modalOpen} onCancel={() => setModalOpen(false)}
+        onOk={handleCreate} confirmLoading={creating} okText={t("gameSelector.create")} cancelText={t("gameSelector.cancel")} centered
       >
-        <Input
-          placeholder="Название игры"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          style={{ marginTop: 8 }}
-        />
+        <Input placeholder={t("gameSelector.namePlaceholder")} value={newName} onChange={(e) => setNewName(e.target.value)} style={{ marginTop: 8 }} />
       </Modal>
     </>
   );

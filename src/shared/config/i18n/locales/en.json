@@ -98,5 +98,39 @@
     "empty": "No sections available",
     "adminMaster": "Master Settings",
     "adminLogs": "Session Logs"
+  },
+  "admin": {
+    "users": "Users",
+    "addPlayer": "Add Player",
+    "editUser": "Edit User",
+    "createPlayer": "Add Player",
+    "loginCol": "Login",
+    "nameCol": "Name",
+    "roleCol": "Role",
+    "createdCol": "Created",
+    "roleAdmin": "Administrator",
+    "rolePlayer": "Player",
+    "userUpdated": "User updated",
+    "userDeleted": "User deleted",
+    "playerCreated": "Player created",
+    "deleteConfirm": "Delete user?",
+    "noUsers": "No users",
+    "gameAccess": "Game access",
+    "noGames": "No games created",
+    "passwordHint": "New password (leave empty to keep current)",
+    "loginPlaceholder": "Login",
+    "passwordPlaceholder": "Password",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "gameSelector": {
+    "createGame": "Create Game",
+    "newGame": "New Game",
+    "chooseGame": "Select a game",
+    "noGame": "No game selected",
+    "current": "active",
+    "namePlaceholder": "Game name",
+    "create": "Create",
+    "cancel": "Cancel"
   }
 }

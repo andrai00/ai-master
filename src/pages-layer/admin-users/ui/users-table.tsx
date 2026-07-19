@@ -3,6 +3,7 @@
 import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Space, Checkbox } from "antd";
 import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   listUsersAction,
   type IUserListItem,
@@ -15,6 +16,7 @@ import { getUserGameAccessAction, setUserGameAccessAction } from "@/src/shared/a
 import type { ColumnsType } from "antd/es/table";
 
 export const UsersTable = () => {
+  const { t } = useTranslation();
   const { notification } = App.useApp();
   const [users, setUsers] = useState<IUserListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export const UsersTable = () => {
     ]);
     setEditing(false);
     if (result.success) {
-      notification.success({ title: "Пользователь обновлён" });
+      notification.success({ title: t("admin.userUpdated") });
       setEditOpen(false);
       load();
     } else {
@@ -73,7 +75,7 @@ export const UsersTable = () => {
   const handleDelete = async (user: IUserListItem) => {
     const result = await deleteUserAction(user.id);
     if (result.success) {
-      notification.success({ title: "Пользователь удалён" });
+      notification.success({ title: t("admin.userDeleted") });
       load();
     } else {
       notification.error({ title: result.error });
@@ -85,7 +87,7 @@ export const UsersTable = () => {
     const result = await createPlayerAction(newLogin, newPassword);
     setCreating(false);
     if (result.success) {
-      notification.success({ title: "Игрок создан" });
+      notification.success({ title: t("admin.playerCreated") });
       setNewLogin("");
       setNewPassword("");
       setCreateOpen(false);
@@ -99,39 +101,30 @@ export const UsersTable = () => {
     {
       title: "", key: "avatar", width: 48, responsive: ["md"],
       render: (_: unknown, record) => (
-        <Avatar
-          size={32}
-          src={`/api/avatar/${record.id}`}
-          icon={record.role === "admin" ? <CrownOutlined /> : <UserOutlined />}
-        />
+        <Avatar size={32} src={`/api/avatar/${record.id}`} icon={record.role === "admin" ? <CrownOutlined /> : <UserOutlined />} />
       ),
     },
-    { title: "Логин", dataIndex: "login", key: "login" },
-    { title: "Имя", dataIndex: "displayName", key: "displayName", responsive: ["md"] },
+    { title: t("admin.loginCol"), dataIndex: "login", key: "login" },
+    { title: t("admin.nameCol"), dataIndex: "displayName", key: "displayName", responsive: ["md"] },
     {
-      title: "Роль", dataIndex: "role", key: "role",
-      render: (role: string) => role === "admin" ? "Администратор" : "Игрок",
+      title: t("admin.roleCol"), dataIndex: "role", key: "role",
+      render: (role: string) => role === "admin" ? t("admin.roleAdmin") : t("admin.rolePlayer"),
     },
     {
-      title: "Создан", dataIndex: "createdAt", key: "createdAt", responsive: ["lg"],
+      title: t("admin.createdCol"), dataIndex: "createdAt", key: "createdAt", responsive: ["lg"],
       render: (d: Date) => new Date(d).toLocaleDateString(),
     },
     {
       title: "", key: "actions", width: 80,
       render: (_: unknown, record) => (
         <Space size={4}>
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => openEdit(record)}
-          />
+          <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           {record.role !== "admin" && (
             <Popconfirm
-              title="Удалить пользователя?"
+              title={t("admin.deleteConfirm")}
               onConfirm={() => handleDelete(record)}
-              okText="Да"
-              cancelText="Нет"
+              okText={t("admin.yes")}
+              cancelText={t("admin.no")}
             >
               <Button type="text" size="small" danger icon={<DeleteOutlined />} />
             </Popconfirm>
@@ -142,98 +135,59 @@ export const UsersTable = () => {
   ];
 
   return (
-    <div
-      style={{
-        width: "100%", maxWidth: 760, margin: "0 auto",
-        padding: "24px 16px", height: "100%", overflow: "auto",
-      }}
-    >
+    <div style={{ width: "100%", maxWidth: 760, margin: "0 auto", padding: "24px 16px", height: "100%", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: 18, color: "var(--text-primary)" }}>Пользователи</h2>
-        <Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>
-          Добавить игрока
-        </Button>
+        <h2 style={{ margin: 0, fontSize: 18, color: "var(--text-primary)" }}>{t("admin.users")}</h2>
+        <Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>
       </div>
 
       <Table
-        dataSource={users}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        pagination={false}
-        size="middle"
-        scroll={{ x: "max-content" }}
-        locale={{ emptyText: "Нет пользователей" }}
+        dataSource={users} columns={columns} rowKey="id" loading={loading}
+        pagination={false} size="middle" scroll={{ x: "max-content" }}
+        locale={{ emptyText: t("admin.noUsers") }}
       />
 
       <Modal
-        title="Добавить игрока"
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        onOk={handleCreate}
-        confirmLoading={creating}
-        okText="Создать"
-        cancelText="Отмена"
-        centered
+        title={t("admin.createPlayer")} open={createOpen} onCancel={() => setCreateOpen(false)}
+        onOk={handleCreate} confirmLoading={creating} okText={t("admin.yes")} cancelText={t("gameSelector.cancel")} centered
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
-          <Input placeholder="Логин" value={newLogin} onChange={(e) => setNewLogin(e.target.value)} />
-          <Input.Password placeholder="Пароль" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <Input placeholder={t("admin.loginPlaceholder")} value={newLogin} onChange={(e) => setNewLogin(e.target.value)} />
+          <Input.Password placeholder={t("admin.passwordPlaceholder")} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
         </div>
       </Modal>
 
       <Modal
-        title="Редактировать пользователя"
-        open={editOpen}
-        onCancel={() => setEditOpen(false)}
-        onOk={handleEdit}
-        confirmLoading={editing}
-        okText="Сохранить"
-        cancelText="Отмена"
-        centered
+        title={t("admin.editUser")} open={editOpen} onCancel={() => setEditOpen(false)}
+        onOk={handleEdit} confirmLoading={editing} okText={t("common.save")} cancelText={t("gameSelector.cancel")} centered
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Имя</div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.nameCol")}</div>
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Новый пароль (оставьте пустым чтобы не менять)</div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.passwordHint")}</div>
             <Input.Password value={editPw} onChange={(e) => setEditPw(e.target.value)} />
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Роль</div>
-            <Select
-              value={editRole}
-              onChange={setEditRole}
-              style={{ width: "100%" }}
-              options={[
-                { value: "admin", label: "Администратор" },
-                { value: "player", label: "Игрок" },
-              ]}
-            />
+            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.roleCol")}</div>
+            <Select value={editRole} onChange={setEditRole} style={{ width: "100%" }} options={[
+              { value: "admin", label: t("admin.roleAdmin") },
+              { value: "player", label: t("admin.rolePlayer") },
+            ]} />
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>Доступ к играм</div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.gameAccess")}</div>
             {games.map((g) => (
               <div key={g.id} style={{ marginBottom: 4 }}>
-                <Checkbox
-                  checked={editGameAccess.includes(g.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setEditGameAccess([...editGameAccess, g.id]);
-                    } else {
-                      setEditGameAccess(editGameAccess.filter((id) => id !== g.id));
-                    }
-                  }}
-                >
-                  {g.name}
-                </Checkbox>
+                <Checkbox checked={editGameAccess.includes(g.id)} onChange={(e) => {
+                  if (e.target.checked) setEditGameAccess([...editGameAccess, g.id]);
+                  else setEditGameAccess(editGameAccess.filter((id) => id !== g.id));
+                }}>{g.name}</Checkbox>
               </div>
             ))}
-            {games.length === 0 && (
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Нет созданных игр</div>
-            )}
+            {games.length === 0 && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("admin.noGames")}</div>}
           </div>
         </div>
       </Modal>

@@ -13,7 +13,8 @@
     "expand": "Expand panel",
     "chatGame": "Game Chat",
     "chatMaster": "Ask Master",
-    "unreadHint": "unread messages"
+    "unreadHint": "unread messages",
+    "guest": "Guest"
   },
   "profile": {
     "settings": "Profile Settings",

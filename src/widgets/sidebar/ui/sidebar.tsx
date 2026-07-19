@@ -34,7 +34,7 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName || user?.login || "Гость");
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.login || t("sidebar.guest"));
   const [avatarVersion, setAvatarVersion] = useState(0);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);

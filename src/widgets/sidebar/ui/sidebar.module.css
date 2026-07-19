@@ -150,19 +150,16 @@
   height: 36px;
   border: none;
   background: transparent;
+  color: var(--text-dim);
   cursor: pointer;
   border-radius: 6px;
   font-size: 15px;
-  transition: background 0.15s;
-  padding: 4px 0;
+  transition: color 0.15s, background 0.15s;
 }
 
 .collapsedIcon:hover {
+  color: var(--text-primary);
   background: var(--bg-hover);
-}
-
-.collapsedIconText {
-  font-size: 14px;
 }
 
 .collapsedDivider {

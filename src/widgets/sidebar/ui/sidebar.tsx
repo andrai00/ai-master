@@ -8,6 +8,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   SettingOutlined,
+  UnorderedListOutlined,
   CrownOutlined,
   BulbOutlined,
 } from "@ant-design/icons";
@@ -113,9 +114,9 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
           </button>
           <ChatNav collapsed />
           <div className={styles.collapsedDivider} />
-          <Tooltip title="Файлы" placement="right">
-            <button className={styles.collapsedIcon}>
-              <span className={styles.collapsedIconText}>📁</span>
+          <Tooltip title="Развернуть панель" placement="right">
+            <button className={styles.collapsedIcon} onClick={onToggle}>
+              <UnorderedListOutlined />
             </button>
           </Tooltip>
           <div className={styles.collapsedSpacer} />

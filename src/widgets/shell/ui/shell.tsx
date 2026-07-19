@@ -33,6 +33,21 @@ export const Shell = ({ user, children }: IShellProps) => {
     if (!isMobile) setMobileOpen(false);
   }, [isMobile]);
 
+  useEffect(() => {
+    if (user?.role !== "player") return;
+    const eventSource = new EventSource("/api/game-events");
+    eventSource.onmessage = (e) => {
+      if (e.data === "kick") {
+        eventSource.close();
+        window.location.href = "/api/logout?redirect=/login";
+      }
+    };
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
+    return () => eventSource.close();
+  }, [user?.role]);
+
   const toggleSidebar = useCallback(() => {
     if (isMobile) {
       setMobileOpen((v) => !v);

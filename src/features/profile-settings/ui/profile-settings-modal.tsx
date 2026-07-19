@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal, Input, Button, App, Upload, Popconfirm } from "antd";
-import { UploadOutlined, DeleteOutlined } from "@ant-design/icons";
+import { CameraOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { RcFile } from "antd/es/upload";
@@ -33,7 +33,7 @@ export const ProfileSettingsModal = ({
   const [saving, setSaving] = useState(false);
   const { notification } = App.useApp();
 
-  const handleSaveProfile = async () => {
+  const handleSave = async () => {
     setSaving(true);
     const result = await updateProfileAction(name, avatar);
     setSaving(false);
@@ -46,7 +46,39 @@ export const ProfileSettingsModal = ({
     }
   };
 
-  const handleAvatarUpload = async (file: RcFile) => {
+  return (
+    <Modal title={t("profileModal.title")} open={open} onCancel={onClose} footer={null} centered width={360}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+        <AvatarEditor avatar={avatar} onChange={setAvatar} />
+
+        <div style={{ width: "100%" }}>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.login")}</div>
+          <Input value={login} disabled />
+        </div>
+
+        <div style={{ width: "100%" }}>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.displayName")}</div>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+
+        <Button type="primary" loading={saving} onClick={handleSave} block style={{ marginTop: 4 }}>
+          {t("common.save")}
+        </Button>
+
+        <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
+
+        <PasswordChangeModal />
+      </div>
+    </Modal>
+  );
+};
+
+function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  const [editorOpen, setEditorOpen] = useState(false);
+  const { notification } = App.useApp();
+
+  const handleUpload = async (file: RcFile) => {
     if (file.size > 5 * 1024 * 1024) {
       notification.error({ title: t("profileModal.avatarTooBig") });
       return false;
@@ -56,67 +88,97 @@ export const ProfileSettingsModal = ({
     const res = await fetch("/api/upload-avatar", { method: "POST", body: formData });
     const data = await res.json();
     if (data.avatarPath) {
-      setAvatar(data.avatarPath);
+      onChange(data.avatarPath);
+      setEditorOpen(false);
     } else {
       notification.error({ title: data.error || t("profileModal.avatarUploadError") });
     }
     return false;
   };
 
-  const handleDeleteAvatar = async () => {
-    setAvatar("");
+  const handleDelete = async () => {
+    onChange("");
     await fetch("/api/delete-avatar", { method: "POST" });
-    await updateProfileAction(name, "");
-    onProfileUpdated(name, "");
-    notification.success({ title: t("profileModal.avatarDeleted") });
+    setEditorOpen(false);
   };
 
   const hasAvatar = avatar && !avatar.includes("undefined");
 
   return (
-    <Modal title={t("profileModal.title")} open={open} onCancel={onClose} footer={null} centered width={400}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.avatar")}</div>
-          <Upload accept="image/*" showUploadList={false} beforeUpload={handleAvatarUpload}>
-            <Button icon={<UploadOutlined />}>{t("common.upload")}</Button>
+    <>
+      <div
+        onClick={() => setEditorOpen(true)}
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: "50%",
+          cursor: "pointer",
+          background: "var(--bg-hover)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          position: "relative",
+          flexShrink: 0,
+        }}
+      >
+        {hasAvatar ? (
+          <>
+            <img src={avatar} alt="" style={{ width: 72, height: 72, objectFit: "cover" }} />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: 0,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+            >
+              <CameraOutlined style={{ color: "#fff", fontSize: 20 }} />
+            </div>
+          </>
+        ) : (
+          <CameraOutlined style={{ color: "var(--text-muted)", fontSize: 24 }} />
+        )}
+      </div>
+
+      <Modal
+        title={t("profileModal.avatar")}
+        open={editorOpen}
+        onCancel={() => setEditorOpen(false)}
+        footer={null}
+        centered
+        width={300}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", paddingTop: 4 }}>
+          {hasAvatar && (
+            <img src={avatar} alt="" style={{ width: 96, height: 96, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
+          )}
+          <Upload accept="image/*" showUploadList={false} beforeUpload={handleUpload}>
+            <Button block>{t("common.upload")}</Button>
           </Upload>
           {hasAvatar && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-              <img src={avatar} alt="avatar" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
-              <Popconfirm
-                title={t("profileModal.avatarDeleteConfirm")}
-                onConfirm={handleDeleteAvatar}
-                okText="Да"
-                cancelText="Нет"
-              >
-                <Button icon={<DeleteOutlined />} danger size="small">{t("profileModal.avatarDelete")}</Button>
-              </Popconfirm>
-            </div>
+            <Popconfirm
+              title={t("profileModal.avatarDeleteConfirm")}
+              onConfirm={handleDelete}
+              okText="Да"
+              cancelText="Нет"
+            >
+              <Button icon={<DeleteOutlined />} danger block>
+                {t("profileModal.avatarDelete")}
+              </Button>
+            </Popconfirm>
           )}
         </div>
-
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.login")}</div>
-          <Input value={login} disabled />
-        </div>
-
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.displayName")}</div>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-
-        <Button loading={saving} onClick={handleSaveProfile}>
-          {t("common.save")}
-        </Button>
-
-        <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-
-        <PasswordChangeModal />
-      </div>
-    </Modal>
+      </Modal>
+    </>
   );
-};
+}
 
 function PasswordChangeModal() {
   const { t } = useTranslation();
@@ -146,7 +208,7 @@ function PasswordChangeModal() {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>{t("profileModal.changePassword")}</Button>
+      <Button onClick={() => setOpen(true)} block>{t("profileModal.changePassword")}</Button>
       <Modal
         title={t("profileModal.passwordTitle")}
         open={open}

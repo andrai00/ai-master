@@ -68,7 +68,8 @@
     "sharedEvent": "shared a message from private chat",
     "copy": "Copy",
     "share": "Share",
-    "copied": "Copied"
+    "copied": "Copied",
+    "placeholderEmpty": "Game chat with the master and players will be here"
   },
   "tabs": {
     "commonChat": "Game Chat",
@@ -93,6 +94,7 @@
     "initiative": "Initiative Order",
     "adminPanel": "Admin Panel",
     "adminUsers": "Users",
+    "empty": "No sections available",
     "adminMaster": "Master Settings",
     "adminLogs": "Session Logs"
   }

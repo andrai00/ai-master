@@ -39,9 +39,9 @@ export const FileTree = ({ isAdmin }: IFileTreeProps) => {
 
   return (
     <div className={styles.tree}>
-      {visibleSections.map((section) => (
+      {visibleSections.map((section, idx) => (
         <div key={section.labelKey} className={styles.section}>
-          {section.adminOnly && <div className={styles.adminDivider} />}
+          {section.adminOnly && idx > 0 && <div className={styles.adminDivider} />}
           <div className={`${styles.sectionHeader} ${section.adminOnly ? styles.adminHeader : ""}`}>
             {t(section.labelKey)}
           </div>
@@ -53,6 +53,9 @@ export const FileTree = ({ isAdmin }: IFileTreeProps) => {
           ))}
         </div>
       ))}
+      {visibleSections.length === 0 && (
+        <div className={styles.empty}>{t("fileTree.empty")}</div>
+      )}
     </div>
   );
 };

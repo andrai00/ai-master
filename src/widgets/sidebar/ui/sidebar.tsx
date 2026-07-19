@@ -10,7 +10,7 @@ import {
   SettingOutlined,
   UnorderedListOutlined,
   CrownOutlined,
-  BulbOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Fragment } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,13 +58,13 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const profileMenuItems: MenuProps["items"] = [
     {
       key: "profile",
-      icon: <SettingOutlined />,
+      icon: <IdcardOutlined />,
       label: t("profile.settings"),
       onClick: () => setSettingsOpen(true),
     },
     {
       key: "app",
-      icon: <BulbOutlined />,
+      icon: <SettingOutlined />,
       label: t("profile.appSettings"),
       onClick: () => setAppSettingsOpen(true),
     },
@@ -134,7 +134,6 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
         <div className={styles.header}>
           <div className={styles.headerInfo}>
             <span className={styles.logo}>{t("sidebar.logo")}</span>
-            <span className={styles.session}>D&D 5e · Забытые Королевства</span>
           </div>
         <Tooltip title={t("sidebar.collapse")} placement="right">
           <button className={styles.collapseBtn} onClick={onToggle}>

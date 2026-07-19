@@ -101,6 +101,7 @@
   },
   "admin": {
     "users": "Users",
+    "userCol": "User",
     "addPlayer": "Add Player",
     "editUser": "Edit User",
     "createPlayer": "Add Player",
@@ -123,7 +124,8 @@
     "yes": "Yes",
     "no": "No",
     "inGame": "In current game",
-    "notInGame": "No access to game"
+    "notInGame": "No access to game",
+    "gamesCol": "Games"
   },
   "gameSelector": {
     "createGame": "Create Game",

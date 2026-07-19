@@ -104,15 +104,48 @@ export const UsersTable = () => {
         <Avatar size={32} src={`/api/avatar/${record.id}`} icon={record.role === "admin" ? <CrownOutlined /> : <UserOutlined />} />
       ),
     },
-    { title: t("admin.loginCol"), dataIndex: "login", key: "login" },
-    { title: t("admin.nameCol"), dataIndex: "displayName", key: "displayName", responsive: ["md"] },
     {
-      title: t("admin.roleCol"), dataIndex: "role", key: "role",
-      render: (role: string) => role === "admin" ? t("admin.roleAdmin") : t("admin.rolePlayer"),
+      title: t("admin.userCol"), key: "user",
+      render: (_: unknown, record) => (
+        <div style={{ lineHeight: 1.4 }}>
+          <div style={{ fontWeight: 500 }}>{record.displayName || record.login}</div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+            @{record.login} · {record.role === "admin" ? t("admin.roleAdmin") : t("admin.rolePlayer")}
+          </div>
+        </div>
+      ),
     },
     {
-      title: t("admin.createdCol"), dataIndex: "createdAt", key: "createdAt", responsive: ["lg"],
-      render: (d: Date) => new Date(d).toLocaleDateString(),
+      title: t("admin.gamesCol"), key: "games", responsive: ["lg"],
+      render: (_: unknown, record) => (
+        <Space size={4} wrap>
+          {record.games.map((g) => (
+            <span
+              key={g.id}
+              title={g.name}
+              style={{
+                display: "inline-block",
+                padding: "1px 8px",
+                borderRadius: 10,
+                fontSize: 11,
+                lineHeight: "18px",
+                background: g.isCurrent ? "var(--bg-active)" : "transparent",
+                border: `1px solid ${g.isCurrent ? "var(--text-dim)" : "var(--border)"}`,
+                color: g.isCurrent ? "var(--text-primary)" : "var(--text-dim)",
+                maxWidth: 120,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {g.name}
+            </span>
+          ))}
+          {record.games.length === 0 && (
+            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>
+          )}
+        </Space>
+      ),
     },
     {
       title: "", key: "actions", width: 80,

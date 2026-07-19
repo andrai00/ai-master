@@ -1,16 +1,20 @@
 "use client";
 
-import { Avatar, Tooltip } from "antd";
+import { Avatar, Tooltip, Modal, Dropdown } from "antd";
+import type { MenuProps } from "antd";
 import {
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
+  SettingOutlined,
   CrownOutlined,
 } from "@ant-design/icons";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
+import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./sidebar.module.css";
@@ -28,16 +32,46 @@ const roleLabels: Record<string, string> = {
 
 export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
   const router = useRouter();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.login || "Гость");
 
-  const handleLogout = async () => {
-    await logoutAction();
-    router.push("/login");
-    router.refresh();
+  const handleLogout = () => {
+    Modal.confirm({
+      title: "Выйти из аккаунта?",
+      content: "Вы будете перенаправлены на страницу входа.",
+      okText: "Выйти",
+      cancelText: "Отмена",
+      okButtonProps: { danger: true },
+      centered: true,
+      onOk: async () => {
+        await logoutAction();
+        router.push("/login");
+        router.refresh();
+      },
+    });
   };
 
-  const name = user?.login || "Гость";
-  const role = roleLabels[user?.role || ""] || user?.role || "";
+  const profileMenuItems: MenuProps["items"] = [
+    {
+      key: "settings",
+      icon: <SettingOutlined />,
+      label: "Настройки профиля",
+      onClick: () => setSettingsOpen(true),
+    },
+    { type: "divider" },
+    {
+      key: "logout",
+      icon: <LogoutOutlined />,
+      label: "Выйти",
+      danger: true,
+      onClick: handleLogout,
+    },
+  ];
+
   const isAdmin = user?.role === "admin";
+  const avatarUrl = ""; // TODO: load from DB
+  const name = displayName;
+  const role = roleLabels[user?.role || ""] || user?.role || "";
 
   if (collapsed) {
     return (
@@ -45,24 +79,26 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
         <button className={styles.collapsedBtn} onClick={onToggle}>
           <MenuUnfoldOutlined />
         </button>
-
         <ChatNav collapsed />
-
         <div className={styles.collapsedDivider} />
-
         <Tooltip title="Файлы" placement="right">
           <button className={styles.collapsedIcon}>
             <span className={styles.collapsedIconText}>📁</span>
           </button>
         </Tooltip>
-
         <div className={styles.collapsedSpacer} />
-        <div className={styles.collapsedAvatar}>
-          <Avatar size={26} icon={isAdmin ? <CrownOutlined /> : <UserOutlined />} />
-        </div>
-        <button className={styles.collapsedLogout} onClick={handleLogout} title="Выйти">
-          <LogoutOutlined />
-        </button>
+        <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>
+          <div className={styles.collapsedAvatar}>
+            <Avatar size={26} icon={isAdmin ? <CrownOutlined /> : <UserOutlined />} />
+          </div>
+        </Dropdown>
+        <ProfileSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          currentName={displayName}
+          currentAvatar={avatarUrl}
+          onNameChange={setDisplayName}
+        />
       </div>
     );
   }
@@ -86,25 +122,31 @@ export const Sidebar = ({ collapsed, onToggle, user }: ISidebarProps) => {
       <div className={styles.divider} />
 
       <div className={styles.tree}>
-        <FileTree />
+        <FileTree isAdmin={isAdmin} />
       </div>
 
-      <div className={styles.profile}>
-        <Avatar
-          size={28}
-          icon={isAdmin ? <CrownOutlined /> : <UserOutlined />}
-          className={styles.avatar}
-        />
-        <div className={styles.profileText}>
-          <span className={styles.profileName}>{name}</span>
-          <span className={styles.profileRole}>{role}</span>
+      <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>
+        <div className={styles.profile}>
+          <Avatar
+            size={28}
+            src={avatarUrl || undefined}
+            icon={!avatarUrl ? (isAdmin ? <CrownOutlined /> : <UserOutlined />) : undefined}
+            className={styles.avatar}
+          />
+          <div className={styles.profileText}>
+            <span className={styles.profileName}>{name}</span>
+            <span className={styles.profileRole}>{role}</span>
+          </div>
         </div>
-        <Tooltip title="Выйти" placement="right">
-          <button className={styles.logoutBtn} onClick={handleLogout}>
-            <LogoutOutlined />
-          </button>
-        </Tooltip>
-      </div>
+      </Dropdown>
+
+      <ProfileSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        currentName={displayName}
+        currentAvatar={avatarUrl}
+        onNameChange={setDisplayName}
+      />
     </div>
   );
 };

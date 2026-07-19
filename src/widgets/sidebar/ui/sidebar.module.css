@@ -57,26 +57,12 @@
   gap: 10px;
   padding: 10px 10px 10px 16px;
   flex-shrink: 0;
-}
-
-.logoutBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
-  font-size: 13px;
-  flex-shrink: 0;
-  transition: color 0.15s, background 0.15s;
+  transition: background 0.1s;
 }
 
-.logoutBtn:hover {
-  color: #e05555;
+.profile:hover {
   background: var(--bg-hover);
 }
 
@@ -192,24 +178,5 @@
 
 .collapsedAvatar {
   padding: 4px;
-}
-
-.collapsedLogout {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
   cursor: pointer;
-  border-radius: 6px;
-  font-size: 13px;
-  transition: color 0.15s, background 0.15s;
-}
-
-.collapsedLogout:hover {
-  color: #e05555;
-  background: var(--bg-hover);
 }

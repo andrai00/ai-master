@@ -6,6 +6,8 @@ export interface IUserRow {
   login: string;
   password_hash: string;
   role: "admin" | "player";
+  display_name: string;
+  avatar: string;
   created_at: string;
 }
 
@@ -51,11 +53,43 @@ export async function createUser(
   role: "admin" | "player"
 ): Promise<void> {
   const db = await getDb();
-  db.run("INSERT INTO users (id, login, password_hash, role) VALUES (?, ?, ?, ?)", [
+  db.run(
+    "INSERT INTO users (id, login, password_hash, role, display_name) VALUES (?, ?, ?, ?, ?)",
+    [id, login, passwordHash, role, login]
+  );
+  saveDb();
+}
+
+export async function updateUserProfile(
+  id: string,
+  displayName: string,
+  avatar: string
+): Promise<void> {
+  const db = await getDb();
+  db.run("UPDATE users SET display_name = ?, avatar = ? WHERE id = ?", [
+    displayName,
+    avatar,
     id,
-    login,
-    passwordHash,
-    role,
   ]);
   saveDb();
+}
+
+export async function updateUserPassword(
+  id: string,
+  passwordHash: string
+): Promise<void> {
+  const db = await getDb();
+  db.run("UPDATE users SET password_hash = ? WHERE id = ?", [passwordHash, id]);
+  saveDb();
+}
+
+export async function getAllUsers(): Promise<IUserRow[]> {
+  const db = await getDb();
+  const stmt = db.prepare("SELECT * FROM users ORDER BY created_at");
+  const rows: IUserRow[] = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject() as unknown as IUserRow);
+  }
+  stmt.free();
+  return rows;
 }

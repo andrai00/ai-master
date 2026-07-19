@@ -24,6 +24,7 @@ export async function loginAction(
     userId: user.id,
     role: user.role,
     login: user.login,
+    displayName: user.display_name || user.login,
   });
   await setSessionCookie(token);
 

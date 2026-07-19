@@ -27,7 +27,7 @@ export async function setupFirstAdmin(
   const hash = hashPassword(password);
   await createUser(id, login, hash, "admin");
 
-  const token = await createSessionToken({ userId: id, role: "admin", login });
+  const token = await createSessionToken({ userId: id, role: "admin", login, displayName: login });
   await setSessionCookie(token);
 
   return { success: true };

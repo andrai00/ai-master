@@ -6,9 +6,11 @@ import {
   ThunderboltOutlined,
   BookOutlined,
   CompassOutlined,
-  TeamOutlined,
   EnvironmentOutlined,
   RocketOutlined,
+  SettingOutlined,
+  UserAddOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import type { ReactNode } from "react";
 import styles from "./file-tree.module.css";
@@ -16,6 +18,7 @@ import styles from "./file-tree.module.css";
 interface ITreeSection {
   label: string;
   items: ITreeItem[];
+  adminOnly?: boolean;
 }
 
 interface ITreeItem {
@@ -55,12 +58,29 @@ const treeSections: ITreeSection[] = [
       { key: "initiative", icon: <CompassOutlined />, label: "Порядок хода" },
     ],
   },
+  {
+    label: "Админ панель",
+    adminOnly: true,
+    items: [
+      { key: "admin-users", icon: <UserAddOutlined />, label: "Пользователи" },
+      { key: "admin-master", icon: <SettingOutlined />, label: "Настройки мастера" },
+      { key: "admin-logs", icon: <FileTextOutlined />, label: "Логи сессии" },
+    ],
+  },
 ];
 
-export const FileTree = () => {
+interface IFileTreeProps {
+  isAdmin?: boolean;
+}
+
+export const FileTree = ({ isAdmin }: IFileTreeProps) => {
+  const visibleSections = treeSections.filter(
+    (s) => !s.adminOnly || isAdmin
+  );
+
   return (
     <div className={styles.tree}>
-      {treeSections.map((section) => (
+      {visibleSections.map((section) => (
         <div key={section.label} className={styles.section}>
           <div className={styles.sectionHeader}>{section.label}</div>
           {section.items.map((item) => (

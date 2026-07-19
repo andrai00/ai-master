@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 
 const DB_PATH = path.join(process.cwd(), "data", "ai-master.db");
+const WASM_PATH = path.join(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm");
 
 interface IDbGlobal {
   db: SqlJsDatabase | undefined;
@@ -14,7 +15,7 @@ interface IDbGlobal {
 const globalDb = globalThis as unknown as IDbGlobal;
 
 async function createDbInstance(): Promise<SqlJsDatabase> {
-  const SQL = await initSqlJs();
+  const SQL = await initSqlJs({ locateFile: () => WASM_PATH });
 
   let instance: SqlJsDatabase;
   if (fs.existsSync(DB_PATH)) {
@@ -32,9 +33,14 @@ async function createDbInstance(): Promise<SqlJsDatabase> {
       login TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'player',
+      display_name TEXT NOT NULL DEFAULT '',
+      avatar TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  try { instance.run("ALTER TABLE users ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
+  try { instance.run("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''"); } catch { /* already exists */ }
 
   return instance;
 }

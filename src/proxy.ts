@@ -14,6 +14,7 @@ const publicPaths = ["/login", "/setup"];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/") return NextResponse.next();
   if (publicPaths.includes(pathname)) return NextResponse.next();
   if (pathname.startsWith("/_next") || pathname.startsWith("/api")) return NextResponse.next();
 

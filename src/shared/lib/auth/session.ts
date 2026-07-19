@@ -13,6 +13,7 @@ export interface ISessionPayload {
   userId: string;
   role: "admin" | "player";
   login: string;
+  displayName: string;
 }
 
 export async function createSessionToken(payload: ISessionPayload): Promise<string> {

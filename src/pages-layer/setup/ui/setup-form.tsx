@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input, notification } from "antd";
+import { Button, Input, App } from "antd";
 import { useState } from "react";
 import { setupFirstAdmin } from "@/src/shared/actions/auth/setup-admin";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ export const SetupForm = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { notification } = App.useApp();
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -18,10 +19,10 @@ export const SetupForm = () => {
     setLoading(false);
 
     if (result.success) {
-      router.push("/sessions");
+      router.push("/");
       router.refresh();
     } else {
-      notification.error({ message: result.error });
+      notification.error({ title: result.error });
     }
   };
 

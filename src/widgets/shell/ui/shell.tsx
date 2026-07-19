@@ -22,6 +22,11 @@ const shortChat = [
   { id: 1, sender: "Мастер", role: "master" as const, text: "Вы входите в таверну «Сломанная стрела». Внутри полумрак, пахнет элем и жареным мясом." },
   { id: 2, sender: "Гаррет", role: "player" as const, text: "Осматриваюсь. Есть кто подозрительный?" },
   { id: 3, sender: "Мастер", role: "master" as const, text: "За дальним столом трое гоблинов что-то бурно обсуждают. Бармен протирает кружки, искоса поглядывая на вас." },
+  {
+    id: 4, sender: "Гаррет", role: "player" as const, shared: true,
+    text: "Мастер, мой бонус скрытности +8 или +5?",
+  },
+  { id: 5, sender: "Мастер", role: "master" as const, shared: true, text: "Скрытность: 1d20 + 4 (ЛОВ) + 2 (бонус мастерства) = +8." },
 ];
 
 const masterLines = [

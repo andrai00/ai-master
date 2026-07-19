@@ -63,7 +63,11 @@
   },
   "chat": {
     "placeholder": "Type a message...",
-    "master": "Master"
+    "master": "Master",
+    "sharedEvent": "shared a message from private chat",
+    "copy": "Copy",
+    "share": "Share",
+    "copied": "Copied"
   },
   "tabs": {
     "commonChat": "Game Chat",

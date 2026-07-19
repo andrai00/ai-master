@@ -15,27 +15,42 @@
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   padding: 16px 20px;
   max-width: var(--content-width);
   margin: 0 auto;
   width: 100%;
 }
 
-.message {
+.messageRow {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+}
+
+.masterRow {
+  align-self: flex-start;
+  flex-direction: row;
+}
+
+.playerRow {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msgAvatar {
+  flex-shrink: 0;
+  background: var(--bg-active);
+}
+
+.msgContent {
   display: flex;
   flex-direction: column;
-  max-width: 75%;
+  min-width: 0;
 }
 
-.player {
-  align-self: flex-end;
+.playerRow .msgContent {
   align-items: flex-end;
-}
-
-.master {
-  align-self: flex-start;
-  align-items: flex-start;
 }
 
 .sender {
@@ -43,6 +58,16 @@
   color: var(--text-dim);
   margin-bottom: 2px;
   padding: 0 4px;
+}
+
+.bubbleRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.playerRow .bubbleRow {
+  flex-direction: row-reverse;
 }
 
 .bubble {
@@ -53,24 +78,100 @@
   word-break: break-word;
 }
 
-.player .bubble {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border-bottom-right-radius: 4px;
-}
-
-.master .bubble {
+.masterBubble {
   background: var(--bg-bubble);
   color: var(--text-primary);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
 }
 
+.playerBubble {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-bottom-right-radius: 4px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.messageRow:hover .actions {
+  opacity: 1;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.actionBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.eventLine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.eventLine:hover {
+  color: var(--text-secondary);
+}
+
+.eventDot {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  min-width: 20px;
+}
+
+.eventText {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.eventArrow {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.expandedShared {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 4px;
+  opacity: 0.75;
+}
+
 .inputBar {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 10px 16px;
+  align-items: center;
+  padding: 8px 16px;
   background: var(--bg-input);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
@@ -78,7 +179,7 @@
 
 .inputInner {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   max-width: var(--content-width);
   margin: 0 auto;
@@ -105,8 +206,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
   background: var(--bg-hover);
   border-color: var(--border);

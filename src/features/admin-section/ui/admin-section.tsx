@@ -62,7 +62,7 @@ export const AdminSection = () => {
       </div>
 
       {isDev && (
-        <button className={styles.row} onClick={() => router.push("/")}>
+        <button className={styles.row} onClick={() => router.push("/admin/builder")}>
           <CodeOutlined className={styles.rowIcon} />
           <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
         </button>

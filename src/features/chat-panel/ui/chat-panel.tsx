@@ -27,6 +27,8 @@ export interface IMessage {
 interface IChatPanelProps {
   messages: IMessage[];
   placeholder?: string;
+  disabled?: boolean;
+  disabledText?: string;
 }
 
 function groupMessages(messages: IMessage[]) {
@@ -67,7 +69,7 @@ function groupMessages(messages: IMessage[]) {
   return result;
 }
 
-export const ChatPanel = ({ messages, placeholder }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder, disabled, disabledText }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -158,13 +160,17 @@ export const ChatPanel = ({ messages, placeholder }: IChatPanelProps) => {
         </div>
       </div>
       <div className={styles.inputBar}>
+        {disabled && disabledText && (
+          <div className={styles.devBanner}>{disabledText}</div>
+        )}
         <div className={styles.inputInner}>
           <Input.TextArea
             placeholder={placeholder || t("chat.placeholder")}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className={styles.input}
+            disabled={disabled}
           />
-          <Button type="default" icon={<SendOutlined />} className={styles.sendBtn} />
+          <Button type="default" icon={<SendOutlined />} className={styles.sendBtn} disabled={disabled} />
         </div>
       </div>
     </div>

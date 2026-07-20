@@ -70,7 +70,8 @@
     "copy": "Copy",
     "share": "Share",
     "copied": "Copied",
-    "placeholderEmpty": "Game chat with the master and players will be here"
+    "placeholderEmpty": "Game chat with the master and players will be here",
+    "devModeDisabled": "Game chat is unavailable — the master is being edited"
   },
   "tabs": {
     "commonChat": "Game Chat",
@@ -151,7 +152,7 @@
   "mode": {
     "adminSection": "Admin Panel",
     "users": "Users",
-    "builderChat": "Builder Chat",
+    "builderChat": "Setup AI Master",
     "btnToDev": "Edit Master",
     "btnToGame": "Start Game",
     "hintToDev": "Switch to editing mode",

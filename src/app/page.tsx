@@ -18,8 +18,10 @@ export default async function Home() {
     redirect("/login");
   }
 
+  const activeGame = await getActiveGame();
+  const isDev = activeGame?.mode === "development";
+
   if (session.role === "player") {
-    const activeGame = await getActiveGame();
     if (!activeGame) {
       redirect("/api/logout?redirect=/login");
     }
@@ -34,7 +36,7 @@ export default async function Home() {
 
   return (
     <Shell user={session}>
-      <ChatGamePlaceholder />
+      <ChatGamePlaceholder disabled={isDev} />
     </Shell>
   );
 }

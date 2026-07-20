@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
-import { GameSelector } from "@/src/features/game-selector";
+import { GameSelector, GameSelectorCollapsed } from "@/src/features/game-selector";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
@@ -110,6 +110,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
     return (
       <Fragment>
         <div className={styles.collapsed}>
+          <GameSelectorCollapsed isAdmin={isAdmin} onGameChange={onGameChange || (() => {})} />
           <button className={styles.collapsedBtn} onClick={onToggle}>
             <MenuUnfoldOutlined />
           </button>
@@ -137,7 +138,6 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
       <div className={styles.sidebar}>
         <div className={styles.header}>
           <div className={styles.headerInfo}>
-            <span className={styles.logo}>{t("sidebar.logo")}</span>
             <GameSelector isAdmin={isAdmin} onGameChange={onGameChange || (() => {})} />
           </div>
         <Tooltip title={t("sidebar.collapse")} placement="right">

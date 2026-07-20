@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Tooltip } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { useCurrentGame } from "@/src/shared/api/admin/use-current-game";
 import { GamesManagerModal } from "./games-manager-modal";
@@ -17,25 +18,70 @@ export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
   const { data: current } = useCurrentGame();
   const [modalOpen, setModalOpen] = useState(false);
 
+  const name = current?.name || t("gameSelector.noGame");
+  const firstLetter = name.charAt(0).toUpperCase();
+
   if (!isAdmin) {
     return (
-      <div className={styles.selector}>
-        <div className={`${styles.trigger} ${styles.readonly} ${!current?.id ? styles.triggerEmpty : ""}`}>
-          <span className={styles.label}>{current?.name || t("gameSelector.noGame")}</span>
-        </div>
-      </div>
+      <span className={styles.title} title={name}>
+        {name}
+      </span>
     );
   }
 
   return (
     <>
-      <div className={styles.selector}>
-        <button className={`${styles.trigger} ${!current?.id ? styles.triggerEmpty : ""}`} onClick={() => setModalOpen(true)}>
-          <span className={styles.label}>{current?.name || t("gameSelector.chooseGame")}</span>
-          <DownOutlined className={styles.arrow} />
+      <Tooltip title={t("gameSelector.manageGames")} placement="right">
+        <button
+          className={styles.titleBtn}
+          onClick={() => setModalOpen(true)}
+          aria-label={t("gameSelector.manageGames")}
+        >
+          <span className={styles.titleText}>{name}</span>
+          <DownOutlined className={styles.titleIcon} />
         </button>
-      </div>
-      <GamesManagerModal open={modalOpen} onClose={() => { setModalOpen(false); onGameChange(); }} onGameChanged={onGameChange} />
+      </Tooltip>
+      <GamesManagerModal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); onGameChange(); }}
+        onGameChanged={onGameChange}
+      />
+    </>
+  );
+};
+
+export const GameSelectorCollapsed = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
+  const { t } = useTranslation();
+  const { data: current } = useCurrentGame();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const name = current?.name || t("gameSelector.noGame");
+  const firstLetter = name.charAt(0).toUpperCase();
+
+  if (!isAdmin) {
+    return (
+      <Tooltip title={name} placement="right">
+        <span className={styles.collapsedLetter}>{firstLetter}</span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <>
+      <Tooltip title={`${name} — ${t("gameSelector.manageGames")}`} placement="right">
+        <button
+          className={styles.collapsedBtn}
+          onClick={() => setModalOpen(true)}
+          aria-label={t("gameSelector.manageGames")}
+        >
+          {firstLetter}
+        </button>
+      </Tooltip>
+      <GamesManagerModal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); onGameChange(); }}
+        onGameChanged={onGameChange}
+      />
     </>
   );
 };

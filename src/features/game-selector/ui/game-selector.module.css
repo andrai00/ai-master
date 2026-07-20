@@ -1,53 +1,92 @@
-.selector {
-  margin-top: 4px;
-}
-
-.trigger {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 11px;
-  font-family: inherit;
-  width: 100%;
-  transition: color 0.15s, background 0.15s;
-}
-
-.triggerEmpty {
-  color: #d4756b;
-  background: rgba(212, 117, 107, 0.08);
-}
-
-.trigger:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
-}
-
-.triggerEmpty:hover {
-  color: #d4756b;
-  background: rgba(212, 117, 107, 0.15);
-}
-
-.readonly {
-  cursor: default;
-}
-
-.label {
-  flex: 1;
-  min-width: 0;
+.title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: left;
 }
 
-.arrow {
-  font-size: 8px;
+.titleBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  margin: -3px -8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.titleBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-dim);
+}
+
+.titleText {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.titleIcon {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.5;
   flex-shrink: 0;
-  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.titleBtn:hover .titleIcon {
+  opacity: 1;
+}
+
+.collapsedLetter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+
+.collapsedBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.collapsedBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-dim);
 }

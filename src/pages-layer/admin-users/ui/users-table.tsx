@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Checkbox, Tooltip } from "antd";
+import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Checkbox, Tooltip, Popover } from "antd";
 import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -91,20 +91,50 @@ export const UsersTable = () => {
       ),
     },
     { title: t("admin.gamesCol"), key: "games", responsive: ["lg"],
-      render: (_: unknown, record) => (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {record.games.map((g) => (
-            <span key={g.id} title={g.name} style={{
-              display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",
-              background: g.isCurrent ? "var(--bg-active)" : "transparent",
-              border: `1px solid ${g.isCurrent ? "var(--text-dim)" : "var(--border)"}`,
-              color: g.isCurrent ? "var(--text-primary)" : "var(--text-dim)",
-              maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{g.name}</span>
-          ))}
-          {record.games.length === 0 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>}
-        </div>
-      ),
+      render: (_: unknown, record) => {
+        const sorted = [...record.games].sort((a, b) => (b.isCurrent ? 1 : 0) - (a.isCurrent ? 1 : 0));
+        const visible = sorted.slice(0, 3);
+        const overflow = sorted.slice(3);
+
+        return (
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {visible.map((g) => (
+              <span key={g.id} title={g.name} style={{
+                display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",
+                background: g.isCurrent ? "var(--bg-active)" : "transparent",
+                border: `1px solid ${g.isCurrent ? "var(--text-dim)" : "var(--border)"}`,
+                color: g.isCurrent ? "var(--text-primary)" : "var(--text-dim)",
+                maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{g.name}</span>
+            ))}
+            {overflow.length > 0 && (
+              <Popover
+                content={(
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
+                    {overflow.map((g) => (
+                      <span key={g.id} title={g.name} style={{
+                        display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",
+                        border: "1px solid var(--border)", color: "var(--text-dim)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{g.name}</span>
+                    ))}
+                  </div>
+                )}
+                trigger="click"
+                trigger="click"
+              >
+                <span style={{
+                  display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",
+                  border: "1px solid var(--border)", color: "var(--text-dim)", cursor: "pointer",
+                }}>
+                  +{overflow.length}
+                </span>
+              </Popover>
+            )}
+            {sorted.length === 0 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>}
+          </div>
+        );
+      },
     },
     { title: "", key: "actions", width: 80, align: "right" as const,
       render: (_: unknown, record) => (

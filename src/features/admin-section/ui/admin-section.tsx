@@ -1,11 +1,14 @@
 "use client";
 
 import { Button, App, Tooltip } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined } from "@ant-design/icons";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
 import { useSetMasterMode } from "@/src/shared/api/admin/use-set-master-mode";
+import { ImportMasterModal } from "./import-master-modal";
+import { ExportMasterModal } from "./export-master-modal";
 import styles from "./admin-section.module.css";
 
 export const AdminSection = () => {
@@ -16,6 +19,8 @@ export const AdminSection = () => {
   const setModeMutation = useSetMasterMode();
 
   const isDev = modeData?.mode === "development";
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const handleToggle = () => {
     const newMode = isDev ? "game" : "development";
@@ -62,11 +67,23 @@ export const AdminSection = () => {
       </div>
 
       {isDev && (
-        <button className={styles.row} onClick={() => router.push("/admin/builder")}>
-          <CodeOutlined className={styles.rowIcon} />
-          <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
-        </button>
+        <>
+          <button className={styles.row} onClick={() => router.push("/admin/builder")}>
+            <CodeOutlined className={styles.rowIcon} />
+            <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
+          </button>
+          <button className={styles.row} onClick={() => setImportOpen(true)}>
+            <ImportOutlined className={styles.rowIcon} />
+            <span className={styles.rowLabel}>{t("mode.importMaster")}</span>
+          </button>
+          <button className={styles.row} onClick={() => setExportOpen(true)}>
+            <ExportOutlined className={styles.rowIcon} />
+            <span className={styles.rowLabel}>{t("mode.exportMaster")}</span>
+          </button>
+        </>
       )}
+      <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
 };

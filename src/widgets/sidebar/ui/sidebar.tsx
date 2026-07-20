@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
 import { GameSelector, GameSelectorCollapsed } from "@/src/features/game-selector";
+import { AdminSection } from "@/src/features/admin-section";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
@@ -148,6 +149,8 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         </div>
 
         <ChatNav />
+
+        {isAdmin && <AdminSection />}
 
         <div className={styles.divider} />
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { UserAddOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -19,15 +18,7 @@ interface ITreeItem {
   route?: string;
 }
 
-const treeSections: ITreeSection[] = [
-  {
-    labelKey: "fileTree.adminPanel",
-    adminOnly: true,
-    items: [
-      { key: "admin-users", icon: <UserAddOutlined />, labelKey: "fileTree.adminUsers", route: "/admin/users" },
-    ],
-  },
-];
+const treeSections: ITreeSection[] = [];
 
 interface IFileTreeProps {
   isAdmin?: boolean;
@@ -46,10 +37,9 @@ export const FileTree = ({ isAdmin }: IFileTreeProps) => {
 
   return (
     <div className={styles.tree}>
-      {visibleSections.map((section, idx) => (
+      {visibleSections.map((section) => (
         <div key={section.labelKey} className={styles.section}>
-          {section.adminOnly && idx > 0 && <div className={styles.adminDivider} />}
-          <div className={`${styles.sectionHeader} ${section.adminOnly ? styles.adminHeader : ""}`}>
+          <div className={styles.sectionHeader}>
             {t(section.labelKey)}
           </div>
           {section.items.map((item) => (

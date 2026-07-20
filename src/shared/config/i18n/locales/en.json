@@ -147,5 +147,21 @@
     "deleteWarn": "All game data (sessions, documents, chats) will be permanently deleted.",
     "deleteOk": "Delete",
     "noGames": "No games created"
+  },
+  "mode": {
+    "adminSection": "Admin Panel",
+    "users": "Users",
+    "btnToDev": "Edit Master",
+    "btnToGame": "Start Game",
+    "hintToDev": "Switch to editing mode",
+    "hintToGame": "Return to game mode",
+    "titleToDev": "Enter editing mode?",
+    "titleToGame": "Return to game?",
+    "confirmToDev": "Players will lose access to chats and files while you edit the master.",
+    "confirmToGame": "Players will see their data again. Builder will create a change summary.",
+    "okToDev": "Edit",
+    "okToGame": "Start",
+    "switchedToDev": "Editing mode enabled",
+    "switchedToGame": "Game mode enabled"
   }
 }

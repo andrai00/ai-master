@@ -9,7 +9,9 @@ import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "./the
 import "@/src/shared/config/i18n";
 
 const darkTokens = {
-  colorPrimary: "#a0a0a0",
+  colorPrimary: "#5a5a5a",
+  colorPrimaryHover: "#6e6e6e",
+  colorPrimaryActive: "#4a4a4a",
   colorPrimaryBg: "#2a2a2a",
   colorBgContainer: "#1e1e1e",
   colorBgElevated: "#242424",
@@ -22,7 +24,9 @@ const darkTokens = {
 };
 
 const lightTokens = {
-  colorPrimary: "#555555",
+  colorPrimary: "#3a3a3a",
+  colorPrimaryHover: "#4a4a4a",
+  colorPrimaryActive: "#555555",
   colorPrimaryBg: "#f0f0f0",
   colorBgContainer: "#ffffff",
   colorBgElevated: "#ffffff",

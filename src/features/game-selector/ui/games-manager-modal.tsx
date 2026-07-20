@@ -84,7 +84,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
       title: t("gameSelector.nameCol"), key: "name",
       render: (_: unknown, record) => {
         if (editId === record.id) {
-          return <Input size="small" value={editName} onChange={(e) => setEditName(e.target.value)} onPressEnter={handleSaveEdit} onBlur={handleSaveEdit} autoFocus />;
+          return <Input size="small" value={editName} onChange={(e) => setEditName(e.target.value)} onPressEnter={handleSaveEdit} onBlur={handleSaveEdit} autoFocus autoComplete="off" />;
         }
         return <span style={{ fontWeight: record.isCurrent ? 600 : 400 }}>{record.name}</span>;
       },
@@ -112,7 +112,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 4, justifyContent: "space-between" }}>
           {showSearch ? (
-            <Input size="small" placeholder={t("gameSelector.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)}
+            <Input size="small" placeholder={t("gameSelector.searchPlaceholder")} value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off"
               allowClear autoFocus style={{ flex: 1 }} onBlur={() => { if (!search) setShowSearch(false); }} />
           ) : (
             <div />
@@ -133,7 +133,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
 
         <Modal title={t("gameSelector.newGame")} open={createOpen} onCancel={() => setCreateOpen(false)}
           onOk={handleCreate} confirmLoading={createMutation.isPending} okText={t("gameSelector.create")} cancelText={t("gameSelector.cancel")} centered>
-          <Input placeholder={t("gameSelector.namePlaceholder")} value={newName} onChange={(e) => setNewName(e.target.value)} onPressEnter={handleCreate} style={{ marginTop: 8 }} />
+          <Input placeholder={t("gameSelector.namePlaceholder")} value={newName} onChange={(e) => setNewName(e.target.value)} onPressEnter={handleCreate} style={{ marginTop: 8 }} autoComplete="off" />
         </Modal>
       </div>
     </Modal>

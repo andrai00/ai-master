@@ -146,7 +146,7 @@ export const UsersTable = () => {
         onOk={handleEdit} confirmLoading={editMutation.isPending}
         okText={t("common.save")} cancelText={t("gameSelector.cancel")} centered>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} autoComplete="off" /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.passwordHint")}</div><Input.Password value={editPw} onChange={(e) => setEditPw(e.target.value)} /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.roleCol")}</div>
             <Select value={editRole} onChange={setEditRole} style={{ width: "100%" }} options={[{ value: "admin", label: t("admin.roleAdmin") }, { value: "player", label: t("admin.rolePlayer") }]} /></div>

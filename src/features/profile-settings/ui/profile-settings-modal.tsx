@@ -55,7 +55,7 @@ export const ProfileSettingsModal = ({
 
         <div style={{ width: "100%" }}>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.displayName")}</div>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </div>
 
         <Button type="primary" loading={updateProfile.isPending} onClick={handleSave} block style={{ marginTop: 4 }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Space, Checkbox } from "antd";
+import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Checkbox, Tooltip } from "antd";
 import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -92,7 +92,7 @@ export const UsersTable = () => {
     },
     { title: t("admin.gamesCol"), key: "games", responsive: ["lg"],
       render: (_: unknown, record) => (
-        <Space size={4} wrap>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {record.games.map((g) => (
             <span key={g.id} title={g.name} style={{
               display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",
@@ -103,20 +103,24 @@ export const UsersTable = () => {
             }}>{g.name}</span>
           ))}
           {record.games.length === 0 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>}
-        </Space>
+        </div>
       ),
     },
-    { title: "", key: "actions", width: 80,
+    { title: "", key: "actions", width: 80, align: "right" as const,
       render: (_: unknown, record) => (
-        <Space size={4}>
-          <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+        <span style={{ display: "inline-flex", gap: 2, justifyContent: "flex-end" }}>
+          <Tooltip title={t("admin.editUser")}>
+            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+          </Tooltip>
           {record.role !== "admin" && (
-            <Popconfirm title={t("admin.deleteConfirm")} onConfirm={() => handleDelete(record.id)}
-              okText={t("admin.yes")} cancelText={t("admin.no")}>
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
+            <Tooltip title={t("admin.deleteConfirm")}>
+              <Popconfirm title={t("admin.deleteConfirm")} onConfirm={() => handleDelete(record.id)}
+                okText={t("admin.yes")} cancelText={t("admin.no")}>
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            </Tooltip>
           )}
-        </Space>
+        </span>
       ),
     },
   ];
@@ -128,7 +132,7 @@ export const UsersTable = () => {
         <Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>
       </div>
       <Table dataSource={users} columns={columns} rowKey="id" loading={isLoading}
-        pagination={false} size="middle" scroll={{ x: "max-content" }}
+        pagination={{ size: "small", pageSize: 10, hideOnSinglePage: true }} size="middle" scroll={{ x: "max-content" }}
         locale={{ emptyText: t("admin.noUsers") }}
         onRow={(record) => ({ style: record.inCurrentGame ? undefined : { opacity: 0.45 } })} />
       <Modal title={t("admin.createPlayer")} open={createOpen} onCancel={() => setCreateOpen(false)}

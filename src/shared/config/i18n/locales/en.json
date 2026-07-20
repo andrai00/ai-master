@@ -140,6 +140,7 @@
     "create": "Create",
     "cancel": "Cancel",
     "switch": "Switch to",
+    "rename": "Rename",
     "switched": "Game switched",
     "deleted": "Game deleted",
     "deleteConfirm": "Delete game?",

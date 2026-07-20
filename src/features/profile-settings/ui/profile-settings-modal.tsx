@@ -4,11 +4,9 @@ import { Modal, Input, Button, App, Upload, Popconfirm } from "antd";
 import { CameraOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useUpdateProfile } from "@/src/shared/api/profile/use-update-profile";
+import { useChangePassword } from "@/src/shared/api/profile/use-change-password";
 import type { RcFile } from "antd/es/upload";
-import {
-  updateProfileAction,
-  changePasswordAction,
-} from "@/src/shared/actions/profile/update-profile";
 
 interface IProfileSettingsProps {
   open: boolean;
@@ -30,20 +28,19 @@ export const ProfileSettingsModal = ({
   const { t } = useTranslation();
   const [name, setName] = useState(currentName);
   const [avatar, setAvatar] = useState(currentAvatar);
-  const [saving, setSaving] = useState(false);
   const { notification } = App.useApp();
+  const updateProfile = useUpdateProfile();
 
-  const handleSave = async () => {
-    setSaving(true);
-    const result = await updateProfileAction(name, avatar);
-    setSaving(false);
-    if (result.success) {
-      onProfileUpdated(result.displayName || name, avatar);
-      notification.success({ title: t("profileModal.profileUpdated") });
-      onClose();
-    } else {
-      notification.error({ title: result.error });
-    }
+  const handleSave = () => {
+    updateProfile.mutate({ name, avatar }, {
+      onSuccess: (result) => {
+        if (result.success) {
+          onProfileUpdated(result.displayName || name, avatar);
+          notification.success({ title: t("profileModal.profileUpdated") });
+          onClose();
+        }
+      },
+    });
   };
 
   return (
@@ -61,7 +58,7 @@ export const ProfileSettingsModal = ({
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </div>
 
-        <Button type="primary" loading={saving} onClick={handleSave} block style={{ marginTop: 4 }}>
+        <Button type="primary" loading={updateProfile.isPending} onClick={handleSave} block style={{ marginTop: 4 }}>
           {t("common.save")}
         </Button>
 
@@ -186,24 +183,21 @@ function PasswordChangeModal() {
   const [open, setOpen] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
-  const [loading, setLoading] = useState(false);
+  const changePassword = useChangePassword();
 
-  const handleChange = async () => {
+  const handleChange = () => {
     if (newPw !== confirmPw) {
       notification.error({ title: t("profileModal.passwordMismatch") });
       return;
     }
-    setLoading(true);
-    const result = await changePasswordAction(newPw);
-    setLoading(false);
-    if (result.success) {
-      notification.success({ title: t("profileModal.passwordChanged") });
-      setNewPw("");
-      setConfirmPw("");
-      setOpen(false);
-    } else {
-      notification.error({ title: result.error });
-    }
+    changePassword.mutate(newPw, {
+      onSuccess: (result) => {
+        if (result.success) {
+          notification.success({ title: t("profileModal.passwordChanged") });
+          setNewPw(""); setConfirmPw(""); setOpen(false);
+        }
+      },
+    });
   };
 
   return (
@@ -214,7 +208,7 @@ function PasswordChangeModal() {
         open={open}
         onCancel={() => setOpen(false)}
         onOk={handleChange}
-        confirmLoading={loading}
+        confirmLoading={changePassword.isPending}
         okText={t("profileModal.changePassword")}
         cancelText={t("common.cancel")}
         centered

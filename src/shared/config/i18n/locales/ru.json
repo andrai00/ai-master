@@ -151,6 +151,7 @@
   "mode": {
     "adminSection": "Админ панель",
     "users": "Пользователи",
+    "builderChat": "Чат с Builder",
     "btnToDev": "Редактировать мастера",
     "btnToGame": "Запустить игру",
     "hintToDev": "Перейти в режим редактирования",

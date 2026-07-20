@@ -19,6 +19,7 @@ import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
 import { GameSelector, GameSelectorCollapsed } from "@/src/features/game-selector";
 import { AdminSection } from "@/src/features/admin-section";
+import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
@@ -83,6 +84,8 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   ];
 
   const isAdmin = user?.role === "admin";
+  const { data: modeData } = isAdmin ? useActiveMode() : { data: null };
+  const isDev = modeData?.mode === "development";
   const baseAvatarUrl = user ? `/api/avatar/${user.userId}` : "";
   const avatarUrl = baseAvatarUrl ? `${baseAvatarUrl}?v=${avatarVersion}` : "";
   const name = displayName;
@@ -115,7 +118,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
           <button className={styles.collapsedBtn} onClick={onToggle}>
             <MenuUnfoldOutlined />
           </button>
-          <ChatNav collapsed />
+          <ChatNav collapsed isDev={isDev} />
           <div className={styles.collapsedDivider} />
           <Tooltip title={t("sidebar.expand")} placement="right">
             <button className={styles.collapsedIcon} onClick={onToggle}>
@@ -148,7 +151,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         </Tooltip>
         </div>
 
-        <ChatNav />
+        <ChatNav isDev={isDev} />
 
         {isAdmin && <AdminSection />}
 

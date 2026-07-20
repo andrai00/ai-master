@@ -12,17 +12,22 @@ export interface IChatNavItem {
   labelKey: string;
 }
 
-const items: IChatNavItem[] = [
+const allItems: IChatNavItem[] = [
   { key: "common", icon: <CommentOutlined />, labelKey: "sidebar.chatGame" },
   { key: "personal", icon: <MessageOutlined />, labelKey: "sidebar.chatMaster" },
 ];
 
 interface IChatNavProps {
   collapsed?: boolean;
+  isDev?: boolean;
 }
 
-export const ChatNav = ({ collapsed }: IChatNavProps) => {
+export const ChatNav = ({ collapsed, isDev }: IChatNavProps) => {
   const { t } = useTranslation();
+
+  const items = isDev
+    ? allItems.filter((i) => i.key !== "personal")
+    : allItems;
 
   if (collapsed) {
     return (

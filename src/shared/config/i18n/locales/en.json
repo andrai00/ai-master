@@ -151,6 +151,7 @@
   "mode": {
     "adminSection": "Admin Panel",
     "users": "Users",
+    "builderChat": "Builder Chat",
     "btnToDev": "Edit Master",
     "btnToGame": "Start Game",
     "hintToDev": "Switch to editing mode",

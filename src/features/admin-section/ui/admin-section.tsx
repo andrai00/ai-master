@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, App, Tooltip } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
@@ -60,6 +60,13 @@ export const AdminSection = () => {
           </Button>
         </Tooltip>
       </div>
+
+      {isDev && (
+        <button className={styles.row} onClick={() => router.push("/")}>
+          <CodeOutlined className={styles.rowIcon} />
+          <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
+        </button>
+      )}
     </div>
   );
 };

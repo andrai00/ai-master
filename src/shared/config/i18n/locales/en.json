@@ -130,11 +130,21 @@
   "gameSelector": {
     "createGame": "Create Game",
     "newGame": "New Game",
+    "manageGames": "Manage Games",
     "chooseGame": "Select a game",
     "noGame": "No game selected",
     "current": "active",
     "namePlaceholder": "Game name",
+    "searchPlaceholder": "Search...",
+    "nameCol": "Name",
     "create": "Create",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "switch": "Switch to",
+    "switched": "Game switched",
+    "deleted": "Game deleted",
+    "deleteConfirm": "Delete game?",
+    "deleteWarn": "All game data (sessions, documents, chats) will be permanently deleted.",
+    "deleteOk": "Delete",
+    "noGames": "No games created"
   }
 }

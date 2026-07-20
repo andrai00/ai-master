@@ -130,11 +130,21 @@
   "gameSelector": {
     "createGame": "Создать игру",
     "newGame": "Новая игра",
+    "manageGames": "Управление играми",
     "chooseGame": "Выберите игру",
     "noGame": "Игра не выбрана",
     "current": "текущая",
     "namePlaceholder": "Название игры",
+    "searchPlaceholder": "Поиск...",
+    "nameCol": "Название",
     "create": "Создать",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "switch": "Переключиться",
+    "switched": "Игра переключена",
+    "deleted": "Игра удалена",
+    "deleteConfirm": "Удалить игру?",
+    "deleteWarn": "Все данные игры (сессии, документы, чаты) будут удалены безвозвратно.",
+    "deleteOk": "Удалить",
+    "noGames": "Нет созданных игр"
   }
 }

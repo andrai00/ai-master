@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export interface IGameItem {
   id: string;
@@ -15,6 +16,8 @@ export async function listGamesAction(): Promise<IGameItem[]> {
   if (!session) return [];
 
   const prisma = getPrisma();
+  const activeGame = await getActiveGame();
+
   const games = await prisma.master.findMany({
     where: {
       OR: [
@@ -22,10 +25,14 @@ export async function listGamesAction(): Promise<IGameItem[]> {
         { access: { some: { userId: session.userId } } },
       ],
     },
-    select: { id: true, name: true, description: true, isCurrent: true },
+    select: { id: true, name: true, description: true },
     orderBy: { createdAt: "asc" },
   });
-  return games;
+
+  return games.map((g) => ({
+    ...g,
+    isCurrent: activeGame ? g.id === activeGame.currentMasterId : false,
+  }));
 }
 
 export async function getCurrentGameAction(): Promise<IGameItem | null> {
@@ -33,17 +40,23 @@ export async function getCurrentGameAction(): Promise<IGameItem | null> {
   if (!session) return null;
 
   const prisma = getPrisma();
+  const activeGame = await getActiveGame();
+  if (!activeGame) return null;
+
   const game = await prisma.master.findFirst({
     where: {
-      isCurrent: true,
+      id: activeGame.currentMasterId,
       OR: [
         { ownerId: session.userId },
         { access: { some: { userId: session.userId } } },
       ],
     },
-    select: { id: true, name: true, description: true, isCurrent: true },
+    select: { id: true, name: true, description: true },
   });
-  return game;
+
+  if (!game) return null;
+
+  return { ...game, isCurrent: true };
 }
 
 export async function createGameAction(

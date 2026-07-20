@@ -20,15 +20,21 @@ export async function GET() {
         if (closed) return;
         try {
           const prisma = getPrisma();
-          const game = await prisma.master.findFirst({ where: { isCurrent: true } });
-          if (!game) {
+          const activeGame = await prisma.activeGame.findUnique({
+            where: { id: "singleton" },
+            select: { currentMasterId: true },
+          });
+
+          if (!activeGame) {
             controller.enqueue(encoder.encode("data: kick\n\n"));
             controller.close();
             return;
           }
+
           const hasAccess =
-            game.ownerId === session.userId ||
-            (await prisma.gameAccess.count({ where: { userId: session.userId, masterId: game.id } })) > 0;
+            (await prisma.gameAccess.count({
+              where: { userId: session.userId, masterId: activeGame.currentMasterId },
+            })) > 0;
           if (!hasAccess) {
             controller.enqueue(encoder.encode("data: kick\n\n"));
             controller.close();

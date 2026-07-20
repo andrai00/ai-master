@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { verifyPassword } from "@/src/shared/lib/auth/password";
 import { createSessionToken, setSessionCookie } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export async function loginAction(
   login: string,
@@ -19,11 +20,10 @@ export async function loginAction(
   }
 
   if (user.role === "player") {
-    const game = await prisma.master.findFirst({ where: { isCurrent: true } });
-    if (!game) return { success: false, error: "Администратор ещё не выбрал активную игру" };
+    const activeGame = await getActiveGame();
+    if (!activeGame) return { success: false, error: "Администратор ещё не настроил игру" };
     const hasAccess =
-      game.ownerId === user.id ||
-      (await prisma.gameAccess.count({ where: { userId: user.id, masterId: game.id } })) > 0;
+      (await prisma.gameAccess.count({ where: { userId: user.id, masterId: activeGame.currentMasterId } })) > 0;
     if (!hasAccess) return { success: false, error: "У вас нет доступа к текущей игре" };
   }
 

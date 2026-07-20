@@ -24,10 +24,11 @@ model Master {
   ownerId     String
   name        String
   description String?
-  isCurrent   Boolean      @default(false)
+  mode        String       @default("development")
   createdAt   DateTime     @default(now())
   owner       User         @relation("MasterOwner", fields: [ownerId], references: [id])
   access      GameAccess[]
+  activeGame  ActiveGame[]
 }
 
 model GameAccess {
@@ -39,4 +40,10 @@ model GameAccess {
   master    Master   @relation(fields: [masterId], references: [id])
 
   @@unique([userId, masterId])
+}
+
+model ActiveGame {
+  id              String @id @default("singleton")
+  currentMasterId String
+  master          Master @relation(fields: [currentMasterId], references: [id])
 }

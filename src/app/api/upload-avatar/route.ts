@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
-import fs from "fs";
-import path from "path";
+import { getPrisma } from "@/src/shared/lib/db/prisma";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -14,15 +13,15 @@ export async function POST(request: Request) {
   if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
   if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Only images allowed" }, { status: 400 });
 
-  const dir = path.join(process.cwd(), "data", "avatars");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-  const ext = file.type.split("/")[1] || "png";
-  const filename = `${session.userId}.${ext}`;
-  const filepath = path.join(dir, filename);
-
   const buffer = Buffer.from(await file.arrayBuffer());
-  fs.writeFileSync(filepath, buffer);
+  const base64 = buffer.toString("base64");
+  const dataUri = `data:${file.type};base64,${base64}`;
 
-  return NextResponse.json({ avatarPath: `/api/avatar/${filename}` });
+  const prisma = getPrisma();
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { avatar: dataUri },
+  });
+
+  return NextResponse.json({ avatarPath: `/api/avatar/${session.userId}` });
 }

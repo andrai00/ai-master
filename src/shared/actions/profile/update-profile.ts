@@ -5,8 +5,7 @@ import { getSession, createSessionToken, setSessionCookie } from "@/src/shared/l
 import { hashPassword } from "@/src/shared/lib/auth/password";
 
 export async function updateProfileAction(
-  displayName: string,
-  avatar: string
+  displayName: string
 ): Promise<{ success: boolean; error?: string; displayName?: string }> {
   const session = await getSession();
   if (!session) return { success: false, error: "Не авторизован" };
@@ -17,7 +16,7 @@ export async function updateProfileAction(
   const prisma = getPrisma();
   await prisma.user.update({
     where: { id: session.userId },
-    data: { displayName: newDisplayName, avatar },
+    data: { displayName: newDisplayName },
   });
 
   const newToken = await createSessionToken({

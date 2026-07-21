@@ -32,7 +32,7 @@ export const ProfileSettingsModal = ({
   const updateProfile = useUpdateProfile();
 
   const handleSave = () => {
-    updateProfile.mutate({ name, avatar }, {
+    updateProfile.mutate({ name }, {
       onSuccess: (result) => {
         if (result.success) {
           onProfileUpdated(result.displayName || name, avatar);

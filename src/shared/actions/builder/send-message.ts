@@ -29,8 +29,7 @@ export async function sendBuilderMessageAction(
     },
   });
 
-  // Ping-pong: simulate builder response
-  await new Promise((r) => setTimeout(r, 600));
+  // Ping-pong: instant echo (typing delay is client-side UI)
   const echoText = `Эхо: ${content.trim()}`;
   const builderMsg = await prisma.message.create({
     data: {

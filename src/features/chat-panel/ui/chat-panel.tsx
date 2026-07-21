@@ -42,6 +42,7 @@ interface IChatPanelProps {
   totalMessages?: number;
   onSend?: (text: string) => void;
   sending?: boolean;
+  typing?: boolean;
 }
 
 function groupMessages(messages: IMessage[]) {
@@ -82,7 +83,7 @@ function groupMessages(messages: IMessage[]) {
   return result;
 }
 
-export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, totalMessages, onSend, sending }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, totalMessages, onSend, sending, typing }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -230,6 +231,19 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
             }
             return group.messages.map(renderBubble);
           })}
+          {typing && (
+            <div className={`${styles.messageRow} ${styles.masterRow}`}>
+              <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
+              <div className={styles.msgContent}>
+                <div className={styles.sender}>Builder</div>
+                <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className={styles.inputBar}>

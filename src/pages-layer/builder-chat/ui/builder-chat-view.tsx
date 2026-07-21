@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App } from "antd";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChatPanel } from "@/src/features/chat-panel";
 import { useBuilderSession } from "@/src/shared/api/builder/use-builder-session";
 import { useBuilderMessages } from "@/src/shared/api/builder/use-builder-messages";
@@ -18,12 +19,14 @@ const PAGE_SIZE = 30;
 export const BuilderChatView = () => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState<IBuilderMessage[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [typing, setTyping] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
@@ -47,9 +50,13 @@ export const BuilderChatView = () => {
   const handleSend = useCallback(
     async (content: string) => {
       if (!sessionId) return;
+      setTyping(true);
       await sendMutation.mutateAsync({ sessionId, content });
+      await new Promise((r) => setTimeout(r, 1000));
+      queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+      setTyping(false);
     },
-    [sessionId, sendMutation]
+    [sessionId, sendMutation, queryClient]
   );
 
   const handleDelete = useCallback(
@@ -116,6 +123,7 @@ export const BuilderChatView = () => {
         totalMessages={total}
         onSend={handleSend}
         sending={sendMutation.isPending}
+        typing={typing}
       />
       <Modal
         title={t("chat.historyTitle") || "История чата"}

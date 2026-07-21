@@ -12,6 +12,7 @@ import {
   DeleteOutlined,
   HistoryOutlined,
   CodeOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -34,8 +35,10 @@ interface IChatPanelProps {
   disabled?: boolean;
   disabledText?: string;
   hideShare?: boolean;
+  title?: string;
   onDelete?: (id: string) => void;
   onHistoryClick?: () => void;
+  onClearChat?: () => void;
   totalMessages?: number;
   onSend?: (text: string) => void;
   sending?: boolean;
@@ -79,7 +82,7 @@ function groupMessages(messages: IMessage[]) {
   return result;
 }
 
-export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, onDelete, onHistoryClick, totalMessages, onSend, sending }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, totalMessages, onSend, sending }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -175,6 +178,32 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
 
   return (
     <div className={styles.panel}>
+      {(title || onHistoryClick) && (
+        <div className={styles.header}>
+          <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>
+          <div className={styles.headerActions}>
+            {onClearChat && (
+              <Popconfirm
+                title={t("chat.clearConfirm") || "Очистить чат?"}
+                description={t("chat.clearDesc") || "Все сообщения и саммари будут удалены"}
+                onConfirm={onClearChat}
+                okText={t("chat.clear") || "Очистить"}
+                cancelText={t("common.cancel")}
+                placement="bottomRight"
+              >
+                <Tooltip title={t("chat.clearChat") || "Очистить чат"} placement="bottom">
+                  <Button type="text" size="small" icon={<ClearOutlined />} className={styles.headerBtn} />
+                </Tooltip>
+              </Popconfirm>
+            )}
+            {onHistoryClick && (
+              <Tooltip title={t("chat.showFullHistory") || "Показать всю историю"} placement="bottom">
+                <Button type="text" size="small" icon={<HistoryOutlined />} onClick={onHistoryClick} className={styles.headerBtn} />
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      )}
       <div className={styles.inner} ref={scrollRef}>
         <div className={styles.messages}>
           {grouped.map((group) => {
@@ -206,19 +235,6 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
       <div className={styles.inputBar}>
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
-        )}
-        {onHistoryClick && totalMessages !== undefined && totalMessages > messages.length && (
-          <div className={styles.historyBar}>
-            <Button
-              type="text"
-              size="small"
-              icon={<HistoryOutlined />}
-              onClick={onHistoryClick}
-              className={styles.historyBtn}
-            >
-              {t("chat.showFullHistory")} ({totalMessages})
-            </Button>
-          </div>
         )}
         <div className={styles.inputInner}>
           <Input.TextArea

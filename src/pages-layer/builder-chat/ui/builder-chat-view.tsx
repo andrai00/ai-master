@@ -8,6 +8,7 @@ import { useBuilderSession } from "@/src/shared/api/builder/use-builder-session"
 import { useBuilderMessages } from "@/src/shared/api/builder/use-builder-messages";
 import { useSendBuilderMessage } from "@/src/shared/api/builder/use-send-message";
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-message";
+import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import type { IMessage } from "@/src/features/chat-panel/ui/chat-panel";
 import type { ColumnsType } from "antd/es/table";
@@ -30,6 +31,7 @@ export const BuilderChatView = () => {
   const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
+  const clearMutation = useClearBuilderChat();
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
@@ -45,12 +47,9 @@ export const BuilderChatView = () => {
   const handleSend = useCallback(
     async (content: string) => {
       if (!sessionId) return;
-      const result = await sendMutation.mutateAsync({ sessionId, content });
-      if ("summarized" in result && result.summarized) {
-        notification.info({ title: t("chat.summaryCreated") || "Создано саммари" });
-      }
+      await sendMutation.mutateAsync({ sessionId, content });
     },
-    [sessionId, sendMutation, notification, t]
+    [sessionId, sendMutation]
   );
 
   const handleDelete = useCallback(
@@ -62,6 +61,10 @@ export const BuilderChatView = () => {
     },
     [deleteMutation, notification]
   );
+
+  const handleClear = useCallback(() => {
+    if (sessionId) clearMutation.mutate(sessionId);
+  }, [sessionId, clearMutation]);
 
   const openHistory = async () => {
     if (!sessionId) return;
@@ -105,9 +108,11 @@ export const BuilderChatView = () => {
       <ChatPanel
         messages={messages}
         placeholder={t("chat.placeholder")}
+        title={t("mode.builderChat")}
         hideShare
         onDelete={handleDelete}
         onHistoryClick={openHistory}
+        onClearChat={handleClear}
         totalMessages={total}
         onSend={handleSend}
         sending={sendMutation.isPending}

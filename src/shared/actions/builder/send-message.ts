@@ -41,37 +41,52 @@ export async function sendBuilderMessageAction(
     },
   });
 
-  // Check for auto-summarize every 3 message pairs
+  // Check for auto-summarize every 10 message pairs (20 messages)
   const msgCount = await prisma.message.count({
     where: { sessionId, summarized: false },
   });
 
   let summaryResult: { id: string; title: string } | undefined;
-  if (msgCount >= 6) {
-    // Summarize all non-summarized messages
+  if (msgCount >= 20) {
+    const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { masterId: true } });
+    const masterId = session!.masterId;
+
+    // Collect messages to summarize
     const toSummarize = await prisma.message.findMany({
       where: { sessionId, summarized: false },
       orderBy: { createdAt: "asc" },
-      take: 6,
+      take: 20,
     });
 
-    const preview = toSummarize
-      .filter((m) => m.role === "admin")
-      .slice(0, 2)
-      .map((m) => m.content.slice(0, 30))
-      .join("; ");
+    const adminMsgs = toSummarize.filter((m) => m.role === "admin");
+    const preview = adminMsgs.map((m) => m.content.slice(0, 40)).join(" | ");
 
-    // Create summary document
-    const doc = await prisma.document.create({
-      data: {
-        masterId: (await prisma.session.findUnique({ where: { id: sessionId }, select: { masterId: true } }))!.masterId,
-        title: `Самари чата — ${new Date().toLocaleString("ru")}`,
-        type: "note",
-        category: "brain",
-        content: `📋 Самари: ${preview}...`,
-        summary: preview,
-      },
+    // Find existing summary doc or create
+    const existing = await prisma.document.findFirst({
+      where: { masterId, category: "brain", type: "builder_summary" },
     });
+
+    const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
+    const newContent = `📋 Саммари чата\n\n${prevContent}🆕 ${preview}`;
+
+    let doc;
+    if (existing) {
+      doc = await prisma.document.update({
+        where: { id: existing.id },
+        data: { content: newContent, summary: preview },
+      });
+    } else {
+      doc = await prisma.document.create({
+        data: {
+          masterId,
+          title: `Саммари чата настройки`,
+          type: "builder_summary",
+          category: "brain",
+          content: newContent,
+          summary: preview,
+        },
+      });
+    }
 
     // Mark messages as summarized
     await prisma.message.updateMany({

@@ -67,6 +67,7 @@
   "chat": {
     "placeholder": "Type a message...",
     "master": "Master",
+    "gameChat": "Game Chat",
     "sharedEvent": "shared a message from private chat",
     "copy": "Copy",
     "share": "Share",
@@ -80,7 +81,11 @@
     "historyTitle": "Chat history",
     "role": "Role",
     "message": "Message",
-    "noMessages": "No messages"
+    "noMessages": "No messages",
+    "clearChat": "Clear chat",
+    "clearConfirm": "Clear chat?",
+    "clearDesc": "All messages will be deleted",
+    "clear": "Clear"
   },
   "tabs": {
     "commonChat": "Game Chat",

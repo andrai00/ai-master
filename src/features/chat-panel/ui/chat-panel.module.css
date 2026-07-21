@@ -4,6 +4,39 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  background: var(--bg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.headerBtn {
+  color: var(--text-dim);
+}
+
+.headerBtn:hover {
+  color: var(--text-primary);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .inner {
@@ -193,18 +226,6 @@
   background: rgba(212, 164, 41, 0.08);
   text-align: center;
   border-bottom: 1px solid rgba(212, 164, 41, 0.15);
-}
-
-.historyBar {
-  display: flex;
-  justify-content: center;
-  padding: 4px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.historyBtn {
-  font-size: 11px;
-  color: var(--text-dim);
 }
 
 .inputInner {

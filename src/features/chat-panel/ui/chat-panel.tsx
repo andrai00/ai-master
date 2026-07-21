@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Button, Avatar, Tooltip, App } from "antd";
+import { Input, Button, Avatar, Tooltip, App, Popconfirm } from "antd";
 import {
   SendOutlined,
   UserOutlined,
@@ -9,6 +9,9 @@ import {
   CopyOutlined,
   DownOutlined,
   RightOutlined,
+  DeleteOutlined,
+  HistoryOutlined,
+  CodeOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,12 +19,13 @@ import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
 
 export interface IMessage {
-  id: number;
+  id: string;
   sender: string;
-  role: "master" | "player";
+  role: string;
   text: ReactNode;
   avatarUrl?: string;
   shared?: boolean;
+  summarized?: boolean;
 }
 
 interface IChatPanelProps {
@@ -29,6 +33,12 @@ interface IChatPanelProps {
   placeholder?: string;
   disabled?: boolean;
   disabledText?: string;
+  hideShare?: boolean;
+  onDelete?: (id: string) => void;
+  onHistoryClick?: () => void;
+  totalMessages?: number;
+  onSend?: (text: string) => void;
+  sending?: boolean;
 }
 
 function groupMessages(messages: IMessage[]) {
@@ -69,11 +79,12 @@ function groupMessages(messages: IMessage[]) {
   return result;
 }
 
-export const ChatPanel = ({ messages, placeholder, disabled, disabledText }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, onDelete, onHistoryClick, totalMessages, onSend, sending }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [expandedEvents, setExpandedEvents] = useState<Record<number, boolean>>({});
+  const [inputValue, setInputValue] = useState("");
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -87,27 +98,43 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText }: ICh
     });
   };
 
-  const toggleEvent = (id: number) => {
+  const handleSend = () => {
+    const text = inputValue.trim();
+    if (!text || !onSend) return;
+    onSend(text);
+    setInputValue("");
+  };
+
+  const toggleEvent = (id: string) => {
     setExpandedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const getBubbleClass = (role: string) => {
+    if (role === "master" || role === "builder") return styles.masterBubble;
+    return styles.playerBubble;
+  };
+
+  const getAvatarIcon = (role: string) => {
+    if (role === "builder") return <CodeOutlined />;
+    if (role === "master") return <RobotOutlined />;
+    return <UserOutlined />;
   };
 
   const renderBubble = (msg: IMessage) => (
     <div
       key={msg.id}
-      className={`${styles.messageRow} ${msg.role === "master" ? styles.masterRow : styles.playerRow}`}
+      className={`${styles.messageRow} ${(msg.role === "master" || msg.role === "builder") ? styles.masterRow : styles.playerRow}`}
     >
       <Avatar
         size={32}
         src={msg.avatarUrl}
-        icon={msg.role === "master" ? <RobotOutlined /> : <UserOutlined />}
+        icon={getAvatarIcon(msg.role)}
         className={styles.msgAvatar}
       />
       <div className={styles.msgContent}>
         <div className={styles.sender}>{msg.sender}</div>
         <div className={styles.bubbleRow}>
-          <div
-            className={`${styles.bubble} ${msg.role === "master" ? styles.masterBubble : styles.playerBubble}`}
-          >
+          <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.text}
           </div>
           <div className={styles.actions}>
@@ -116,11 +143,28 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText }: ICh
                 <CopyOutlined />
               </button>
             </Tooltip>
-            <Tooltip title={t("chat.share")} placement="top">
-              <button className={styles.actionBtn}>
-                <ShareAltOutlined />
-              </button>
-            </Tooltip>
+            {!hideShare && (
+              <Tooltip title={t("chat.share")} placement="top">
+                <button className={styles.actionBtn}>
+                  <ShareAltOutlined />
+                </button>
+              </Tooltip>
+            )}
+            {onDelete && !msg.summarized && (
+              <Popconfirm
+                title={t("chat.deleteConfirm") || "Удалить сообщение?"}
+                onConfirm={() => onDelete(msg.id)}
+                okText={t("common.delete")}
+                cancelText={t("common.cancel")}
+                placement="top"
+              >
+                <Tooltip title={t("chat.delete") || "Удалить"} placement="top">
+                  <button className={styles.actionBtn}>
+                    <DeleteOutlined />
+                  </button>
+                </Tooltip>
+              </Popconfirm>
+            )}
           </div>
         </div>
       </div>
@@ -163,14 +207,42 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText }: ICh
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}
+        {onHistoryClick && totalMessages !== undefined && totalMessages > messages.length && (
+          <div className={styles.historyBar}>
+            <Button
+              type="text"
+              size="small"
+              icon={<HistoryOutlined />}
+              onClick={onHistoryClick}
+              className={styles.historyBtn}
+            >
+              {t("chat.showFullHistory")} ({totalMessages})
+            </Button>
+          </div>
+        )}
         <div className={styles.inputInner}>
           <Input.TextArea
             placeholder={placeholder || t("chat.placeholder")}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className={styles.input}
-            disabled={disabled}
+            disabled={disabled || sending}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onPressEnter={(e) => {
+              if (!e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
           />
-          <Button type="default" icon={<SendOutlined />} className={styles.sendBtn} disabled={disabled} />
+          <Button
+            type="default"
+            icon={<SendOutlined />}
+            className={styles.sendBtn}
+            disabled={disabled || sending}
+            loading={sending}
+            onClick={handleSend}
+          />
         </div>
       </div>
     </div>

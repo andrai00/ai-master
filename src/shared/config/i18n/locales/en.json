@@ -71,7 +71,15 @@
     "share": "Share",
     "copied": "Copied",
     "placeholderEmpty": "Game chat with the master and players will be here",
-    "devModeDisabled": "Game chat is unavailable — the master is being edited"
+    "devModeDisabled": "Game chat is unavailable — the master is being edited",
+    "delete": "Delete",
+    "deleteConfirm": "Delete message?",
+    "showFullHistory": "Show full history",
+    "summaryCreated": "Chat summary created",
+    "historyTitle": "Chat history",
+    "role": "Role",
+    "message": "Message",
+    "noMessages": "No messages"
   },
   "tabs": {
     "commonChat": "Game Chat",

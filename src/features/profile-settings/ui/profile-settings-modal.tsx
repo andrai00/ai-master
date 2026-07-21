@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Input, Button, App, Upload, Popconfirm, Avatar } from "antd";
+import { Modal, Input, Button, App, Upload, Popconfirm, Avatar, Tooltip } from "antd";
 import { CameraOutlined, DeleteOutlined, CrownOutlined, UserOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -114,46 +114,44 @@ function AvatarEditor({ userId, role, onChange }: { userId: string; role?: strin
 
   return (
     <>
-      <div
-        onClick={() => setEditorOpen(true)}
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: "50%",
-          cursor: "pointer",
-          background: "var(--bg-hover)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          position: "relative",
-          flexShrink: 0,
-        }}
-      >
-        {hasAvatar ? (
-          <>
+        <div
+          onClick={() => setEditorOpen(true)}
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            cursor: "pointer",
+            background: "var(--bg-hover)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            position: "relative",
+            flexShrink: 0,
+          }}
+        >
+          {hasAvatar ? (
             <Avatar size={72} src={avatar} style={{ flexShrink: 0 }} />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: 0,
-                transition: "opacity 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
-            >
-              <CameraOutlined style={{ color: "#fff", fontSize: 20 }} />
-            </div>
-          </>
-        ) : (
-          <Avatar size={72} icon={role === "admin" ? <CrownOutlined /> : <UserOutlined />} style={{ flexShrink: 0 }} />
-        )}
-      </div>
+          ) : (
+            <Avatar size={72} icon={role === "admin" ? <CrownOutlined /> : <UserOutlined />} style={{ flexShrink: 0 }} />
+          )}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: 0,
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
+          >
+            <CameraOutlined style={{ color: "#fff", fontSize: 20 }} />
+          </div>
+        </div>
 
       <Modal
         title={t("profileModal.avatar")}

@@ -28,6 +28,7 @@
   "profileModal": {
     "title": "Profile Settings",
     "avatar": "Avatar",
+    "changeAvatar": "Click to change avatar",
     "avatarDelete": "Delete avatar",
     "avatarDeleteConfirm": "Delete avatar?",
     "avatarDeleted": "Avatar deleted",

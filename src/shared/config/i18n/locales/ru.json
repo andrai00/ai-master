@@ -28,6 +28,7 @@
   "profileModal": {
     "title": "Настройки профиля",
     "avatar": "Аватар",
+    "changeAvatar": "Нажмите чтобы сменить аватар",
     "avatarDelete": "Удалить аватар",
     "avatarDeleteConfirm": "Удалить аватар?",
     "avatarDeleted": "Аватар удалён",

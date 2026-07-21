@@ -1,11 +1,13 @@
 "use client";
 
-import { Modal, Input, Button, App, Upload, Popconfirm } from "antd";
-import { CameraOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Modal, Input, Button, App, Upload, Popconfirm, Avatar } from "antd";
+import { CameraOutlined, DeleteOutlined, CrownOutlined, UserOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useUpdateProfile } from "@/src/shared/api/profile/use-update-profile";
 import { useChangePassword } from "@/src/shared/api/profile/use-change-password";
+import { useUserAvatar } from "@/src/shared/api/profile/use-user-avatar";
+import { useQueryClient } from "@tanstack/react-query";
 import type { RcFile } from "antd/es/upload";
 
 interface IProfileSettingsProps {
@@ -14,6 +16,8 @@ interface IProfileSettingsProps {
   currentName: string;
   currentAvatar: string;
   login: string;
+  userId: string;
+  role: string;
   onProfileUpdated: (name: string, avatar: string) => void;
 }
 
@@ -23,6 +27,8 @@ export const ProfileSettingsModal = ({
   currentName,
   currentAvatar,
   login,
+  userId,
+  role,
   onProfileUpdated,
 }: IProfileSettingsProps) => {
   const { t } = useTranslation();
@@ -46,7 +52,7 @@ export const ProfileSettingsModal = ({
   return (
     <Modal title={t("profileModal.title")} open={open} onCancel={onClose} footer={null} centered width={360}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-        <AvatarEditor avatar={avatar} onChange={setAvatar} />
+        <AvatarEditor userId={userId} role={role} onChange={setAvatar} />
 
         <div style={{ width: "100%" }}>
           <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.login")}</div>
@@ -70,10 +76,15 @@ export const ProfileSettingsModal = ({
   );
 };
 
-function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: string) => void }) {
+function AvatarEditor({ userId, role, onChange }: { userId: string; role?: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { data: currentAvatarUri } = useUserAvatar(userId);
   const [editorOpen, setEditorOpen] = useState(false);
   const { notification } = App.useApp();
+
+  const avatar = currentAvatarUri || "";
+  const hasAvatar = !!avatar;
 
   const handleUpload = async (file: RcFile) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -85,6 +96,7 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
     const res = await fetch("/api/upload-avatar", { method: "POST", body: formData });
     const data = await res.json();
     if (data.avatarPath) {
+      queryClient.invalidateQueries({ queryKey: ["avatar", userId] });
       onChange(data.avatarPath);
       setEditorOpen(false);
     } else {
@@ -96,10 +108,9 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
   const handleDelete = async () => {
     onChange("");
     await fetch("/api/delete-avatar", { method: "POST" });
+    queryClient.invalidateQueries({ queryKey: ["avatar", userId] });
     setEditorOpen(false);
   };
-
-  const hasAvatar = avatar && !avatar.includes("undefined");
 
   return (
     <>
@@ -121,7 +132,7 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
       >
         {hasAvatar ? (
           <>
-            <img src={avatar} alt="" style={{ width: 72, height: 72, objectFit: "cover" }} />
+            <Avatar size={72} src={avatar} style={{ flexShrink: 0 }} />
             <div
               style={{
                 position: "absolute",
@@ -140,7 +151,7 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
             </div>
           </>
         ) : (
-          <CameraOutlined style={{ color: "var(--text-muted)", fontSize: 24 }} />
+          <Avatar size={72} icon={role === "admin" ? <CrownOutlined /> : <UserOutlined />} style={{ flexShrink: 0 }} />
         )}
       </div>
 
@@ -154,7 +165,7 @@ function AvatarEditor({ avatar, onChange }: { avatar: string; onChange: (v: stri
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", paddingTop: 4 }}>
           {hasAvatar && (
-            <img src={avatar} alt="" style={{ width: 96, height: 96, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
+            <Avatar size={96} src={avatar} style={{ marginBottom: 8 }} />
           )}
           <Upload accept="image/*" showUploadList={false} beforeUpload={handleUpload}>
             <Button block>{t("common.upload")}</Button>

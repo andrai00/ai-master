@@ -11,6 +11,7 @@ import { useDeleteUser } from "@/src/shared/api/admin/use-delete-user";
 import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/games";
 import { getUserGameAccessAction } from "@/src/shared/actions/admin/game-access";
 import type { IUserListItem } from "@/src/shared/actions/admin/list-users";
+import { UserAvatarCell } from "./user-avatar-cell";
 import type { ColumnsType } from "antd/es/table";
 
 export const UsersTable = () => {
@@ -81,7 +82,7 @@ export const UsersTable = () => {
 
   const columns: ColumnsType<IUserListItem> = [
     { title: "", key: "avatar", width: 48, responsive: ["md"],
-      render: (_: unknown, record) => <Avatar size={32} src={`/api/avatar/${record.id}`} icon={record.role === "admin" ? <CrownOutlined /> : <UserOutlined />} /> },
+      render: (_: unknown, record) => <UserAvatarCell userId={record.id} role={record.role} /> },
     { title: t("admin.userCol"), key: "user",
       render: (_: unknown, record) => (
         <div style={{ lineHeight: 1.4 }}>

@@ -15,11 +15,13 @@ import {
 import { useState, useEffect, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChatNav } from "@/src/features/sidebar-nav";
 import { FileTree } from "@/src/features/file-tree";
 import { GameSelector, GameSelectorCollapsed } from "@/src/features/game-selector";
 import { AdminSection } from "@/src/features/admin-section";
 import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
+import { useUserAvatar } from "@/src/shared/api/profile/use-user-avatar";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
@@ -37,10 +39,10 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   const { t } = useTranslation();
   const { modal } = App.useApp();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || user?.login || t("sidebar.guest"));
-  const [avatarVersion, setAvatarVersion] = useState(0);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -86,14 +88,13 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   const isAdmin = user?.role === "admin";
   const { data: modeData } = isAdmin ? useActiveMode() : { data: null };
   const isDev = modeData?.mode === "development";
-  const baseAvatarUrl = user ? `/api/avatar/${user.userId}` : "";
-  const avatarUrl = baseAvatarUrl ? `${baseAvatarUrl}?v=${avatarVersion}` : "";
+  const { data: avatarUri } = useUserAvatar(user?.userId);
   const name = displayName;
   const role = user?.role === "admin" ? t("profile.role_admin") : t("profile.role_player");
 
   const handleProfileUpdated = (newName: string) => {
     setDisplayName(newName);
-    setAvatarVersion((v) => v + 1);
+    queryClient.invalidateQueries({ queryKey: ["avatar", user?.userId] });
   };
 
   const settingsModal = (
@@ -102,8 +103,10 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         currentName={displayName}
-        currentAvatar={avatarUrl}
+        currentAvatar={avatarUri || ""}
         login={user?.login || ""}
+        userId={user?.userId || ""}
+        role={user?.role || "player"}
         onProfileUpdated={handleProfileUpdated}
       />
       <AppSettingsModal open={appSettingsOpen} onClose={() => setAppSettingsOpen(false)} />
@@ -165,7 +168,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
           <div className={styles.profile}>
             <Avatar
               size={28}
-              src={mounted && avatarUrl ? avatarUrl : undefined}
+              src={mounted && avatarUri ? avatarUri : undefined}
               icon={isAdmin ? <CrownOutlined /> : <UserOutlined />}
               className={styles.avatar}
             />

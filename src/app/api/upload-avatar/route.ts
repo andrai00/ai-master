@@ -23,5 +23,5 @@ export async function POST(request: Request) {
     data: { avatar: dataUri },
   });
 
-  return NextResponse.json({ avatarPath: `/api/avatar/${session.userId}` });
+  return NextResponse.json({ avatarPath: dataUri });
 }

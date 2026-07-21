@@ -15,6 +15,7 @@ model User {
   displayName  String       @default("")
   avatar       String       @default("")
   createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @default(now()) @updatedAt
   ownedMasters Master[]     @relation("MasterOwner")
   gameAccess   GameAccess[]
   messages     Message[]

@@ -159,27 +159,25 @@ function AvatarEditor({ userId, role, onChange }: { userId: string; role?: strin
         onCancel={() => setEditorOpen(false)}
         footer={null}
         centered
-        width={300}
+        width={280}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", paddingTop: 4 }}>
-          {hasAvatar && (
-            <Avatar size={96} src={avatar} style={{ marginBottom: 8 }} />
-          )}
-          <Upload accept="image/*" showUploadList={false} beforeUpload={handleUpload}>
-            <Button block>{t("common.upload")}</Button>
-          </Upload>
-          {hasAvatar && (
-            <Popconfirm
-              title={t("profileModal.avatarDeleteConfirm")}
-              onConfirm={handleDelete}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center", paddingTop: 4 }}>
+          <Avatar size={80} src={hasAvatar ? avatar : undefined} icon={hasAvatar ? undefined : (role === "admin" ? <CrownOutlined /> : <UserOutlined />)} />
+          <div style={{ display: "flex", gap: 8, width: "100%" }}>
+            <Upload accept="image/*" showUploadList={false} beforeUpload={handleUpload} style={{ flex: 1 }}>
+              <Button icon={<CameraOutlined />} block>{t("common.upload")}</Button>
+            </Upload>
+            {hasAvatar && (
+              <Popconfirm
+                title={t("profileModal.avatarDeleteConfirm")}
+                onConfirm={handleDelete}
                 okText={t("admin.yes")}
                 cancelText={t("admin.no")}
-            >
-              <Button icon={<DeleteOutlined />} danger block>
-                {t("profileModal.avatarDelete")}
-              </Button>
-            </Popconfirm>
-          )}
+              >
+                <Button icon={<DeleteOutlined />} danger>{t("common.delete")}</Button>
+              </Popconfirm>
+            )}
+          </div>
         </div>
       </Modal>
     </>

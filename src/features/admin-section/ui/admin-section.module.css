@@ -59,9 +59,13 @@
 }
 
 .modeBtn {
-  width: 100%;
-  font-size: 12px;
-  justify-content: flex-start;
+  width: 100% !important;
+  border-left: 3px solid var(--text-dim) !important;
+  color: var(--text-primary) !important;
+}
+
+.modeBtn:hover {
+  border-left-color: var(--text-primary) !important;
 }
 
 .inlineRow {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, App, Tooltip } from "antd";
+import { App } from "antd";
 import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -65,18 +65,10 @@ export const AdminSection = () => {
       </button>
 
       <div className={styles.modeRow}>
-        <Tooltip title={isDev ? t("mode.hintToGame") : t("mode.hintToDev")} placement="right">
-          <Button
-            size="small"
-            type="default"
-            icon={isDev ? <PlayCircleOutlined /> : <EditOutlined />}
-            onClick={handleToggle}
-            loading={setModeMutation.isPending}
-            className={styles.modeBtn}
-          >
-            {isDev ? t("mode.btnToGame") : t("mode.btnToDev")}
-          </Button>
-        </Tooltip>
+        <button className={`${styles.inlineBtn} ${styles.modeBtn}`} onClick={handleToggle}>
+          {isDev ? <PlayCircleOutlined /> : <EditOutlined />}
+          <span>{isDev ? t("mode.btnToGame") : t("mode.btnToDev")}</span>
+        </button>
       </div>
 
       {isDev && (

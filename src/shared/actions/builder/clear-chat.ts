@@ -20,9 +20,13 @@ export async function clearBuilderChatAction(
   // Delete all messages
   await prisma.message.deleteMany({ where: { sessionId } });
 
-  // Delete summary document
+  // Delete summary documents (both old "note" and new "builder_summary" types)
   await prisma.document.deleteMany({
-    where: { masterId: s.masterId, category: "brain", type: "builder_summary" },
+    where: {
+      masterId: s.masterId,
+      category: "brain",
+      OR: [{ type: "builder_summary" }, { type: "note" }],
+    },
   });
 
   return { success: true };

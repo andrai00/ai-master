@@ -11,7 +11,7 @@ import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { getCachedFile } from "./file-cache";
 import { initSessionSteps, addStep, finishSteps, failSteps } from "./step-tracker";
-import { resetCancellation } from "./parse-cancel";
+import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -208,6 +208,8 @@ export async function runBuilderAgent(
 
   try {
     const ctx = await buildContext(sessionId);
+    throwIfCancelled();
+
     const activeGame = await getActiveGame();
     const masterId = activeGame?.currentMasterId ?? "";
 
@@ -231,6 +233,8 @@ export async function runBuilderAgent(
     }
 
     const model = await createProvider();
+    throwIfCancelled();
+
     const tools = getTools();
     const steps: IStepLabel[] = [];
     const stepDetails: string[] = [];

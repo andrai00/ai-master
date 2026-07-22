@@ -3,7 +3,7 @@ import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
-import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const createDocumentTool = {
   description: "Create a new document in the database (glossary or brain category only). Returns the created document's ID.",
@@ -25,7 +25,7 @@ export const createDocumentTool = {
     tags?: string[];
     summary?: string;
   }) => {
-    if (isCancelled()) throw new Error("Cancelled.");
+    throwIfCancelled();
     await assertNotGameMode();
     const activeGame = await getActiveGame();
     if (!activeGame) throw new Error("No active game");

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getCachedFile } from "@/src/shared/lib/agents/file-cache";
-import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const readParsedFileTool = {
   description:
@@ -22,9 +22,7 @@ export const readParsedFileTool = {
     let file = getCachedFile(fileId);
     if (!file) {
       for (let i = 0; i < 6000; i++) {
-        if (isCancelled()) {
-          throw new Error("Cancelled.");
-        }
+        throwIfCancelled();
         await new Promise((r) => setTimeout(r, 100));
         file = getCachedFile(fileId);
         if (file) break;
@@ -33,7 +31,7 @@ export const readParsedFileTool = {
     }
 
     // Check cancellation before reading
-    if (isCancelled()) throw new Error("Cancelled.");
+    throwIfCancelled();
 
     const chunk = file.text.slice(offset, offset + limit);
     const hasMore = offset + limit < file.text.length;

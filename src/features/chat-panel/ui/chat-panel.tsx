@@ -162,6 +162,8 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Subscribe to SSE for real-time step tracking
   useEffect(() => {
@@ -333,19 +335,31 @@ export const ChatPanel = ({
               </Tooltip>
             )}
             {onDelete && !msg.summarized && (
-              <Popconfirm
-                title={t("chat.deleteConfirm") || "Удалить сообщение?"}
-                onConfirm={() => onDelete(msg.id)}
-                okText={t("common.delete")}
-                cancelText={t("common.cancel")}
-                placement="bottom"
+              <Tooltip
+                title={confirmDelete === msg.id ? (t("chat.deleteConfirm") || "Нажми ещё раз") : (t("chat.delete") || "Удалить")}
+                placement="top"
               >
-                <Tooltip title={t("chat.delete") || "Удалить"} placement="top">
-                  <button className={styles.actionBtn}>
-                    <DeleteOutlined />
-                  </button>
-                </Tooltip>
-              </Popconfirm>
+                <button
+                  className={`${styles.actionBtn} ${confirmDelete === msg.id ? styles.deleteConfirming : ""}`}
+                  onClick={() => {
+                    if (confirmDelete === msg.id) {
+                      onDelete(msg.id);
+                      setConfirmDelete(null);
+                      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+                    } else {
+                      setConfirmDelete(msg.id);
+                      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+                      confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 3000);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Reset on focus loss (with small delay to allow click)
+                    confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 200);
+                  }}
+                >
+                  <DeleteOutlined />
+                </button>
+              </Tooltip>
             )}
           </div>
         </div>

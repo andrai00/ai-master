@@ -68,6 +68,17 @@ export const BuilderChatView = () => {
     if (!typing) setStopping(false);
   }, [typing]);
 
+  // Refetch messages when tab becomes visible (sync with other admins)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && sessionId) {
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [sessionId, queryClient]);
+
   const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();

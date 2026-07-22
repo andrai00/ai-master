@@ -16,8 +16,17 @@ export const readParsedFileTool = {
     const { fileId } = args;
     const offset = args.offset ?? 0;
     const limit = args.limit ?? 5000;
-    const file = getCachedFile(fileId);
-    if (!file) throw new Error(`File not found or expired: ${fileId}`);
+
+    // Wait for async parsing to finish (upload returns before parsing is done)
+    let file = getCachedFile(fileId);
+    if (!file) {
+      for (let i = 0; i < 120; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        file = getCachedFile(fileId);
+        if (file) break;
+      }
+      if (!file) throw new Error(`File not found or parse timed out: ${fileId}`);
+    }
 
     const chunk = file.text.slice(offset, offset + limit);
     const hasMore = offset + limit < file.text.length;

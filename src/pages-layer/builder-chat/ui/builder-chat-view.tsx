@@ -19,7 +19,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const PAGE_SIZE = 30;
 
-/** Upload a single file to the builder upload API, return its fileId */
+/** Upload a file to the builder upload API. Parsing happens in background. Returns fileId immediately. */
 async function uploadFile(file: File): Promise<string> {
   const form = new FormData();
   form.append("file", file);

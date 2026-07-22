@@ -34,14 +34,31 @@ function startCleanup(): void {
 }
 
 /** Store a parsed file in the cache. Returns the file ID. */
-export function cacheFile(filename: string, text: string, size: number): string {
+export function cacheFile(filename: string, text: string, size: number): string;
+/** Store a parsed file with a pre-generated ID (used for async uploads). */
+export function cacheFile(id: string, text: string, size: number, filename: string): void;
+export function cacheFile(idOrFilename: string, textOrId: string, sizeOrText: number, maybeFilename?: string): string | void {
   startCleanup();
+  
+  // Overload 2: pre-generated ID
+  if (typeof maybeFilename === "string") {
+    getCache().set(idOrFilename, {
+      id: idOrFilename,
+      filename: maybeFilename,
+      text: textOrId,
+      size: sizeOrText,
+      expiresAt: Date.now() + TTL_MS,
+    });
+    return;
+  }
+  
+  // Overload 1: auto-generate ID
   const id = crypto.randomUUID();
   getCache().set(id, {
     id,
-    filename,
-    text,
-    size,
+    filename: idOrFilename,
+    text: textOrId,
+    size: sizeOrText,
     expiresAt: Date.now() + TTL_MS,
   });
   return id;

@@ -31,31 +31,36 @@ async function parsePdf(buffer: Buffer): Promise<string> {
     }, 5000);
 
     const cleanup = () => {
-      clearTimeout(timeout);
       clearInterval(progress);
     };
 
-    // Timeout: 120s for large PDFs
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("PDF parsing timed out after 120s. The file might be too complex or corrupted."));
-    }, 120_000);
+    // No timeout — wait indefinitely for large PDFs. Progress is shown via interval.
+    // User can abort via Stop button which calls stopProcessing.
 
     parser.on("pdfParser_dataReady", (data: { Pages: Array<{ Texts: Array<{ R: Array<{ T: string }> }> }> }) => {
-      cleanup();
-      const elapsed = Math.round((Date.now() - startTime) / 1000);
-      console.log(`[file-parser] PDF parse done: ${data.Pages?.length ?? 0} pages, ${elapsed}s`);
+      try {
+        cleanup();
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        console.log(`[file-parser] PDF parse done: ${data.Pages?.length ?? 0} pages, ${elapsed}s`);
       const lines: string[] = [];
       for (const page of data?.Pages ?? []) {
         for (const text of page?.Texts ?? []) {
-          const decoded = decodeURIComponent(
-            text.R.map((r) => r.T).join("")
-          );
+          const decoded = (() => {
+            try {
+              return decodeURIComponent(text.R.map((r) => r.T).join(""));
+            } catch {
+              return text.R.map((r) => r.T).join("");
+            }
+          })();
           lines.push(decoded);
         }
         lines.push("");
       }
-      resolve(lines.join("\n"));
+        resolve(lines.join("\n"));
+      } catch (err: unknown) {
+        cleanup();
+        reject(err instanceof Error ? err : new Error("PDF processing failed"));
+      }
     });
 
     parser.on("pdfParser_dataError", (err: unknown) => {
@@ -66,7 +71,7 @@ async function parsePdf(buffer: Buffer): Promise<string> {
     try {
       parser.parseBuffer(buffer);
     } catch (err: unknown) {
-      clearTimeout(timeout);
+      cleanup();
       reject(err instanceof Error ? err : new Error("PDF parse failed"));
     }
   });

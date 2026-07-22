@@ -23,6 +23,7 @@ import {
   PaperClipOutlined,
   CloseOutlined,
   FileOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -506,7 +507,7 @@ export const ChatPanel = ({
             <Tooltip title={t("chat.stop")}>
               <Button
                 type="default"
-                icon={<SendOutlined style={{ transform: "rotate(45deg)" }} />}
+                icon={<StopOutlined />}
                 className={`${styles.sendBtn} ${styles.stopBtn}`}
                 onClick={onStop}
               />

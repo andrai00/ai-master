@@ -11,6 +11,7 @@ import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { getCachedFile } from "./file-cache";
 import { initSessionSteps, addStep, finishSteps, failSteps } from "./step-tracker";
+import { resetCancellation } from "./parse-cancel";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -203,6 +204,7 @@ export async function runBuilderAgent(
 
   // Initialize step tracking for real-time UI
   initSessionSteps(sessionId);
+  resetCancellation();
 
   try {
     const ctx = await buildContext(sessionId);

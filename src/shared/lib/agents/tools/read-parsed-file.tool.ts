@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getCachedFile } from "@/src/shared/lib/agents/file-cache";
+import { isFileParsingCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const readParsedFileTool = {
   description:
@@ -20,7 +21,10 @@ export const readParsedFileTool = {
     // Wait for async parsing to finish (upload returns before parsing is done)
     let file = getCachedFile(fileId);
     if (!file) {
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < 600; i++) {
+        if (isFileParsingCancelled(fileId)) {
+          throw new Error("File parsing was cancelled.");
+        }
         await new Promise((r) => setTimeout(r, 1000));
         file = getCachedFile(fileId);
         if (file) break;

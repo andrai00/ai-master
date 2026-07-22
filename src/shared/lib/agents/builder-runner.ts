@@ -9,6 +9,7 @@ import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
+import { getCachedFile } from "./file-cache";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -144,16 +145,26 @@ async function logStepToDB(
 
 export async function runBuilderAgent(
   sessionId: string,
-  userMessage: string
+  userMessage: string,
+  fileIds: string[] = []
 ): Promise<TBuilderResult> {
   try {
     const ctx = await buildContext(sessionId);
     const activeGame = await getActiveGame();
     const masterId = activeGame?.currentMasterId ?? "";
 
+    // Build file context hint if files were attached
+    let fileHint = "";
+    if (fileIds.length > 0) {
+      const names = fileIds
+        .map((id) => getCachedFile(id)?.filename ?? id)
+        .join(", ");
+      fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
+    }
+
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [
       ...ctx.messages,
-      { role: "user", content: userMessage },
+      { role: "user", content: userMessage + fileHint },
     ];
 
     const model = await createProvider();

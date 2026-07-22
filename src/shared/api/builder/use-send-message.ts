@@ -8,8 +8,8 @@ export function useSendBuilderMessage() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, content }: { sessionId: string; content: string }) =>
-      sendBuilderMessageAction(sessionId, content),
+    mutationFn: ({ sessionId, content, fileIds }: { sessionId: string; content: string; fileIds?: string[] }) =>
+      sendBuilderMessageAction(sessionId, content, fileIds ?? []),
     onMutate: async ({ sessionId, content }) => {
       await qc.cancelQueries({ queryKey: ["builder", "messages", sessionId] });
 

@@ -303,6 +303,89 @@
   40% { opacity: 1; transform: scale(1); }
 }
 
+/* ---- File attachment ---- */
+
+.attachBtn {
+  color: var(--text-dim);
+  flex-shrink: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
+
+.attachBtn:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-active) !important;
+}
+
+.fileChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 16px 0;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.fileChip {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-secondary);
+  max-width: 220px;
+  overflow: hidden;
+}
+
+.fileChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.fileChipSize {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+/* ---- Drop zone overlay ---- */
+
+.panel {
+  position: relative;
+}
+
+.dragOver .inner {
+  opacity: 0.6;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px dashed var(--text-dim);
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.dropText {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
 /* Steps (builder agent tool calls summary) */
 .steps {
   display: flex;

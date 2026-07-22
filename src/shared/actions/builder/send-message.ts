@@ -14,11 +14,12 @@ interface ISendResult {
 
 export async function sendBuilderMessageAction(
   sessionId: string,
-  content: string
+  content: string,
+  fileIds: string[] = []
 ): Promise<ISendResult | { error: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { error: "Нет прав" };
-  if (!content.trim()) return { error: "Пустое сообщение" };
+  if (!content.trim() && fileIds.length === 0) return { error: "Пустое сообщение" };
 
   // Builder chat only works in development mode
   try {
@@ -41,11 +42,11 @@ export async function sendBuilderMessageAction(
     },
   });
 
-  // Run AI agent
+  // Run AI agent with fileIds
   let builderContent: string;
   let steps: IStepLabel[] = [];
   try {
-    const result = await runBuilderAgent(sessionId, trimmedContent);
+    const result = await runBuilderAgent(sessionId, trimmedContent, fileIds);
     if (result.kind === "error") {
       builderContent = `❌ Ошибка: ${result.error}`;
     } else {

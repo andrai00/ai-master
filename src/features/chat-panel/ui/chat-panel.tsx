@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Button, Avatar, Tooltip, App, Popconfirm } from "antd";
+import { Input, Button, Avatar, Tooltip, App, Popconfirm, Tag } from "antd";
 import {
   SendOutlined,
   UserOutlined,
@@ -20,8 +20,11 @@ import {
   ReadOutlined,
   SearchOutlined,
   CommentOutlined,
+  PaperClipOutlined,
+  CloseOutlined,
+  FileOutlined,
 } from "@ant-design/icons";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
@@ -51,10 +54,21 @@ interface IChatPanelProps {
   onDelete?: (id: string) => void;
   onHistoryClick?: () => void;
   onClearChat?: () => void;
-  onSend?: (text: string) => void;
+  onSend?: (text: string, files: File[]) => void;
   sending?: boolean;
   typing?: boolean;
+  /** Show file attachment UI */
+  allowFiles?: boolean;
+  /** File input accept attribute, e.g. ".pdf,.txt,.md,.docx" */
+  acceptFiles?: string;
+  /** Max files per message (default 5) */
+  maxFiles?: number;
+  /** Max single file size in bytes (default 10MB) */
+  maxFileSize?: number;
 }
+
+const DEFAULT_MAX_FILES = 5;
+const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 function groupMessages(messages: IMessage[]) {
   const result: { event?: { ids: string[]; sender: string }; messages: IMessage[] }[] = [];
@@ -95,22 +109,22 @@ function groupMessages(messages: IMessage[]) {
 }
 
 function getStepIcon(tool: string): ReactNode {
-  const style = { fontSize: 12, marginRight: 2, opacity: 0.6 };
+  const iconStyle = { fontSize: 12, marginRight: 2, opacity: 0.6 };
   switch (tool) {
     case "read_parsed_file":
-      return <FileTextOutlined style={style} />;
+      return <FileTextOutlined style={iconStyle} />;
     case "list_uploaded_files":
-      return <UnorderedListOutlined style={style} />;
+      return <UnorderedListOutlined style={iconStyle} />;
     case "create_document":
-      return <FileAddOutlined style={style} />;
+      return <FileAddOutlined style={iconStyle} />;
     case "update_document":
-      return <EditOutlined style={style} />;
+      return <EditOutlined style={iconStyle} />;
     case "read_document":
-      return <ReadOutlined style={style} />;
+      return <ReadOutlined style={iconStyle} />;
     case "search_documents":
-      return <SearchOutlined style={style} />;
+      return <SearchOutlined style={iconStyle} />;
     case "final":
-      return <CommentOutlined style={style} />;
+      return <CommentOutlined style={iconStyle} />;
     default:
       return null;
   }
@@ -120,12 +134,20 @@ function getStepLabel(tool: string, t: (key: string) => string): string {
   return t(`builder.steps.${tool}`);
 }
 
-export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, onSend, sending, typing }: IChatPanelProps) => {
+export const ChatPanel = ({
+  messages, placeholder, disabled, disabledText, hideShare, title,
+  onDelete, onHistoryClick, onClearChat, onSend,
+  sending, typing,
+  allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
+}: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState("");
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -141,10 +163,80 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
 
   const handleSend = () => {
     const text = inputValue.trim();
-    if (!text || !onSend) return;
-    onSend(text);
+    if ((!text && attachedFiles.length === 0) || !onSend) return;
+    onSend(text, attachedFiles);
     setInputValue("");
+    setAttachedFiles([]);
   };
+
+  // ---- file helpers ----
+
+  const addFiles = useCallback((newFiles: FileList | File[]) => {
+    const current = attachedFiles.length;
+    const available = maxFiles - current;
+    if (available <= 0) return;
+
+    const toAdd = Array.from(newFiles).slice(0, available);
+    const valid: File[] = [];
+
+    for (const f of toAdd) {
+      if (f.size > maxFileSize) {
+        notification.error({
+          title: t("chat.fileTooLarge", { max: formatSize(maxFileSize) }),
+        });
+        continue;
+      }
+      valid.push(f);
+    }
+
+    if (valid.length > 0) {
+      setAttachedFiles((prev) => [...prev, ...valid].slice(0, maxFiles));
+    }
+  }, [attachedFiles.length, maxFiles, maxFileSize, notification, t]);
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) addFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  // ---- drag & drop ----
+
+  const handleDragEnter = (e: DragEvent) => {
+    if (!allowFiles) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    if (!allowFiles) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (!allowFiles) return;
+    if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  };
+
+  // ---- render ----
 
   const toggleEvent = (id: string) => {
     setExpandedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -226,7 +318,20 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
   const grouped = groupMessages(messages);
 
   return (
-    <div className={styles.panel}>
+    <div
+      className={`${styles.panel} ${dragOver ? styles.dragOver : ""}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {dragOver && allowFiles && (
+        <div className={styles.dropOverlay}>
+          <FileOutlined style={{ fontSize: 32, color: "var(--text-dim)" }} />
+          <div className={styles.dropText}>{t("chat.dropHere")}</div>
+        </div>
+      )}
+
       {(title || onHistoryClick) && (
         <div className={styles.header}>
           <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>
@@ -298,7 +403,48 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}
+
+        {/* attached file chips */}
+        {allowFiles && attachedFiles.length > 0 && (
+          <div className={styles.fileChips}>
+            {attachedFiles.map((f, i) => (
+              <Tag
+                key={`${f.name}-${i}`}
+                closable
+                onClose={() => removeFile(i)}
+                icon={<FileOutlined />}
+                className={styles.fileChip}
+              >
+                <span className={styles.fileChipName}>{f.name}</span>
+                <span className={styles.fileChipSize}>{formatSize(f.size)}</span>
+              </Tag>
+            ))}
+          </div>
+        )}
+
         <div className={styles.inputInner}>
+          {allowFiles && (
+            <>
+              <Tooltip title={t("chat.attachFile")}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<PaperClipOutlined />}
+                  className={styles.attachBtn}
+                  disabled={sending || attachedFiles.length >= maxFiles}
+                  onClick={handleAttachClick}
+                />
+              </Tooltip>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={acceptFiles}
+                multiple
+                style={{ display: "none" }}
+                onChange={handleFileInput}
+              />
+            </>
+          )}
           <Input.TextArea
             placeholder={placeholder || t("chat.placeholder")}
             autoSize={{ minRows: 1, maxRows: 4 }}
@@ -326,3 +472,10 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
     </div>
   );
 };
+
+/** Format bytes to human-readable string */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

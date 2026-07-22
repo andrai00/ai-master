@@ -85,7 +85,11 @@
     "clearChat": "Clear chat",
     "clearConfirm": "Clear chat?",
     "clearDesc": "All messages will be deleted",
-    "clear": "Clear"
+    "clear": "Clear",
+    "attachFile": "Attach file",
+    "dropHere": "Drop files here",
+    "fileTooLarge": "File too large (max {{max}})",
+    "maxFilesReached": "Maximum {{count}} files"
   },
   "tabs": {
     "commonChat": "Game Chat",

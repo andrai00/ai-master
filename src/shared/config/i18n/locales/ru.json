@@ -85,7 +85,11 @@
     "clearChat": "Очистить чат",
     "clearConfirm": "Очистить чат?",
     "clearDesc": "Все сообщения будут удалены",
-    "clear": "Очистить"
+    "clear": "Очистить",
+    "attachFile": "Прикрепить файл",
+    "dropHere": "Перетащите файлы сюда",
+    "fileTooLarge": "Файл слишком большой (макс. {{max}})",
+    "maxFilesReached": "Максимум {{count}} файлов"
   },
   "tabs": {
     "commonChat": "Общий чат",

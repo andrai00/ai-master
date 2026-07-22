@@ -16,6 +16,19 @@ import type { ColumnsType } from "antd/es/table";
 
 const PAGE_SIZE = 30;
 
+/** Upload a single file to the builder upload API, return its fileId */
+async function uploadFile(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/builder/upload", { method: "POST", body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error ?? "Upload failed");
+  }
+  const data = await res.json();
+  return data.fileId as string;
+}
+
 export const BuilderChatView = () => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -27,6 +40,7 @@ export const BuilderChatView = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [typing, setTyping] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
 
   const { data: sessionData } = useBuilderSession();
@@ -50,18 +64,36 @@ export const BuilderChatView = () => {
   const total = (msgData && "total" in msgData ? msgData.total : 0);
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, files: File[]) => {
       if (!sessionId) return;
       setTyping(true);
-      const result = await sendMutation.mutateAsync({ sessionId, content });
+
+      // Upload files first
+      let fileIds: string[] = [];
+      if (files.length > 0) {
+        setUploading(true);
+        try {
+          fileIds = await Promise.all(files.map(uploadFile));
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Upload failed";
+          notification.error({ title: msg });
+          setTyping(false);
+          setUploading(false);
+          return;
+        }
+        setUploading(false);
+      }
+
+      const result = await sendMutation.mutateAsync({ sessionId, content, fileIds });
       if ("builderMessage" in result && result.steps?.length) {
         stepsRef.current.set(result.builderMessage.id, result.steps);
       }
-      await new Promise((r) => setTimeout(r, 1000));
+      // Brief delay so client sees typing indicator before invalidation
+      await new Promise((r) => setTimeout(r, 500));
       queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
       setTyping(false);
     },
-    [sessionId, sendMutation, queryClient]
+    [sessionId, sendMutation, queryClient, notification]
   );
 
   const handleDelete = useCallback(
@@ -122,12 +154,13 @@ export const BuilderChatView = () => {
         placeholder={t("chat.placeholder")}
         title={t("mode.builderChat")}
         hideShare
+        allowFiles
+        acceptFiles=".pdf,.txt,.md,.docx"
         onDelete={handleDelete}
         onHistoryClick={openHistory}
         onClearChat={handleClear}
-        totalMessages={total}
         onSend={handleSend}
-        sending={sendMutation.isPending}
+        sending={sendMutation.isPending || uploading}
         typing={typing}
       />
       <Modal

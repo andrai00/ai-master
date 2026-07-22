@@ -238,7 +238,7 @@ export async function runBuilderAgent(
       system: ctx.system,
       messages,
       tools,
-      stopWhen: isStepCount(10),
+      stopWhen: isStepCount(80), // large files need many read+create steps
       abortSignal: ac.signal,
       onStepFinish: async (event: StepResult<typeof tools>) => {
         const toolCalls = event.toolCalls ?? [];

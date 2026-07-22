@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
+import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
 
 interface ISendResult {
   adminMessage: { id: string; content: string; createdAt: Date };
@@ -27,6 +28,7 @@ export async function sendBuilderMessageAction(
   }
 
   const prisma = getPrisma();
+  const trimmedContent = content.trim();
 
   // Save admin message
   const adminMsg = await prisma.message.create({
@@ -34,18 +36,31 @@ export async function sendBuilderMessageAction(
       sessionId,
       senderId: session.userId,
       role: "admin",
-      content: content.trim(),
+      content: trimmedContent,
     },
   });
 
-  // Ping-pong: instant echo (typing delay is client-side UI)
-  const echoText = `Эхо: ${content.trim()}`;
+  // Run AI agent
+  let builderContent: string;
+  try {
+    const result = await runBuilderAgent(sessionId, trimmedContent);
+    if (result.kind === "error") {
+      builderContent = `❌ Ошибка: ${result.error}`;
+    } else {
+      builderContent = result.text;
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    builderContent = `❌ Ошибка вызова AI: ${msg}`;
+  }
+
+  // Save builder message
   const builderMsg = await prisma.message.create({
     data: {
       sessionId,
       senderId: session.userId,
       role: "builder",
-      content: echoText,
+      content: builderContent,
     },
   });
 
@@ -56,8 +71,11 @@ export async function sendBuilderMessageAction(
 
   let summaryResult: { id: string; title: string } | undefined;
   if (msgCount >= 20) {
-    const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { masterId: true } });
-    const masterId = session!.masterId;
+    const sessionData = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { masterId: true },
+    });
+    const masterId = sessionData!.masterId;
 
     // Collect messages to summarize
     const toSummarize = await prisma.message.findMany({
@@ -74,7 +92,9 @@ export async function sendBuilderMessageAction(
       where: { masterId, category: "brain", type: "builder_summary" },
     });
 
-    const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
+    const prevContent = existing?.content
+      ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n"
+      : "";
     const newContent = `📋 Саммари чата\n\n${prevContent}🆕 ${preview}`;
 
     let doc;
@@ -87,7 +107,7 @@ export async function sendBuilderMessageAction(
       doc = await prisma.document.create({
         data: {
           masterId,
-          title: `Саммари чата настройки`,
+          title: "Саммари чата настройки",
           type: "builder_summary",
           category: "brain",
           content: newContent,
@@ -106,8 +126,16 @@ export async function sendBuilderMessageAction(
   }
 
   return {
-    adminMessage: { id: adminMsg.id, content: adminMsg.content, createdAt: adminMsg.createdAt },
-    builderMessage: { id: builderMsg.id, content: builderMsg.content, createdAt: builderMsg.createdAt },
+    adminMessage: {
+      id: adminMsg.id,
+      content: adminMsg.content,
+      createdAt: adminMsg.createdAt,
+    },
+    builderMessage: {
+      id: builderMsg.id,
+      content: builderMsg.content,
+      createdAt: builderMsg.createdAt,
+    },
     summarized: summaryResult,
   };
 }

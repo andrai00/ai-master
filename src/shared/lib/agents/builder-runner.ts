@@ -27,6 +27,47 @@ export type TBuilderResult =
   | { kind: "error"; error: string };
 
 // ---------------------------------------------------------------------------
+// Processing guard (prevents concurrent sends per session)
+// ---------------------------------------------------------------------------
+
+const globalGuard = globalThis as unknown as {
+  processing: Map<string, AbortController>;
+};
+
+function getGuard(): Map<string, AbortController> {
+  if (!globalGuard.processing) globalGuard.processing = new Map();
+  return globalGuard.processing;
+}
+
+/** Returns AbortSignal if processing started, or null if already processing. */
+export function startProcessing(sessionId: string): AbortController | null {
+  const g = getGuard();
+  if (g.has(sessionId)) return null; // already processing
+  const ac = new AbortController();
+  g.set(sessionId, ac);
+  return ac;
+}
+
+export function stopProcessing(sessionId: string): boolean {
+  const g = getGuard();
+  const ac = g.get(sessionId);
+  if (ac) {
+    ac.abort();
+    g.delete(sessionId);
+    return true;
+  }
+  return false;
+}
+
+function endProcessing(sessionId: string): void {
+  getGuard().delete(sessionId);
+}
+
+export function isProcessing(sessionId: string): boolean {
+  return getGuard().has(sessionId);
+}
+
+// ---------------------------------------------------------------------------
 // System prompt
 // ---------------------------------------------------------------------------
 
@@ -51,17 +92,8 @@ async function createProvider() {
   const baseURL = config.baseUrl?.trim() || undefined;
   const provider = config.provider?.trim() || "openai";
 
-  if (!baseURL && provider !== "openai") {
-    console.warn(
-      `[builder] Provider "${provider}" has no Base URL set. ` +
-      `Requests will go to OpenAI's default API.`
-    );
-  }
-
   console.log(`[builder] Provider: ${provider}, model: ${model}, baseURL: ${baseURL ?? "default"}`);
   const openai = createOpenAI({ apiKey: config.apiKey, baseURL });
-  // Use .chat() to force Chat Completions API (not Responses API).
-  // Chat Completions is the universally compatible endpoint for all OpenAI-compatible providers.
   return openai.chat(model);
 }
 
@@ -125,37 +157,162 @@ async function buildContext(sessionId: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Logging
+// Logging (full request/response + per-step)
 // ---------------------------------------------------------------------------
 
-async function logStepToDB(
+async function writeThoughtLog(
   masterId: string,
-  toolName: string,
-  details: string
+  agent: string,
+  content: string
 ): Promise<void> {
   try {
     const prisma = getPrisma();
     await prisma.thoughtLog.create({
-      data: {
-        masterId,
-        agent: "builder",
-        content: `[${toolName}]\n${details}`,
-      },
+      data: { masterId, agent, content },
     });
   } catch {
-    console.error("[builder-runner] Failed to write thought log");
+    console.error("[builder] Failed to write thought log");
+  }
+}
+
+function formatAiMessages(
+  system: string,
+  messages: Array<{ role: string; content: string }>
+): string {
+  const lines = ["=== SYSTEM PROMPT ===", system, "", "=== CONVERSATION ==="];
+  for (const m of messages) {
+    lines.push(`\n[${m.role.toUpperCase()}]:`);
+    lines.push(m.content);
+  }
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Main runner
+// ---------------------------------------------------------------------------
+
+export async function runBuilderAgent(
+  sessionId: string,
+  userMessage: string,
+  fileIds: string[] = []
+): Promise<TBuilderResult> {
+  const ac = startProcessing(sessionId);
+  if (!ac) {
+    return { kind: "error", error: "Already processing. Wait for the current task to finish." };
+  }
+
+  // Initialize step tracking for real-time UI
+  initSessionSteps(sessionId);
+
+  try {
+    const ctx = await buildContext(sessionId);
+    const activeGame = await getActiveGame();
+    const masterId = activeGame?.currentMasterId ?? "";
+
+    let fileHint = "";
+    if (fileIds.length > 0) {
+      const names = fileIds
+        .map((id) => getCachedFile(id)?.filename ?? id)
+        .join(", ");
+      fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
+    }
+
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = [
+      ...ctx.messages,
+      { role: "user", content: userMessage + fileHint },
+    ];
+
+    // Log the full request
+    const requestLog = formatAiMessages(ctx.system, messages);
+    if (masterId) {
+      await writeThoughtLog(masterId, "builder", "=== REQUEST ===\n" + requestLog);
+    }
+
+    const model = await createProvider();
+    const tools = getTools();
+    const steps: IStepLabel[] = [];
+    const stepDetails: string[] = [];
+
+    const result = await generateText({
+      model,
+      system: ctx.system,
+      messages,
+      tools,
+      stopWhen: isStepCount(10),
+      abortSignal: ac.signal,
+      onStepFinish: async (event: StepResult<typeof tools>) => {
+        const toolCalls = event.toolCalls ?? [];
+        const toolResults = event.toolResults ?? [];
+
+        if (toolCalls.length > 0) {
+          for (let i = 0; i < toolCalls.length; i++) {
+            const call = toolCalls[i];
+            const res = toolResults[i];
+            const toolName = call.toolName as string;
+            steps.push({ tool: toolName });
+            addStep(sessionId, toolName);
+
+            const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
+            const outputStr = res?.output !== undefined
+              ? JSON.stringify(res.output, null, 2).slice(0, 1000)
+              : "(no output)";
+            const detail = `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`;
+            stepDetails.push(detail);
+            if (masterId) await writeThoughtLog(masterId, "builder", detail);
+          }
+        } else if (event.text) {
+          steps.push({ tool: "final" });
+          addStep(sessionId, "final");
+        }
+      },
+    });
+
+    // Log the full response
+    const responseLog = `=== RESPONSE ===\n${result.text}\n\n=== STEPS ===\n${stepDetails.join("\n\n---\n\n")}`;
+    if (masterId) {
+      await writeThoughtLog(masterId, "builder", responseLog);
+    }
+
+    finishSteps(sessionId);
+    return { kind: "text", text: result.text, steps };
+  } catch (err: unknown) {
+    const rawMessage = err instanceof Error ? err.message : "Unknown error";
+
+    // Check if aborted
+    if (err instanceof Error && err.name === "AbortError") {
+      failSteps(sessionId, "Aborted by user");
+      return { kind: "error", error: "Stopped." };
+    }
+
+    // Try to extract text from the error body (Responses API fallback)
+    const extracted = extractTextFromError(err);
+    if (extracted) {
+      finishSteps(sessionId);
+      return { kind: "text", text: extracted, steps: [{ tool: "final" }] };
+    }
+
+    failSteps(sessionId, rawMessage);
+    console.error("[builder] Agent error:", rawMessage);
+
+    let message = rawMessage;
+    if (rawMessage.includes("Invalid JSON response")) {
+      message = "AI provider returned a response format the SDK doesn't understand.";
+    } else if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
+      message = "AI provider rejected the request. Check your API key in AI Settings.";
+    } else if (rawMessage.includes("404")) {
+      message = "AI model not found. Check the model name in AI Settings.";
+    }
+
+    return { kind: "error", error: message };
+  } finally {
+    endProcessing(sessionId);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Responses API → text extraction (fallback for non-OpenAI-format providers)
+// Responses API → text extraction (fallback)
 // ---------------------------------------------------------------------------
 
-/**
- * Some providers (DeepSeek v4 via OpenRouter or direct) return the Responses API
- * format ({"output": [...]}) instead of Chat Completions format ({"choices": [...]}).
- * The AI SDK can't parse this. As a fallback, extract text from the error.
- */
 function extractTextFromError(err: unknown): string | null {
   const obj = err as Record<string, unknown>;
   const body = obj.responseBody as string | undefined;
@@ -184,112 +341,5 @@ function extractTextFromError(err: unknown): string | null {
     return parts.length > 0 ? parts.join("\n") : null;
   } catch {
     return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Main runner
-// ---------------------------------------------------------------------------
-
-export async function runBuilderAgent(
-  sessionId: string,
-  userMessage: string,
-  fileIds: string[] = []
-): Promise<TBuilderResult> {
-  // Initialize step tracking for real-time UI
-  initSessionSteps(sessionId);
-
-  try {
-    const ctx = await buildContext(sessionId);
-    const activeGame = await getActiveGame();
-    const masterId = activeGame?.currentMasterId ?? "";
-
-    let fileHint = "";
-    if (fileIds.length > 0) {
-      const names = fileIds
-        .map((id) => getCachedFile(id)?.filename ?? id)
-        .join(", ");
-      fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
-    }
-
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = [
-      ...ctx.messages,
-      { role: "user", content: userMessage + fileHint },
-    ];
-
-    const model = await createProvider();
-    const tools = getTools();
-    const steps: IStepLabel[] = [];
-
-    const result = await generateText({
-      model,
-      system: ctx.system,
-      messages,
-      tools,
-      stopWhen: isStepCount(10),
-      onStepFinish: async (event: StepResult<typeof tools>) => {
-        const toolCalls = event.toolCalls ?? [];
-        const toolResults = event.toolResults ?? [];
-
-        if (toolCalls.length > 0) {
-          for (let i = 0; i < toolCalls.length; i++) {
-            const call = toolCalls[i];
-            const result = toolResults[i];
-            const toolName = call.toolName as string;
-            steps.push({ tool: toolName });
-            addStep(sessionId, toolName);
-
-            const inputPreview =
-              typeof call.input === "object"
-                ? JSON.stringify(call.input).slice(0, 300)
-                : "";
-            const resultPreview =
-              result?.output !== undefined
-                ? JSON.stringify(result.output).slice(0, 200)
-                : "";
-            const details = `Input: ${inputPreview}\nResult: ${resultPreview}`;
-
-            if (masterId) {
-              await logStepToDB(masterId, toolName, details);
-            }
-          }
-        } else if (event.text) {
-          steps.push({ tool: "final" });
-          addStep(sessionId, "final");
-        }
-      },
-    });
-
-    finishSteps(sessionId);
-    return { kind: "text", text: result.text, steps };
-  } catch (err: unknown) {
-    const rawMessage = err instanceof Error ? err.message : "Unknown error";
-
-    // Try to extract text from the error body (Responses API fallback)
-    const extracted = extractTextFromError(err);
-    if (extracted) {
-      console.log("[builder] Extracted text from Responses API error body");
-      finishSteps(sessionId);
-      return { kind: "text", text: extracted, steps: [{ tool: "final" }] };
-    }
-
-    failSteps(sessionId, rawMessage);
-
-    console.error("[builder] Agent error:", rawMessage);
-
-    const errObj = err as Record<string, unknown>;
-    let message = rawMessage;
-
-    if (rawMessage.includes("Invalid JSON response")) {
-      message =
-        "AI provider returned a response format the SDK doesn't understand. " +
-        "Try using a different model or contact support.";
-    } else if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
-      message = "AI provider rejected the request. Check your API key in AI Settings.";
-    } else if (rawMessage.includes("404") || rawMessage.includes("not found")) {
-      message = "AI model not found. Check the model name in AI Settings.";
-    }
-
-    return { kind: "error", error: message };
   }
 }

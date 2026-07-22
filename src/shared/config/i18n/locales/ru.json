@@ -90,7 +90,8 @@
     "dropHere": "Перетащите файлы сюда",
     "fileTooLarge": "Файл слишком большой (макс. {{max}})",
     "maxFilesReached": "Максимум {{count}} файлов",
-    "sendError": "Ошибка отправки"
+    "sendError": "Ошибка отправки",
+    "stop": "Остановить"
   },
   "tabs": {
     "commonChat": "Общий чат",

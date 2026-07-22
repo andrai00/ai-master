@@ -11,6 +11,7 @@ import { useSendBuilderMessage } from "@/src/shared/api/builder/use-send-message
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-message";
 import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
+import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import type { IMessage, IStepLabel } from "@/src/features/chat-panel/ui/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 
@@ -115,6 +116,11 @@ export const BuilderChatView = () => {
     if (sessionId) clearMutation.mutate(sessionId);
   }, [sessionId, clearMutation]);
 
+  const handleStop = useCallback(async () => {
+    if (!sessionId) return;
+    await stopBuilderAction(sessionId);
+  }, [sessionId]);
+
   const openHistory = async () => {
     if (!sessionId) return;
     setHistoryOpen(true);
@@ -165,6 +171,7 @@ export const BuilderChatView = () => {
         onHistoryClick={openHistory}
         onClearChat={handleClear}
         onSend={handleSend}
+        onStop={handleStop}
         sending={sendMutation.isPending || uploading}
         typing={typing}
         stepsSessionId={sessionId ?? undefined}

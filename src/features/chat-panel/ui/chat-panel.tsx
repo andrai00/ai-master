@@ -57,6 +57,7 @@ interface IChatPanelProps {
   onHistoryClick?: () => void;
   onClearChat?: () => void;
   onSend?: (text: string, files: File[]) => void;
+  onStop?: () => void;
   sending?: boolean;
   typing?: boolean;
   /** Show file attachment UI */
@@ -140,7 +141,7 @@ function getStepLabel(tool: string, t: (key: string) => string): string {
 
 export const ChatPanel = ({
   messages, placeholder, disabled, disabledText, hideShare, title,
-  onDelete, onHistoryClick, onClearChat, onSend,
+  onDelete, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId,
@@ -503,7 +504,7 @@ export const ChatPanel = ({
             placeholder={placeholder || t("chat.placeholder")}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className={styles.input}
-            disabled={disabled || sending}
+            disabled={disabled || sending || typing}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onPressEnter={(e) => {
@@ -513,14 +514,25 @@ export const ChatPanel = ({
               }
             }}
           />
-          <Button
-            type="default"
-            icon={<SendOutlined />}
-            className={styles.sendBtn}
-            disabled={disabled || sending}
-            loading={sending}
-            onClick={handleSend}
-          />
+          {typing && onStop ? (
+            <Tooltip title={t("chat.stop")}>
+              <Button
+                type="default"
+                icon={<SendOutlined style={{ transform: "rotate(45deg)" }} />}
+                className={`${styles.sendBtn} ${styles.stopBtn}`}
+                onClick={onStop}
+              />
+            </Tooltip>
+          ) : (
+            <Button
+              type="default"
+              icon={<SendOutlined />}
+              className={styles.sendBtn}
+              disabled={disabled || sending}
+              loading={sending}
+              onClick={handleSend}
+            />
+          )}
         </div>
       </div>
     </div>

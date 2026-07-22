@@ -10,7 +10,7 @@
   --text-muted: #666;
   --text-dim: #777;
   --bg-bubble: #1f1f1f;
-  --content-width: 760px;
+  --content-width: 860px;
 }
 
 [data-theme="light"] {

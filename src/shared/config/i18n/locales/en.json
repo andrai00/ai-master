@@ -200,6 +200,17 @@
     "switchedToDev": "Editing mode enabled",
     "switchedToGame": "Game mode enabled"
   },
+  "builder": {
+    "steps": {
+      "read_parsed_file": "Reading uploaded file",
+      "list_uploaded_files": "Listing files",
+      "create_document": "Creating document",
+      "update_document": "Updating document",
+      "read_document": "Reading document",
+      "search_documents": "Searching",
+      "final": "Writing response"
+    }
+  },
   "documents": {
     "title_page": "Game Documents",
     "title": "Title",

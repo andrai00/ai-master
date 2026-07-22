@@ -1,4 +1,4 @@
-import { generateText, isStepCount } from "ai";
+import { generateText, isStepCount, type StepResult } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -16,8 +16,13 @@ import { join } from "path";
 // Types
 // ---------------------------------------------------------------------------
 
+export interface IStepLabel {
+  /** Raw tool name — client maps to translated label + icon */
+  tool: string;
+}
+
 export type TBuilderResult =
-  | { kind: "text"; text: string }
+  | { kind: "text"; text: string; steps: IStepLabel[] }
   | { kind: "error"; error: string };
 
 // ---------------------------------------------------------------------------
@@ -45,7 +50,7 @@ async function createProvider() {
   const model = config.model || "gpt-4o";
 
   const openai = createOpenAI({ apiKey: config.apiKey, baseURL });
-  return { model: openai(model), provider: config.provider };
+  return openai(model);
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +85,6 @@ async function buildContext(sessionId: string): Promise<{
   let systemPrompt = loadSystemPrompt();
   systemPrompt = systemPrompt.replace("{uiLanguage}", uiLanguage);
 
-  // Add active game info
   if (activeGame) {
     const master = await prisma.master.findUnique({
       where: { id: activeGame.currentMasterId },
@@ -91,12 +95,10 @@ async function buildContext(sessionId: string): Promise<{
     }
   }
 
-  // Add admin name
   if (session) {
     systemPrompt += `\n- Admin: ${session.displayName || session.login}\n`;
   }
 
-  // Load recent messages
   const recentMessages = await prisma.message.findMany({
     where: { sessionId },
     orderBy: { createdAt: "asc" },
@@ -113,6 +115,30 @@ async function buildContext(sessionId: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
+
+async function logStepToDB(
+  masterId: string,
+  toolName: string,
+  details: string
+): Promise<void> {
+  try {
+    const prisma = getPrisma();
+    await prisma.thoughtLog.create({
+      data: {
+        masterId,
+        agent: "builder",
+        content: `[${toolName}]\n${details}`,
+      },
+    });
+  } catch {
+    // non-critical — don't break the agent over log failures
+    console.error("[builder-runner] Failed to write thought log");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main runner
 // ---------------------------------------------------------------------------
 
@@ -122,25 +148,61 @@ export async function runBuilderAgent(
 ): Promise<TBuilderResult> {
   try {
     const ctx = await buildContext(sessionId);
+    const activeGame = await getActiveGame();
+    const masterId = activeGame?.currentMasterId ?? "";
 
-    // Append the new user message
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [
       ...ctx.messages,
       { role: "user", content: userMessage },
     ];
 
-    const provider = await createProvider();
+    const model = await createProvider();
     const tools = getTools();
 
+    // Collect step labels during execution
+    const steps: IStepLabel[] = [];
+
     const result = await generateText({
-      model: provider.model,
+      model,
       system: ctx.system,
       messages,
       tools,
-      stopWhen: isStepCount(10), // allow up to 10 tool-calling steps
+      stopWhen: isStepCount(10),
+      onStepFinish: async (event: StepResult<typeof tools>) => {
+        // Extract tool calls and their results from this step
+        const toolCalls = event.toolCalls ?? [];
+        const toolResults = event.toolResults ?? [];
+
+        if (toolCalls.length > 0) {
+          for (let i = 0; i < toolCalls.length; i++) {
+            const call = toolCalls[i];
+            const result = toolResults[i];
+            const toolName = call.toolName as string;
+            steps.push({ tool: toolName });
+
+            // Log full details to ThoughtLog
+            const inputPreview =
+              typeof call.input === "object"
+                ? JSON.stringify(call.input).slice(0, 300)
+                : "";
+            const resultPreview =
+              result?.output !== undefined
+                ? JSON.stringify(result.output).slice(0, 200)
+                : "";
+            const details = `Input: ${inputPreview}\nResult: ${resultPreview}`;
+
+            if (masterId) {
+              await logStepToDB(masterId, toolName, details);
+            }
+          }
+        } else if (event.text) {
+          // Final text step — this is the model's response
+          steps.push({ tool: "final" });
+        }
+      },
     });
 
-    return { kind: "text", text: result.text };
+    return { kind: "text", text: result.text, steps };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { kind: "error", error: message };

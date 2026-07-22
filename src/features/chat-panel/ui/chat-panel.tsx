@@ -13,11 +13,22 @@ import {
   HistoryOutlined,
   CodeOutlined,
   ClearOutlined,
+  FileTextOutlined,
+  UnorderedListOutlined,
+  FileAddOutlined,
+  EditOutlined,
+  ReadOutlined,
+  SearchOutlined,
+  CommentOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
+
+export interface IStepLabel {
+  tool: string;
+}
 
 export interface IMessage {
   id: string;
@@ -27,6 +38,7 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
+  steps?: IStepLabel[];
 }
 
 interface IChatPanelProps {
@@ -80,6 +92,32 @@ function groupMessages(messages: IMessage[]) {
   }
 
   return result;
+}
+
+function getStepIcon(tool: string): ReactNode {
+  const style = { fontSize: 12, marginRight: 2, opacity: 0.6 };
+  switch (tool) {
+    case "read_parsed_file":
+      return <FileTextOutlined style={style} />;
+    case "list_uploaded_files":
+      return <UnorderedListOutlined style={style} />;
+    case "create_document":
+      return <FileAddOutlined style={style} />;
+    case "update_document":
+      return <EditOutlined style={style} />;
+    case "read_document":
+      return <ReadOutlined style={style} />;
+    case "search_documents":
+      return <SearchOutlined style={style} />;
+    case "final":
+      return <CommentOutlined style={style} />;
+    default:
+      return null;
+  }
+}
+
+function getStepLabel(tool: string, t: (key: string) => string): string {
+  return t(`builder.steps.${tool}`);
 }
 
 export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, onSend, sending, typing }: IChatPanelProps) => {
@@ -139,6 +177,17 @@ export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideS
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.text}
+            {msg.steps && msg.steps.length > 0 && (
+              <div className={styles.steps}>
+                {msg.steps.map((s, i) => (
+                  <span key={i} className={styles.stepItem}>
+                    {getStepIcon(s.tool)}
+                    <span className={styles.stepLabel}>{getStepLabel(s.tool, t)}</span>
+                    {i < msg.steps!.length - 1 && <span className={styles.stepArrow}>→</span>}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className={styles.actions}>
             <Tooltip title={t("chat.copy")} placement="top">

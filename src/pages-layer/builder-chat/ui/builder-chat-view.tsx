@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ import { useSendBuilderMessage } from "@/src/shared/api/builder/use-send-message
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-message";
 import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
-import type { IMessage } from "@/src/features/chat-panel/ui/chat-panel";
+import type { IMessage, IStepLabel } from "@/src/features/chat-panel/ui/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 
 const PAGE_SIZE = 30;
@@ -27,6 +27,7 @@ export const BuilderChatView = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [typing, setTyping] = useState(false);
+  const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
@@ -42,6 +43,7 @@ export const BuilderChatView = () => {
     role: m.role,
     text: m.content,
     summarized: m.summarized,
+    steps: stepsRef.current.get(m.id),
   });
 
   const messages: IMessage[] = (msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : []);
@@ -51,7 +53,10 @@ export const BuilderChatView = () => {
     async (content: string) => {
       if (!sessionId) return;
       setTyping(true);
-      await sendMutation.mutateAsync({ sessionId, content });
+      const result = await sendMutation.mutateAsync({ sessionId, content });
+      if ("builderMessage" in result && result.steps?.length) {
+        stepsRef.current.set(result.builderMessage.id, result.steps);
+      }
       await new Promise((r) => setTimeout(r, 1000));
       queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
       setTyping(false);

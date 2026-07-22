@@ -200,6 +200,17 @@
     "switchedToDev": "Режим редактирования включен",
     "switchedToGame": "Режим игры включен"
   },
+  "builder": {
+    "steps": {
+      "read_parsed_file": "Изучает загруженный файл",
+      "list_uploaded_files": "Просматривает список файлов",
+      "create_document": "Создаёт документ",
+      "update_document": "Обновляет документ",
+      "read_document": "Читает документ",
+      "search_documents": "Ищет информацию",
+      "final": "Формирует ответ"
+    }
+  },
   "documents": {
     "title_page": "Документы игры",
     "title": "Название",

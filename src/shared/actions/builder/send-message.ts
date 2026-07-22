@@ -3,11 +3,12 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
-import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
+import { runBuilderAgent, type IStepLabel } from "@/src/shared/lib/agents/builder-runner";
 
 interface ISendResult {
   adminMessage: { id: string; content: string; createdAt: Date };
   builderMessage: { id: string; content: string; createdAt: Date };
+  steps: IStepLabel[];
   summarized?: { id: string; title: string };
 }
 
@@ -42,12 +43,14 @@ export async function sendBuilderMessageAction(
 
   // Run AI agent
   let builderContent: string;
+  let steps: IStepLabel[] = [];
   try {
     const result = await runBuilderAgent(sessionId, trimmedContent);
     if (result.kind === "error") {
       builderContent = `❌ Ошибка: ${result.error}`;
     } else {
       builderContent = result.text;
+      steps = result.steps;
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -136,6 +139,7 @@ export async function sendBuilderMessageAction(
       content: builderMsg.content,
       createdAt: builderMsg.createdAt,
     },
+    steps,
     summarized: summaryResult,
   };
 }

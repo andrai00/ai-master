@@ -93,6 +93,7 @@ model Message {
   content    String
   shared     Boolean  @default(false)
   summarized Boolean  @default(false)
+  hasFiles   Boolean  @default(false)
   createdAt  DateTime @default(now())
   session    Session  @relation(fields: [sessionId], references: [id])
   sender     User     @relation(fields: [senderId], references: [id])

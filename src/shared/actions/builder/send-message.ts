@@ -40,6 +40,7 @@ export async function sendBuilderMessageAction(
       senderId: session.userId,
       role: "admin",
       content: trimmedContent,
+      hasFiles: fileIds.length > 0,
     },
   });
 

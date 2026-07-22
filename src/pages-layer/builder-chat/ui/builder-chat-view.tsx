@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-mes
 import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
+import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
 import type { IMessage, IStepLabel } from "@/src/features/chat-panel/ui/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 
@@ -44,10 +45,17 @@ export const BuilderChatView = () => {
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
   const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
-  const hasFilesRef = useRef<Set<string>>(new Set());
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
+
+  // Recover SSE / typing state when re-mounting (e.g. page navigation during processing)
+  useEffect(() => {
+    if (!sessionId) return;
+    checkProcessingAction(sessionId).then((r) => {
+      if (r.processing) setTyping(true);
+    });
+  }, [sessionId]);
 
   const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
@@ -61,7 +69,7 @@ export const BuilderChatView = () => {
     text: m.content,
     summarized: m.summarized,
     steps: stepsRef.current.get(m.id),
-    prefix: hasFilesRef.current.has(m.id)
+    prefix: m.hasFiles
       ? <span style={{ display: "block", marginBottom: 4, color: "var(--text-muted)", fontSize: 11 }}><FileOutlined style={{ marginRight: 4 }} />файлы</span>
       : undefined,
   });
@@ -98,9 +106,6 @@ export const BuilderChatView = () => {
       }
       if ("builderMessage" in result && result.steps?.length) {
         stepsRef.current.set(result.builderMessage.id, result.steps);
-      }
-      if ("hasFiles" in result && result.hasFiles) {
-        hasFilesRef.current.add(result.adminMessage.id);
       }
       // Brief delay so client sees typing indicator before invalidation
       await new Promise((r) => setTimeout(r, 500));

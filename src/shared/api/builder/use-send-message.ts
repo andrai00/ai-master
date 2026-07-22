@@ -21,6 +21,7 @@ export function useSendBuilderMessage() {
         content,
         senderId: "",
         summarized: false,
+        hasFiles: false,
         createdAt: new Date(),
       };
 

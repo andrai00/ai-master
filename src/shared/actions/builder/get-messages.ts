@@ -9,6 +9,7 @@ export interface IBuilderMessage {
   content: string;
   senderId: string;
   summarized: boolean;
+  hasFiles: boolean;
   createdAt: Date;
 }
 
@@ -41,6 +42,7 @@ export async function getBuilderMessagesAction(
         content: true,
         senderId: true,
         summarized: true,
+        hasFiles: true,
         createdAt: true,
       },
     }),

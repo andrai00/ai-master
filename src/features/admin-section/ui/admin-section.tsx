@@ -89,20 +89,24 @@ export const AdminSection = () => {
           </div>
         </>
       )}
-      <button
-        className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
-        onClick={() => router.push("/admin/documents")}
-      >
-        <FileTextOutlined className={styles.rowIcon} />
-        <span className={styles.rowLabel}>{t("mode.documents")}</span>
-      </button>
-      <button
-        className={`${styles.row} ${isActive("/admin/logs") ? styles.rowActive : ""}`}
-        onClick={() => router.push("/admin/logs")}
-      >
-        <BulbOutlined className={styles.rowIcon} />
-        <span className={styles.rowLabel}>{t("mode.logs")}</span>
-      </button>
+      {isDev && (
+        <button
+          className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
+          onClick={() => router.push("/admin/documents")}
+        >
+          <FileTextOutlined className={styles.rowIcon} />
+          <span className={styles.rowLabel}>{t("mode.documents")}</span>
+        </button>
+      )}
+      {isDev && (
+        <button
+          className={`${styles.row} ${isActive("/admin/logs") ? styles.rowActive : ""}`}
+          onClick={() => router.push("/admin/logs")}
+        >
+          <BulbOutlined className={styles.rowIcon} />
+          <span className={styles.rowLabel}>{t("mode.logs")}</span>
+        </button>
+      )}
       <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>

@@ -167,6 +167,7 @@ export const BuilderChatView = () => {
         onSend={handleSend}
         sending={sendMutation.isPending || uploading}
         typing={typing}
+        stepsSessionId={sessionId ?? undefined}
       />
       <Modal
         title={t("chat.historyTitle") || "История чата"}

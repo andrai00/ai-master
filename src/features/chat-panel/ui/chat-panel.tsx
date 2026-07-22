@@ -26,6 +26,8 @@ import {
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
 
@@ -63,8 +65,10 @@ interface IChatPanelProps {
   acceptFiles?: string;
   /** Max files per message (default 5) */
   maxFiles?: number;
-  /** Max single file size in bytes (default 10MB) */
+  /** Max single file size in bytes (default 50MB) */
   maxFileSize?: number;
+  /** Session ID for real-time step tracking via SSE (builder chat) */
+  stepsSessionId?: string;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -139,6 +143,7 @@ export const ChatPanel = ({
   onDelete, onHistoryClick, onClearChat, onSend,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
+  stepsSessionId,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -148,6 +153,38 @@ export const ChatPanel = ({
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [liveSteps, setLiveSteps] = useState<string[]>([]);
+
+  // Subscribe to SSE for real-time step tracking
+  useEffect(() => {
+    if (!stepsSessionId || !typing) {
+      setLiveSteps([]);
+      return;
+    }
+
+    setLiveSteps([]);
+    const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.tool) {
+          setLiveSteps((prev) => [...prev, data.tool]);
+        }
+        if (data.done) {
+          es.close();
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => es.close();
+  }, [stepsSessionId, typing]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -268,7 +305,9 @@ export const ChatPanel = ({
         <div className={styles.sender}>{msg.sender}</div>
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
-            {msg.text}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {String(msg.text)}
+            </ReactMarkdown>
             {msg.steps && msg.steps.length > 0 && (
               <div className={styles.steps}>
                 {msg.steps.map((s, i) => (
@@ -390,9 +429,25 @@ export const ChatPanel = ({
               <div className={styles.msgContent}>
                 <div className={styles.sender}>Builder</div>
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
+                  {liveSteps.length > 0 ? (
+                    <div className={styles.liveStepsLine}>
+                      {liveSteps.map((tool, i) => (
+                        <span key={i} className={styles.liveStepTag}>
+                          {getStepIcon(tool)}
+                          <span>{getStepLabel(tool, t)}</span>
+                        </span>
+                      ))}
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                    </div>
+                  ) : (
+                    <>
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                    </>
+                  )}
                 </div>
               </div>
             </div>

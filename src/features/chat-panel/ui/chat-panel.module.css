@@ -380,6 +380,23 @@
   color: var(--text-dim);
 }
 
+/* Live steps in typing bubble */
+.liveStepsLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.liveStepTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 /* Steps (builder agent tool calls summary) */
 .steps {
   display: flex;

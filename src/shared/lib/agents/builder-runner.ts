@@ -10,6 +10,7 @@ import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { getCachedFile } from "./file-cache";
+import { initSessionSteps, addStep, finishSteps, failSteps } from "./step-tracker";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -195,6 +196,9 @@ export async function runBuilderAgent(
   userMessage: string,
   fileIds: string[] = []
 ): Promise<TBuilderResult> {
+  // Initialize step tracking for real-time UI
+  initSessionSteps(sessionId);
+
   try {
     const ctx = await buildContext(sessionId);
     const activeGame = await getActiveGame();
@@ -233,6 +237,7 @@ export async function runBuilderAgent(
             const result = toolResults[i];
             const toolName = call.toolName as string;
             steps.push({ tool: toolName });
+            addStep(sessionId, toolName);
 
             const inputPreview =
               typeof call.input === "object"
@@ -250,20 +255,26 @@ export async function runBuilderAgent(
           }
         } else if (event.text) {
           steps.push({ tool: "final" });
+          addStep(sessionId, "final");
         }
       },
     });
 
+    finishSteps(sessionId);
     return { kind: "text", text: result.text, steps };
   } catch (err: unknown) {
+    const rawMessage = err instanceof Error ? err.message : "Unknown error";
+
     // Try to extract text from the error body (Responses API fallback)
     const extracted = extractTextFromError(err);
     if (extracted) {
       console.log("[builder] Extracted text from Responses API error body");
+      finishSteps(sessionId);
       return { kind: "text", text: extracted, steps: [{ tool: "final" }] };
     }
 
-    const rawMessage = err instanceof Error ? err.message : "Unknown error";
+    failSteps(sessionId, rawMessage);
+
     console.error("[builder] Agent error:", rawMessage);
 
     const errObj = err as Record<string, unknown>;

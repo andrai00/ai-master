@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
 
 interface ISendResult {
   adminMessage: { id: string; content: string; createdAt: Date };
@@ -16,6 +17,14 @@ export async function sendBuilderMessageAction(
   const session = await getSession();
   if (!session || session.role !== "admin") return { error: "Нет прав" };
   if (!content.trim()) return { error: "Пустое сообщение" };
+
+  // Builder chat only works in development mode
+  try {
+    await assertNotGameMode();
+  } catch (e) {
+    if (e instanceof GameModeReadOnlyError) return { error: e.message };
+    throw e;
+  }
 
   const prisma = getPrisma();
 

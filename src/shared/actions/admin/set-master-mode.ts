@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame, invalidateActiveGameCache } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function setMasterModeAction(
   mode: "development" | "game"
@@ -24,6 +25,12 @@ export async function setMasterModeAction(
   });
 
   invalidateActiveGameCache();
+
+  // SSE-push: notify all connected clients that the mode changed
+  broadcastGameEvent("mode_switch", {
+    masterId: activeGame.currentMasterId,
+    mode,
+  });
 
   return { success: true };
 }

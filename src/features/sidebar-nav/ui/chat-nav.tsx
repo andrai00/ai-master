@@ -16,7 +16,7 @@ export interface IChatNavItem {
 
 const allItems: IChatNavItem[] = [
   { key: "common", icon: <CommentOutlined />, labelKey: "sidebar.chatGame", route: "/" },
-  { key: "personal", icon: <MessageOutlined />, labelKey: "sidebar.chatMaster" },
+  { key: "personal", icon: <MessageOutlined />, labelKey: "sidebar.chatMaster", route: "/chat/personal" },
 ];
 
 interface IChatNavProps {

@@ -89,7 +89,8 @@
     "attachFile": "Attach file",
     "dropHere": "Drop files here",
     "fileTooLarge": "File too large (max {{max}})",
-    "maxFilesReached": "Maximum {{count}} files"
+    "maxFilesReached": "Maximum {{count}} files",
+    "sendError": "Send error"
   },
   "tabs": {
     "commonChat": "Game Chat",

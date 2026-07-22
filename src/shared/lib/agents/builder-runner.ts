@@ -18,7 +18,6 @@ import { join } from "path";
 // ---------------------------------------------------------------------------
 
 export interface IStepLabel {
-  /** Raw tool name — client maps to translated label + icon */
   tool: string;
 }
 
@@ -47,11 +46,22 @@ async function createProvider() {
     throw new Error("AI provider is not configured. Go to Settings → AI Settings.");
   }
 
-  const baseURL = config.baseUrl || undefined;
-  const model = config.model || "gpt-4o";
+  const model = config.model?.trim() || "gpt-4o";
+  const baseURL = config.baseUrl?.trim() || undefined;
+  const provider = config.provider?.trim() || "openai";
 
+  if (!baseURL && provider !== "openai") {
+    console.warn(
+      `[builder] Provider "${provider}" has no Base URL set. ` +
+      `Requests will go to OpenAI's default API.`
+    );
+  }
+
+  console.log(`[builder] Provider: ${provider}, model: ${model}, baseURL: ${baseURL ?? "default"}`);
   const openai = createOpenAI({ apiKey: config.apiKey, baseURL });
-  return openai(model);
+  // Use .chat() to force Chat Completions API (not Responses API).
+  // Chat Completions is the universally compatible endpoint for all OpenAI-compatible providers.
+  return openai.chat(model);
 }
 
 // ---------------------------------------------------------------------------
@@ -81,10 +91,8 @@ async function buildContext(sessionId: string): Promise<{
   const activeGame = await getActiveGame();
   const session = await getSession();
 
-  const uiLanguage = "en"; // TODO: read from i18n setting
-
   let systemPrompt = loadSystemPrompt();
-  systemPrompt = systemPrompt.replace("{uiLanguage}", uiLanguage);
+  systemPrompt = systemPrompt.replace("{uiLanguage}", "en");
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -134,8 +142,47 @@ async function logStepToDB(
       },
     });
   } catch {
-    // non-critical — don't break the agent over log failures
     console.error("[builder-runner] Failed to write thought log");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Responses API → text extraction (fallback for non-OpenAI-format providers)
+// ---------------------------------------------------------------------------
+
+/**
+ * Some providers (DeepSeek v4 via OpenRouter or direct) return the Responses API
+ * format ({"output": [...]}) instead of Chat Completions format ({"choices": [...]}).
+ * The AI SDK can't parse this. As a fallback, extract text from the error.
+ */
+function extractTextFromError(err: unknown): string | null {
+  const obj = err as Record<string, unknown>;
+  const body = obj.responseBody as string | undefined;
+  if (!body) return null;
+
+  try {
+    const json = JSON.parse(body) as Record<string, unknown>;
+    const output = json.output as Array<Record<string, unknown>> | undefined;
+    if (!output) return null;
+
+    const parts: string[] = [];
+    for (const item of output) {
+      if (item.type === "message" && item.role === "assistant") {
+        const content = item.content;
+        if (Array.isArray(content)) {
+          for (const part of content as Array<Record<string, unknown>>) {
+            if (part.type === "output_text" && typeof part.text === "string") {
+              parts.push(part.text);
+            }
+          }
+        } else if (typeof content === "string") {
+          parts.push(content);
+        }
+      }
+    }
+    return parts.length > 0 ? parts.join("\n") : null;
+  } catch {
+    return null;
   }
 }
 
@@ -153,7 +200,6 @@ export async function runBuilderAgent(
     const activeGame = await getActiveGame();
     const masterId = activeGame?.currentMasterId ?? "";
 
-    // Build file context hint if files were attached
     let fileHint = "";
     if (fileIds.length > 0) {
       const names = fileIds
@@ -169,8 +215,6 @@ export async function runBuilderAgent(
 
     const model = await createProvider();
     const tools = getTools();
-
-    // Collect step labels during execution
     const steps: IStepLabel[] = [];
 
     const result = await generateText({
@@ -180,7 +224,6 @@ export async function runBuilderAgent(
       tools,
       stopWhen: isStepCount(10),
       onStepFinish: async (event: StepResult<typeof tools>) => {
-        // Extract tool calls and their results from this step
         const toolCalls = event.toolCalls ?? [];
         const toolResults = event.toolResults ?? [];
 
@@ -191,7 +234,6 @@ export async function runBuilderAgent(
             const toolName = call.toolName as string;
             steps.push({ tool: toolName });
 
-            // Log full details to ThoughtLog
             const inputPreview =
               typeof call.input === "object"
                 ? JSON.stringify(call.input).slice(0, 300)
@@ -207,7 +249,6 @@ export async function runBuilderAgent(
             }
           }
         } else if (event.text) {
-          // Final text step — this is the model's response
           steps.push({ tool: "final" });
         }
       },
@@ -215,7 +256,29 @@ export async function runBuilderAgent(
 
     return { kind: "text", text: result.text, steps };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    // Try to extract text from the error body (Responses API fallback)
+    const extracted = extractTextFromError(err);
+    if (extracted) {
+      console.log("[builder] Extracted text from Responses API error body");
+      return { kind: "text", text: extracted, steps: [{ tool: "final" }] };
+    }
+
+    const rawMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error("[builder] Agent error:", rawMessage);
+
+    const errObj = err as Record<string, unknown>;
+    let message = rawMessage;
+
+    if (rawMessage.includes("Invalid JSON response")) {
+      message =
+        "AI provider returned a response format the SDK doesn't understand. " +
+        "Try using a different model or contact support.";
+    } else if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
+      message = "AI provider rejected the request. Check your API key in AI Settings.";
+    } else if (rawMessage.includes("404") || rawMessage.includes("not found")) {
+      message = "AI model not found. Check the model name in AI Settings.";
+    }
+
     return { kind: "error", error: message };
   }
 }

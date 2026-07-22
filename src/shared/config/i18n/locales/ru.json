@@ -89,7 +89,8 @@
     "attachFile": "Прикрепить файл",
     "dropHere": "Перетащите файлы сюда",
     "fileTooLarge": "Файл слишком большой (макс. {{max}})",
-    "maxFilesReached": "Максимум {{count}} файлов"
+    "maxFilesReached": "Максимум {{count}} файлов",
+    "sendError": "Ошибка отправки"
   },
   "tabs": {
     "commonChat": "Общий чат",

@@ -85,6 +85,11 @@ export const BuilderChatView = () => {
       }
 
       const result = await sendMutation.mutateAsync({ sessionId, content, fileIds });
+      if ("error" in result) {
+        notification.error({ title: t("chat.sendError"), description: result.error });
+        setTyping(false);
+        return;
+      }
       if ("builderMessage" in result && result.steps?.length) {
         stepsRef.current.set(result.builderMessage.id, result.steps);
       }

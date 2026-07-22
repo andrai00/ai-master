@@ -53,9 +53,14 @@ export const BuilderChatView = () => {
   useEffect(() => {
     if (!sessionId) return;
     checkProcessingAction(sessionId).then((r) => {
-      if (r.processing) setTyping(true);
+      if (r.processing) {
+        setTyping(true);
+      } else {
+        // Processing may have finished while away — refetch messages
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+      }
     });
-  }, [sessionId]);
+  }, [sessionId, queryClient]);
 
   const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();

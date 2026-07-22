@@ -35,8 +35,10 @@ export async function GET(request: NextRequest) {
         if (data.steps.length > lastCount) {
           const newSteps = data.steps.slice(lastCount);
           lastCount = data.steps.length;
-          for (const tool of newSteps) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ tool })}\n\n`));
+          for (const step of newSteps) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ tool: step.tool, detail: step.detail })}\n\n`)
+            );
           }
         }
 

@@ -2,8 +2,13 @@ import "server-only";
 
 /** Per-session step tracking for real-time UI updates. */
 
+export interface IStepEntry {
+  tool: string;
+  detail?: string; // e.g. "15/32" for file reading progress
+}
+
 interface ISessionSteps {
-  steps: string[]; // tool names in order
+  steps: IStepEntry[];
   done: boolean;
   lastError: string;
 }
@@ -23,9 +28,9 @@ export function initSessionSteps(sessionId: string): void {
   getMap().set(sessionId, { steps: [], done: false, lastError: "" });
 }
 
-export function addStep(sessionId: string, tool: string): void {
+export function addStep(sessionId: string, tool: string, detail?: string): void {
   const s = getMap().get(sessionId);
-  if (s) s.steps.push(tool);
+  if (s) s.steps.push({ tool, detail });
 }
 
 export function finishSteps(sessionId: string): void {

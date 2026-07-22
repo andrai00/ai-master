@@ -250,7 +250,18 @@ export async function runBuilderAgent(
             const res = toolResults[i];
             const toolName = call.toolName as string;
             steps.push({ tool: toolName });
-            addStep(sessionId, toolName);
+
+            // Compute chunk progress for file reading
+            let stepDetail: string | undefined;
+            if (toolName === "read_parsed_file" && res?.output) {
+              const out = res.output as Record<string, unknown>;
+              if (typeof out.offset === "number" && typeof out.totalSize === "number") {
+                const chunkNum = Math.floor(out.offset / 5000) + 1;
+                const totalChunks = Math.ceil(out.totalSize / 5000);
+                stepDetail = `${chunkNum}/${totalChunks}`;
+              }
+            }
+            addStep(sessionId, toolName, stepDetail);
 
             const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
             const outputStr = res?.output !== undefined

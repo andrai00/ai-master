@@ -156,23 +156,23 @@ export const ChatPanel = ({
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [liveStep, setLiveStep] = useState<string>("");
+  const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
 
   // Subscribe to SSE for real-time step tracking
   useEffect(() => {
     if (!stepsSessionId || !typing) {
-      setLiveStep("");
+      setLiveStep(null);
       return;
     }
 
-    setLiveStep("");
+    setLiveStep(null);
     const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
 
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.tool) {
-          setLiveStep(data.tool);
+          setLiveStep({ tool: data.tool, detail: data.detail });
         }
         if (data.done) {
           es.close();
@@ -424,8 +424,8 @@ export const ChatPanel = ({
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
                   {liveStep ? (
                     <div className={styles.liveStepsLine}>
-                      {getStepIcon(liveStep)}
-                      <span>{getStepLabel(liveStep, t)}</span>
+                      {getStepIcon(liveStep.tool)}
+                      <span>{getStepLabel(liveStep.tool, t)}{liveStep.detail ? ` (${liveStep.detail})` : ""}</span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                       <span className={styles.dot} />

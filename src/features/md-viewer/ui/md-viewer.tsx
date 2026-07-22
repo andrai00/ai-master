@@ -1,16 +1,21 @@
 "use client";
 
-import type { ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import styles from "./md-viewer.module.css";
 
 interface IMdViewerProps {
-  children: ReactNode;
+  content: string;
 }
 
-export const MdViewer = ({ children }: IMdViewerProps) => {
+export const MdViewer = ({ content }: IMdViewerProps) => {
   return (
     <div className={styles.viewer}>
-      <div className={styles.content}>{children}</div>
+      <div className={styles.content}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {content}
+        </ReactMarkdown>
+      </div>
     </div>
   );
 };

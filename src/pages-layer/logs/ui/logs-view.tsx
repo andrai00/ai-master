@@ -1,6 +1,7 @@
 "use client";
 
 import { Timeline, Empty, Tag } from "antd";
+import type { TimelineItemProps } from "antd";
 import { BulbOutlined, RobotOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -35,15 +36,20 @@ export const LogsView = () => {
     ),
   }));
 
+  const timelineItems: TimelineItemProps[] = [
+    ...items,
+    ...(isLoading ? [{ color: "gray" as const, children: t("logs.loading"), pending: true }] : []),
+  ];
+
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
       <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: "var(--text-primary)" }}>
         {t("logs.title")}
       </h2>
-      {!isLoading && items.length === 0 ? (
+      {!isLoading && timelineItems.length === 0 ? (
         <Empty description={t("logs.empty")} />
       ) : (
-        <Timeline items={items} pending={isLoading ? t("logs.loading") : undefined} />
+        <Timeline items={timelineItems} />
       )}
     </div>
   );

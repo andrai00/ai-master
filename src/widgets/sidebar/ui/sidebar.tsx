@@ -54,6 +54,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
       cancelText: t("common.cancel"),
       okButtonProps: { danger: true },
       centered: true,
+      mask: { closable: true },
       onOk: async () => {
         await logoutAction();
         router.push("/login");

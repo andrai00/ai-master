@@ -34,6 +34,7 @@ export const AdminSection = () => {
       okText: isDev ? t("mode.okToGame") : t("mode.okToDev"),
       cancelText: t("common.cancel"),
       centered: true,
+      mask: { closable: true },
       onOk: async () => {
         const result = await setModeMutation.mutateAsync(newMode);
         if (result.success) {

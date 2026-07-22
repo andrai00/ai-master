@@ -44,6 +44,8 @@ export interface IMessage {
   shared?: boolean;
   summarized?: boolean;
   steps?: IStepLabel[];
+  /** Optional prefix rendered before the markdown text (e.g. file attachment icon) */
+  prefix?: ReactNode;
 }
 
 interface IChatPanelProps {
@@ -306,6 +308,7 @@ export const ChatPanel = ({
         <div className={styles.sender}>{msg.sender}</div>
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
+            {msg.prefix}
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {String(msg.text)}
             </ReactMarkdown>

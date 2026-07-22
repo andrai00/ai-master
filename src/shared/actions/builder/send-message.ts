@@ -9,6 +9,7 @@ interface ISendResult {
   adminMessage: { id: string; content: string; createdAt: Date };
   builderMessage: { id: string; content: string; createdAt: Date };
   steps: IStepLabel[];
+  hasFiles: boolean;
   summarized?: { id: string; title: string };
 }
 
@@ -141,6 +142,7 @@ export async function sendBuilderMessageAction(
       createdAt: builderMsg.createdAt,
     },
     steps,
+    hasFiles: fileIds.length > 0,
     summarized: summaryResult,
   };
 }

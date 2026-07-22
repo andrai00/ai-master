@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Modal, Table, App } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatPanel } from "@/src/features/chat-panel";
+import { FileOutlined } from "@ant-design/icons";
 import { useBuilderSession } from "@/src/shared/api/builder/use-builder-session";
 import { useBuilderMessages } from "@/src/shared/api/builder/use-builder-messages";
 import { useSendBuilderMessage } from "@/src/shared/api/builder/use-send-message";
@@ -43,6 +44,7 @@ export const BuilderChatView = () => {
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
   const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
+  const hasFilesRef = useRef<Set<string>>(new Set());
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
@@ -59,6 +61,9 @@ export const BuilderChatView = () => {
     text: m.content,
     summarized: m.summarized,
     steps: stepsRef.current.get(m.id),
+    prefix: hasFilesRef.current.has(m.id)
+      ? <span style={{ display: "block", marginBottom: 4, color: "var(--text-muted)", fontSize: 11 }}><FileOutlined style={{ marginRight: 4 }} />файлы</span>
+      : undefined,
   });
 
   const messages: IMessage[] = (msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : []);
@@ -93,6 +98,9 @@ export const BuilderChatView = () => {
       }
       if ("builderMessage" in result && result.steps?.length) {
         stepsRef.current.set(result.builderMessage.id, result.steps);
+      }
+      if ("hasFiles" in result && result.hasFiles) {
+        hasFilesRef.current.add(result.adminMessage.id);
       }
       // Brief delay so client sees typing indicator before invalidation
       await new Promise((r) => setTimeout(r, 500));

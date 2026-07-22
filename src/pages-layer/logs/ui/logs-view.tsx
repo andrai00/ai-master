@@ -19,7 +19,7 @@ export const LogsView = () => {
 
   const items = logs.map((log) => ({
     color: log.agent === "builder" ? "blue" : "green",
-    children: (
+    content: (
       <div>
         <div style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
           <Tag color={log.agent === "builder" ? "blue" : "green"}>

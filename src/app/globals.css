@@ -88,3 +88,8 @@ body {
   background: #c0c0c0;
   color: #1a1a1a;
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

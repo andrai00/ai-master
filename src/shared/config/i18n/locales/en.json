@@ -226,6 +226,16 @@
     "apiKey": "API Key",
     "model": "Model",
     "examples": "Examples",
-    "saved": "Settings saved"
+    "saved": "Settings saved",
+    "test": "Test Connection",
+    "testOk": "Connected",
+    "testFail": "Error",
+    "hint": "Click \"Test\" to load model list",
+    "refreshModels": "Load model list",
+    "modelsLoaded": "Models loaded",
+    "modelsFound": "models",
+    "loading": "Loading models...",
+    "noModels": "No models found",
+    "enterKey": "Enter API key"
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Select, Input, Button, App } from "antd";
+import { Select, Input, Button, App, Tooltip } from "antd";
 import {
   CloudOutlined,
   RobotOutlined,
@@ -8,10 +8,14 @@ import {
   SettingOutlined,
   SaveOutlined,
   ApiOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAiConfigAction, saveAiConfigAction } from "@/src/shared/actions/admin/ai-config";
+import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
+import { useModelList } from "@/src/shared/api/admin/use-model-list";
+import { VirtualSelect } from "@/src/features/virtual-select";
 import { useState, useEffect } from "react";
 
 const PROVIDERS = [
@@ -77,6 +81,8 @@ export const AiSettingsView = () => {
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [modelsOpen, setModelsOpen] = useState(false);
 
   useEffect(() => {
     if (config) {
@@ -109,6 +115,23 @@ export const AiSettingsView = () => {
     setProvider(v);
     const p = getProvider(v);
     if (p.defaultUrl) setBaseUrl(p.defaultUrl);
+  };
+
+  const { data: modelsData, isFetching: modelsLoading } = useModelList(
+    provider, baseUrl, apiKey, modelsOpen
+  );
+
+  const modelList = modelsData?.success ? modelsData.models || [] : [];
+
+  const handleTest = async () => {
+    setTesting(true);
+    const res = await testAiConnectionFromDbAction();
+    setTesting(false);
+    if (res.success) {
+      notification.success({ title: t("aiSettings.testOk"), description: res.message });
+    } else {
+      notification.error({ title: t("aiSettings.testFail"), description: res.message });
+    }
   };
 
   return (
@@ -183,26 +206,40 @@ export const AiSettingsView = () => {
           <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
             {t("aiSettings.model")}
           </div>
-          <Input
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={currentProvider.modelHint}
+          <VirtualSelect
+            value={model || undefined}
+            onChange={setModel}
+            showSearch
+            allowClear
+            placeholder={modelsLoading ? t("aiSettings.loading") : currentProvider.modelHint}
+            style={{ width: "100%" }}
+            options={modelList.map((m) => ({ value: m, label: m }))}
+            loading={modelsLoading}
+            onDropdownVisibleChange={(open) => setModelsOpen(open)}
+            notFoundContent={modelsLoading ? t("aiSettings.loading") : apiKey ? t("aiSettings.noModels") : t("aiSettings.enterKey")}
           />
-          <div style={{ marginTop: 4, fontSize: 11, color: "var(--text-muted)", wordBreak: "break-word" }}>
-            {currentProvider.modelHint}
-          </div>
         </div>
 
-        {/* Save */}
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={() => saveMutation.mutate()}
-          loading={saveMutation.isPending}
-          block
-        >
-          {t("common.save")}
-        </Button>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            onClick={handleTest}
+            loading={testing}
+            icon={<ApiOutlined />}
+            style={{ flex: 1 }}
+          >
+            {t("aiSettings.test")}
+          </Button>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => saveMutation.mutate()}
+            loading={saveMutation.isPending}
+            style={{ flex: 1 }}
+          >
+            {t("common.save")}
+          </Button>
+        </div>
       </div>
     </div>
   );

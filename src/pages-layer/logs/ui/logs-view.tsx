@@ -1,7 +1,6 @@
 "use client";
 
 import { Timeline, Empty, Tag } from "antd";
-import type { TimelineItemProps } from "antd";
 import { BulbOutlined, RobotOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +18,7 @@ export const LogsView = () => {
   const items = logs.map((log) => ({
     color: log.agent === "builder" ? "blue" : "green",
     dot: log.agent === "builder" ? <BulbOutlined /> : <RobotOutlined />,
-    children: (
+    content: (
       <div>
         <div style={{ marginBottom: 4 }}>
           <Tag color={log.agent === "builder" ? "blue" : "green"}>
@@ -36,17 +35,18 @@ export const LogsView = () => {
     ),
   }));
 
-  const timelineItems: TimelineItemProps[] = [
-    ...items,
-    ...(isLoading ? [{ color: "gray" as const, children: t("logs.loading"), pending: true }] : []),
-  ];
+  const timelineItems = items;
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
       <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: "var(--text-primary)" }}>
         {t("logs.title")}
       </h2>
-      {!isLoading && timelineItems.length === 0 ? (
+      {isLoading ? (
+        <div style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>
+          {t("logs.loading")}
+        </div>
+      ) : timelineItems.length === 0 ? (
         <Empty description={t("logs.empty")} />
       ) : (
         <Timeline items={timelineItems} />

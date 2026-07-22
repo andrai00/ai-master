@@ -215,7 +215,7 @@ export const AiSettingsView = () => {
             style={{ width: "100%" }}
             options={modelList.map((m) => ({ value: m, label: m }))}
             loading={modelsLoading}
-            onDropdownVisibleChange={(open) => setModelsOpen(open)}
+            onOpenChange={(open) => setModelsOpen(open)}
             notFoundContent={modelsLoading ? t("aiSettings.loading") : apiKey ? t("aiSettings.noModels") : t("aiSettings.enterKey")}
           />
         </div>

@@ -332,7 +332,7 @@ export const ChatPanel = ({
                 onConfirm={() => onDelete(msg.id)}
                 okText={t("common.delete")}
                 cancelText={t("common.cancel")}
-                placement="top"
+                placement="bottom"
               >
                 <Tooltip title={t("chat.delete") || "Удалить"} placement="top">
                   <button className={styles.actionBtn}>

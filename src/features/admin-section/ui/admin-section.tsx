@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, App, Tooltip } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
@@ -49,6 +49,10 @@ export const AdminSection = () => {
       <button className={styles.row} onClick={() => router.push("/admin/users")}>
         <UserOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.users")}</span>
+      </button>
+      <button className={styles.row} onClick={() => router.push("/admin/ai-settings")}>
+        <SettingOutlined className={styles.rowIcon} />
+        <span className={styles.rowLabel}>{t("mode.aiSettings")}</span>
       </button>
 
       <div className={styles.modeRow}>

@@ -171,6 +171,7 @@
     "exportMaster": "Export Master",
     "documents": "Documents",
     "logs": "Logs",
+    "aiSettings": "AI Settings",
     "importTitle": "Import Master",
     "importDesc": "Upload a previously exported master dump. A new game with the same rule structure will be created.",
     "importDrag": "Drag a file or click to select",
@@ -217,5 +218,14 @@
     "title": "Thought Logs",
     "empty": "No logs yet",
     "loading": "Loading..."
+  },
+  "aiSettings": {
+    "title": "AI Settings",
+    "provider": "Provider",
+    "baseUrl": "Server URL",
+    "apiKey": "API Key",
+    "model": "Model",
+    "examples": "Examples",
+    "saved": "Settings saved"
   }
 }

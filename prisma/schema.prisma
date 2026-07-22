@@ -106,3 +106,12 @@ model ThoughtLog {
   createdAt DateTime @default(now())
   master    Master   @relation(fields: [masterId], references: [id])
 }
+
+model AppConfig {
+  id        String @id @default("singleton")
+  provider  String @default("custom")     // "openrouter" | "openai" | "anthropic" | "groq" | "ollama" | "custom"
+  baseUrl   String @default("")            // custom endpoint
+  apiKey    String @default("")            // encrypted or plain
+  model     String @default("")            // selected model ID
+  extra     String @default("")            // JSON: additional models list
+}

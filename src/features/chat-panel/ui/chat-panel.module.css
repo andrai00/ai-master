@@ -334,26 +334,20 @@
 .fileChip {
   display: inline-flex !important;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: 12px;
   background: var(--bg-hover);
   border-color: var(--border);
   color: var(--text-secondary);
-  max-width: 220px;
+  max-width: 260px;
   overflow: hidden;
+  padding: 0 6px !important;
 }
 
-.fileChipName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 140px;
-}
-
-.fileChipSize {
-  color: var(--text-muted);
-  font-size: 11px;
+.fileChip :global(.ant-tag-close-icon) {
   margin-left: 2px;
+  font-size: 10px;
+  flex-shrink: 0;
 }
 
 /* ---- Drop zone overlay ---- */

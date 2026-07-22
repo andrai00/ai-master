@@ -68,7 +68,7 @@ interface IChatPanelProps {
 }
 
 const DEFAULT_MAX_FILES = 5;
-const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB per file
 
 function groupMessages(messages: IMessage[]) {
   const result: { event?: { ids: string[]; sender: string }; messages: IMessage[] }[] = [];
@@ -415,8 +415,7 @@ export const ChatPanel = ({
                 icon={<FileOutlined />}
                 className={styles.fileChip}
               >
-                <span className={styles.fileChipName}>{f.name}</span>
-                <span className={styles.fileChipSize}>{formatSize(f.size)}</span>
+                {truncateFileName(f.name)}
               </Tag>
             ))}
           </div>
@@ -478,4 +477,14 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Truncate a filename for display: keep extension, trim middle */
+function truncateFileName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return name.length > 24 ? name.slice(0, 22) + "…" : name;
+  const ext = name.slice(dot);
+  const base = name.slice(0, dot);
+  if (name.length <= 28) return name;
+  return base.slice(0, 20) + "…" + ext;
 }

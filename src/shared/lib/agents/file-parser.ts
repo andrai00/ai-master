@@ -11,7 +11,7 @@ export interface IParsedFile {
   filename: string;
 }
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
+const MAX_TEXT_SIZE = 25 * 1024 * 1024; // 25MB parsed text limit
 
 function getExtension(filename: string): string {
   const idx = filename.lastIndexOf(".");
@@ -44,8 +44,8 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<IPars
     text = new TextDecoder("utf-8").decode(buffer);
   }
 
-  if (text.length > MAX_SIZE) {
-    throw new Error(`File too large after parsing: ${text.length} bytes (max ${MAX_SIZE})`);
+  if (text.length > MAX_TEXT_SIZE) {
+    throw new Error(`File too large after parsing: ${text.length} bytes (max ${MAX_TEXT_SIZE})`);
   }
 
   return { text, size: text.length, filename };

@@ -96,8 +96,8 @@ Do not over-ask — batch related questions. Do not ask something you can figure
 ## Reading Parsed Files
 
 Uploaded files are parsed into plain text and chunked. Use `read_parsed_file` with offset/limit to read manageable portions:
-- `read_parsed_file(fileId)` — first 3000 characters
-- `read_parsed_file(fileId, offset=3000, limit=3000)` — next chunk
+- `read_parsed_file(fileId)` — first 5000 characters
+- `read_parsed_file(fileId, offset=5000, limit=5000)` — next chunk
 
 **Note about text quality:** Parsed files (especially from PDF) may contain artifact text — extra blank lines, page numbers, headers/footers mixed into the text. You are intelligent enough to distinguish real rule content from parsing noise. Ignore junk; focus on the actual game rules.
 
@@ -127,7 +127,7 @@ Uploaded files are parsed into plain text and chunked. Use `read_parsed_file` wi
 Uploaded files are parsed into plain text. You read them in **chunks** — call `read_parsed_file(fileId, offset, limit)` repeatedly, advancing the offset until `hasMore` is false.
 
 **How to chunk:**
-- Start with the first chunk (offset=0, limit=3000) to get an overview of the file structure
+- Start with the first chunk (offset=0, limit=5000) to get an overview of the file structure
 - Based on the content, decide how to proceed: read more chunks, process what you have, or switch to another file
 - Use the **full conversation context** when reading — if the admin asked about specific rules, prioritize those sections
 - If multiple files are attached, interleave: read chunk 1 of file A, then chunk 1 of file B, then compare

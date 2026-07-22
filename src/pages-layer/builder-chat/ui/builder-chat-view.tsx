@@ -70,7 +70,7 @@ export const BuilderChatView = () => {
     summarized: m.summarized,
     steps: stepsRef.current.get(m.id),
     prefix: m.hasFiles
-      ? <span style={{ display: "block", marginBottom: 4, color: "var(--text-muted)", fontSize: 11 }}><FileOutlined style={{ marginRight: 4 }} />файлы</span>
+      ? <span style={{ fontSize: 11, opacity: 0.5 }}><FileOutlined /></span>
       : undefined,
   });
 

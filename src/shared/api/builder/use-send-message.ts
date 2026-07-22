@@ -10,7 +10,7 @@ export function useSendBuilderMessage() {
   return useMutation({
     mutationFn: ({ sessionId, content, fileIds }: { sessionId: string; content: string; fileIds?: string[] }) =>
       sendBuilderMessageAction(sessionId, content, fileIds ?? []),
-    onMutate: async ({ sessionId, content }) => {
+    onMutate: async ({ sessionId, content, fileIds }) => {
       await qc.cancelQueries({ queryKey: ["builder", "messages", sessionId] });
 
       const prev = qc.getQueryData<IBuilderMessagesResult>(["builder", "messages", sessionId, 1]);
@@ -21,7 +21,7 @@ export function useSendBuilderMessage() {
         content,
         senderId: "",
         summarized: false,
-        hasFiles: false,
+        hasFiles: (fileIds?.length ?? 0) > 0,
         createdAt: new Date(),
       };
 

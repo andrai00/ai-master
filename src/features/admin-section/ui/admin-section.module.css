@@ -58,3 +58,31 @@
   font-size: 12px;
   justify-content: flex-start;
 }
+
+.inlineRow {
+  display: flex;
+  gap: 4px;
+  padding: 2px 8px;
+}
+
+.inlineBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.inlineBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-dim);
+}

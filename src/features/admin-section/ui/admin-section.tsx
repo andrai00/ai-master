@@ -72,14 +72,16 @@ export const AdminSection = () => {
             <CodeOutlined className={styles.rowIcon} />
             <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
           </button>
-          <button className={styles.row} onClick={() => setImportOpen(true)}>
-            <ImportOutlined className={styles.rowIcon} />
-            <span className={styles.rowLabel}>{t("mode.importMaster")}</span>
-          </button>
-          <button className={styles.row} onClick={() => setExportOpen(true)}>
-            <ExportOutlined className={styles.rowIcon} />
-            <span className={styles.rowLabel}>{t("mode.exportMaster")}</span>
-          </button>
+          <div className={styles.inlineRow}>
+            <button className={styles.inlineBtn} onClick={() => setImportOpen(true)}>
+              <ImportOutlined />
+              <span>{t("mode.importMaster")}</span>
+            </button>
+            <button className={styles.inlineBtn} onClick={() => setExportOpen(true)}>
+              <ExportOutlined />
+              <span>{t("mode.exportMaster")}</span>
+            </button>
+          </div>
         </>
       )}
       <button className={styles.row} onClick={() => router.push("/admin/documents")}>

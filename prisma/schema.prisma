@@ -34,6 +34,7 @@ model Master {
   activeGame  ActiveGame[]
   sessions    Session[]
   documents   Document[]
+  thoughtLogs ThoughtLog[]
 }
 
 model GameAccess {
@@ -95,4 +96,13 @@ model Message {
   createdAt  DateTime @default(now())
   session    Session  @relation(fields: [sessionId], references: [id])
   sender     User     @relation(fields: [senderId], references: [id])
+}
+
+model ThoughtLog {
+  id        String   @id @default(uuid())
+  masterId  String
+  agent     String   // "builder" | "master"
+  content   String
+  createdAt DateTime @default(now())
+  master    Master   @relation(fields: [masterId], references: [id])
 }

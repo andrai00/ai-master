@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, App, Tooltip } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
@@ -82,6 +82,14 @@ export const AdminSection = () => {
           </button>
         </>
       )}
+      <button className={styles.row} onClick={() => router.push("/admin/documents")}>
+        <FileTextOutlined className={styles.rowIcon} />
+        <span className={styles.rowLabel}>{t("mode.documents")}</span>
+      </button>
+      <button className={styles.row} onClick={() => router.push("/admin/logs")}>
+        <BulbOutlined className={styles.rowIcon} />
+        <span className={styles.rowLabel}>{t("mode.logs")}</span>
+      </button>
       <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>

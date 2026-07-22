@@ -169,6 +169,8 @@
     "builderChat": "Setup AI Master",
     "importMaster": "Import Master",
     "exportMaster": "Export Master",
+    "documents": "Documents",
+    "logs": "Logs",
     "importTitle": "Import Master",
     "importDesc": "Upload a previously exported master dump. A new game with the same rule structure will be created.",
     "importDrag": "Drag a file or click to select",
@@ -196,5 +198,24 @@
     "okToGame": "Start",
     "switchedToDev": "Editing mode enabled",
     "switchedToGame": "Game mode enabled"
+  },
+  "documents": {
+    "title_page": "Game Documents",
+    "title": "Title",
+    "type": "Type",
+    "summary": "Summary",
+    "updated": "Updated",
+    "untitled": "Untitled",
+    "empty": "No documents",
+    "preview": "Preview",
+    "glossary": "Glossary",
+    "brain": "Brain",
+    "gameHidden": "Hidden",
+    "gameVisible": "Player Data"
+  },
+  "logs": {
+    "title": "Thought Logs",
+    "empty": "No logs yet",
+    "loading": "Loading..."
   }
 }

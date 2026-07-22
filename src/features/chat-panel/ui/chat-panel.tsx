@@ -73,6 +73,10 @@ interface IChatPanelProps {
   maxFileSize?: number;
   /** Session ID for real-time step tracking via SSE (builder chat) */
   stepsSessionId?: string;
+  /** Called when SSE reports processing is done */
+  onStepsDone?: () => void;
+  /** True while stop is in progress (waiting for abort to complete) */
+  stopping?: boolean;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -147,7 +151,7 @@ export const ChatPanel = ({
   onDelete, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId,
+  stepsSessionId, stopping, onStepsDone,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -176,6 +180,7 @@ export const ChatPanel = ({
           setLiveStep({ tool: data.tool, detail: data.detail });
         }
         if (data.done) {
+          onStepsDone?.();
           es.close();
         }
       } catch {
@@ -423,7 +428,9 @@ export const ChatPanel = ({
               <div className={styles.msgContent}>
                 <div className={styles.sender}>Builder</div>
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
-                  {liveStep ? (
+                  {stopping ? (
+                    <span style={{ color: "var(--text-dim)", fontSize: 12 }}>Stopping...</span>
+                  ) : liveStep ? (
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}
                       <span>{getStepLabel(liveStep.tool, t)}{liveStep.detail ? ` (${liveStep.detail})` : ""}</span>
@@ -503,15 +510,24 @@ export const ChatPanel = ({
               }
             }}
           />
-          {typing && onStop ? (
-            <Tooltip title={t("chat.stop")}>
+          {typing ? (
+            onStop && !stopping ? (
+              <Tooltip title={t("chat.stop")}>
+                <Button
+                  type="default"
+                  icon={<StopOutlined />}
+                  className={`${styles.sendBtn} ${styles.stopBtn}`}
+                  onClick={onStop}
+                />
+              </Tooltip>
+            ) : (
               <Button
                 type="default"
-                icon={<StopOutlined />}
-                className={`${styles.sendBtn} ${styles.stopBtn}`}
-                onClick={onStop}
+                icon={<SendOutlined />}
+                className={styles.sendBtn}
+                disabled
               />
-            </Tooltip>
+            )
           ) : (
             <Button
               type="default"

@@ -44,6 +44,7 @@ export const BuilderChatView = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [typing, setTyping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
 
   const { data: sessionData } = useBuilderSession();
@@ -61,6 +62,11 @@ export const BuilderChatView = () => {
       }
     });
   }, [sessionId, queryClient]);
+
+  // Reset stopping when typing ends (stop completed)
+  useEffect(() => {
+    if (!typing) setStopping(false);
+  }, [typing]);
 
   const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
@@ -136,8 +142,12 @@ export const BuilderChatView = () => {
 
   const handleStop = useCallback(async () => {
     if (!sessionId) return;
+    setStopping(true);
     await stopBuilderAction(sessionId);
-  }, [sessionId]);
+    setTyping(false);
+    setStopping(false);
+    queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+  }, [sessionId, queryClient]);
 
   const openHistory = async () => {
     if (!sessionId) return;
@@ -192,7 +202,13 @@ export const BuilderChatView = () => {
         onStop={handleStop}
         sending={sendMutation.isPending || uploading}
         typing={typing}
+        stopping={stopping}
         stepsSessionId={sessionId ?? undefined}
+        onStepsDone={() => {
+          setTyping(false);
+          setStopping(false);
+          queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        }}
       />
       <Modal
         title={t("chat.historyTitle") || "История чата"}

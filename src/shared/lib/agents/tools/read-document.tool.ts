@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const readDocumentTool = {
   description: "Read a document from the database by ID. Returns title, category, type, summary, and full content.",
@@ -10,6 +11,7 @@ export const readDocumentTool = {
     })
   ),
   execute: async (args: { id: string }) => {
+    if (isCancelled()) throw new Error("Cancelled.");
     const prisma = getPrisma();
     const doc = await prisma.document.findUnique({
       where: { id: args.id },

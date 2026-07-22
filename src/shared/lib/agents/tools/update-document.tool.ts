@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const updateDocumentTool = {
   description: "Update the content of an existing glossary or brain document.",
@@ -14,6 +15,7 @@ export const updateDocumentTool = {
     })
   ),
   execute: async (args: { id: string; content: string; title?: string; summary?: string }) => {
+    if (isCancelled()) throw new Error("Cancelled.");
     await assertNotGameMode();
     const prisma = getPrisma();
 

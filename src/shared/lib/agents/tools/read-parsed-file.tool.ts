@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getCachedFile } from "@/src/shared/lib/agents/file-cache";
-import { isFileParsingCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const readParsedFileTool = {
   description:
@@ -18,19 +18,22 @@ export const readParsedFileTool = {
     const offset = args.offset ?? 0;
     const limit = args.limit ?? 5000;
 
-    // Wait for async parsing to finish (upload returns before parsing is done)
+    // Wait for async parsing to finish
     let file = getCachedFile(fileId);
     if (!file) {
-      for (let i = 0; i < 600; i++) {
-        if (isFileParsingCancelled(fileId)) {
-          throw new Error("File parsing was cancelled.");
+      for (let i = 0; i < 6000; i++) {
+        if (isCancelled()) {
+          throw new Error("Cancelled.");
         }
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 100));
         file = getCachedFile(fileId);
         if (file) break;
       }
-      if (!file) throw new Error(`File not found or parse timed out: ${fileId}`);
+      if (!file) throw new Error("File parse timed out: " + fileId);
     }
+
+    // Check cancellation before reading
+    if (isCancelled()) throw new Error("Cancelled.");
 
     const chunk = file.text.slice(offset, offset + limit);
     const hasMore = offset + limit < file.text.length;

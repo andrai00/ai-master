@@ -1,8 +1,5 @@
 import "server-only";
-
-// pdf-parse is a CJS module without a proper default export for ESM
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string; numpages: number; info: unknown }>;
+import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 
 export interface IParsedFile {
@@ -11,7 +8,7 @@ export interface IParsedFile {
   filename: string;
 }
 
-const MAX_TEXT_SIZE = 25 * 1024 * 1024; // 25MB parsed text limit
+const MAX_TEXT_SIZE = 25 * 1024 * 1024;
 
 function getExtension(filename: string): string {
   const idx = filename.lastIndexOf(".");
@@ -20,6 +17,32 @@ function getExtension(filename: string): string {
 
 function isAllowed(ext: string): boolean {
   return [".pdf", ".txt", ".md", ".docx"].includes(ext);
+}
+
+async function parsePdf(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser();
+
+    parser.on("pdfParser_dataReady", (data: { Pages: Array<{ Texts: Array<{ R: Array<{ T: string }> }> }> }) => {
+      const lines: string[] = [];
+      for (const page of data?.Pages ?? []) {
+        for (const text of page?.Texts ?? []) {
+          const decoded = decodeURIComponent(
+            text.R.map((r) => r.T).join("")
+          );
+          lines.push(decoded);
+        }
+        lines.push(""); // page separator
+      }
+      resolve(lines.join("\n"));
+    });
+
+    parser.on("pdfParser_dataError", (err: unknown) => {
+      reject(err instanceof Error ? err : new Error("PDF parse failed"));
+    });
+
+    parser.parseBuffer(buffer);
+  });
 }
 
 export async function parseFile(buffer: Buffer, filename: string): Promise<IParsedFile> {
@@ -31,16 +54,11 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<IPars
   let text: string;
 
   if (ext === ".pdf") {
-    const data = await pdfParse(buffer);
-    text = data.text;
+    text = await parsePdf(buffer);
   } else if (ext === ".docx") {
     const result = await mammoth.extractRawText({ buffer });
     text = result.value;
-    if (result.messages.length > 0) {
-      console.warn(`[file-parser] mammoth warnings for ${filename}:`, result.messages);
-    }
   } else {
-    // .txt, .md — just decode
     text = new TextDecoder("utf-8").decode(buffer);
   }
 

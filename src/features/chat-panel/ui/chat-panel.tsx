@@ -154,23 +154,23 @@ export const ChatPanel = ({
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [liveSteps, setLiveSteps] = useState<string[]>([]);
+  const [liveStep, setLiveStep] = useState<string>("");
 
   // Subscribe to SSE for real-time step tracking
   useEffect(() => {
     if (!stepsSessionId || !typing) {
-      setLiveSteps([]);
+      setLiveStep("");
       return;
     }
 
-    setLiveSteps([]);
+    setLiveStep("");
     const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
 
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.tool) {
-          setLiveSteps((prev) => [...prev, data.tool]);
+          setLiveStep(data.tool);
         }
         if (data.done) {
           es.close();
@@ -309,17 +309,6 @@ export const ChatPanel = ({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {String(msg.text)}
             </ReactMarkdown>
-            {msg.steps && msg.steps.length > 0 && (
-              <div className={styles.steps}>
-                {msg.steps.map((s, i) => (
-                  <span key={i} className={styles.stepItem}>
-                    {getStepIcon(s.tool)}
-                    <span className={styles.stepLabel}>{getStepLabel(s.tool, t)}</span>
-                    {i < msg.steps!.length - 1 && <span className={styles.stepArrow}>→</span>}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
           <div className={styles.actions}>
             <Tooltip title={t("chat.copy")} placement="top">
@@ -430,14 +419,10 @@ export const ChatPanel = ({
               <div className={styles.msgContent}>
                 <div className={styles.sender}>Builder</div>
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
-                  {liveSteps.length > 0 ? (
+                  {liveStep ? (
                     <div className={styles.liveStepsLine}>
-                      {liveSteps.map((tool, i) => (
-                        <span key={i} className={styles.liveStepTag}>
-                          {getStepIcon(tool)}
-                          <span>{getStepLabel(tool, t)}</span>
-                        </span>
-                      ))}
+                      {getStepIcon(liveStep)}
+                      <span>{getStepLabel(liveStep, t)}</span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                       <span className={styles.dot} />

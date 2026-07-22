@@ -122,7 +122,6 @@ export const UsersTable = () => {
                   </div>
                 )}
                 trigger="click"
-                trigger="click"
               >
                 <span style={{
                   display: "inline-block", padding: "1px 8px", borderRadius: 10, fontSize: 11, lineHeight: "18px",

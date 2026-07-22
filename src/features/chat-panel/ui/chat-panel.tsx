@@ -39,14 +39,13 @@ interface IChatPanelProps {
   onDelete?: (id: string) => void;
   onHistoryClick?: () => void;
   onClearChat?: () => void;
-  totalMessages?: number;
   onSend?: (text: string) => void;
   sending?: boolean;
   typing?: boolean;
 }
 
 function groupMessages(messages: IMessage[]) {
-  const result: { event?: { ids: number[]; sender: string }; messages: IMessage[] }[] = [];
+  const result: { event?: { ids: string[]; sender: string }; messages: IMessage[] }[] = [];
   let sharedGroup: IMessage[] = [];
 
   for (const msg of messages) {
@@ -83,7 +82,7 @@ function groupMessages(messages: IMessage[]) {
   return result;
 }
 
-export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, totalMessages, onSend, sending, typing }: IChatPanelProps) => {
+export const ChatPanel = ({ messages, placeholder, disabled, disabledText, hideShare, title, onDelete, onHistoryClick, onClearChat, onSend, sending, typing }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);

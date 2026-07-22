@@ -44,8 +44,8 @@ export const BuilderChatView = () => {
     summarized: m.summarized,
   });
 
-  const messages: IMessage[] = msgData?.messages.map(mapMsg) || [];
-  const total = msgData?.total || 0;
+  const messages: IMessage[] = (msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : []);
+  const total = (msgData && "total" in msgData ? msgData.total : 0);
 
   const handleSend = useCallback(
     async (content: string) => {

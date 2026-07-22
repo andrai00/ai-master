@@ -36,6 +36,11 @@
   color: var(--text-primary);
 }
 
+.rowActive {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
 .rowIcon {
   font-size: 13px;
   flex-shrink: 0;

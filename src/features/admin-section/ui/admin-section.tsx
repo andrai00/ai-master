@@ -4,7 +4,7 @@ import { Button, App, Tooltip } from "antd";
 import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
 import { useSetMasterMode } from "@/src/shared/api/admin/use-set-master-mode";
 import { ImportMasterModal } from "./import-master-modal";
@@ -15,7 +15,10 @@ export const AdminSection = () => {
   const { t } = useTranslation();
   const { modal, notification } = App.useApp();
   const router = useRouter();
+  const pathname = usePathname();
   const { data: modeData } = useActiveMode();
+
+  const isActive = (route: string) => pathname.startsWith(route);
   const setModeMutation = useSetMasterMode();
 
   const isDev = modeData?.mode === "development";
@@ -46,11 +49,17 @@ export const AdminSection = () => {
     <div className={styles.section}>
       <div className={styles.label}>{t("mode.adminSection")}</div>
 
-      <button className={styles.row} onClick={() => router.push("/admin/users")}>
+      <button
+        className={`${styles.row} ${isActive("/admin/users") ? styles.rowActive : ""}`}
+        onClick={() => router.push("/admin/users")}
+      >
         <UserOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.users")}</span>
       </button>
-      <button className={styles.row} onClick={() => router.push("/admin/ai-settings")}>
+      <button
+        className={`${styles.row} ${isActive("/admin/ai-settings") ? styles.rowActive : ""}`}
+        onClick={() => router.push("/admin/ai-settings")}
+      >
         <SettingOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.aiSettings")}</span>
       </button>
@@ -88,11 +97,17 @@ export const AdminSection = () => {
           </div>
         </>
       )}
-      <button className={styles.row} onClick={() => router.push("/admin/documents")}>
+      <button
+        className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
+        onClick={() => router.push("/admin/documents")}
+      >
         <FileTextOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.documents")}</span>
       </button>
-      <button className={styles.row} onClick={() => router.push("/admin/logs")}>
+      <button
+        className={`${styles.row} ${isActive("/admin/logs") ? styles.rowActive : ""}`}
+        onClick={() => router.push("/admin/logs")}
+      >
         <BulbOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.logs")}</span>
       </button>

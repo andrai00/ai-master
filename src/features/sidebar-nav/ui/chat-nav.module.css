@@ -42,6 +42,11 @@
   white-space: nowrap;
 }
 
+.item.active {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
 .itemBadge {
   flex-shrink: 0;
 }
@@ -72,4 +77,9 @@
 .collapsedItem:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.collapsedItem.active {
+  color: var(--text-primary);
+  background: var(--bg-active);
 }

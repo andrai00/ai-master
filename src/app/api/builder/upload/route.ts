@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { parseFile } from "@/src/shared/lib/agents/file-parser";
-import { cacheFile } from "@/src/shared/lib/agents/file-cache";
+import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache";
 
 export const maxDuration = 120;
 
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     .catch((err) => {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error(`[upload] Background parse failed: ${msg}`);
+      setFileParseError(fileId, msg);
       statusMap.set(fileId, { status: "error", error: msg });
     });
 

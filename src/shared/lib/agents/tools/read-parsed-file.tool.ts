@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
-import { getCachedFile } from "@/src/shared/lib/agents/file-cache";
+import { getCachedFile, getFileParseError } from "@/src/shared/lib/agents/file-cache";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const readParsedFileTool = {
@@ -17,6 +17,10 @@ export const readParsedFileTool = {
     const { fileId } = args;
     const offset = args.offset ?? 0;
     const limit = args.limit ?? 5000;
+
+    // Check if parsing failed
+    const parseError = getFileParseError(fileId);
+    if (parseError) throw new Error(`File parse error: ${parseError}`);
 
     // Wait for async parsing to finish
     let file = getCachedFile(fileId);

@@ -75,9 +75,14 @@ export function getCachedFile(id: string): ICachedFile | undefined {
   return file;
 }
 
-/** Remove a file from cache. */
-export function removeCachedFile(id: string): void {
-  getCache().delete(id);
+/** Remove specific files from cache. */
+export function removeCachedFiles(ids: string[]): void {
+  const cache = getCache();
+  const errMap = getErrorCache();
+  for (const id of ids) {
+    cache.delete(id);
+    errMap.delete(id);
+  }
 }
 
 /** List all cached files (id, filename, size). */
@@ -92,4 +97,25 @@ export function listCachedFiles(): Pick<ICachedFile, "id" | "filename" | "size">
     }
   }
   return result;
+}
+
+// ---- Parse error tracking ----
+
+const globalParseErrors = globalThis as unknown as {
+  parseErrors: Map<string, string> | undefined;
+};
+
+function getErrorCache(): Map<string, string> {
+  if (!globalParseErrors.parseErrors) globalParseErrors.parseErrors = new Map();
+  return globalParseErrors.parseErrors;
+}
+
+/** Store a parse error for a file ID (when background parsing fails). */
+export function setFileParseError(fileId: string, error: string): void {
+  getErrorCache().set(fileId, error);
+}
+
+/** Get the parse error for a file ID, or undefined if none. */
+export function getFileParseError(fileId: string): string | undefined {
+  return getErrorCache().get(fileId);
 }

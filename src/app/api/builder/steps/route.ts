@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
   let closed = false;
   let lastSeq = 0;
+  let lastSession: ReturnType<typeof getEvents> = undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -26,6 +27,16 @@ export async function GET(request: NextRequest) {
       const poll = () => {
         if (closed) return;
         const data = getEvents(sessionId);
+        
+        // Reset seq when session recreated (new processing started)
+        if (data && data !== lastSession) {
+          lastSeq = 0;
+          lastSession = data;
+        }
+        if (!data) {
+          lastSession = undefined;
+        }
+
         if (!data) {
           setTimeout(poll, 500);
           return;

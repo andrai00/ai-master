@@ -9,7 +9,7 @@ import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
-import { getCachedFile } from "./file-cache";
+import { getCachedFile, removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopping, emitStopped, clearSession,
@@ -296,7 +296,8 @@ export async function runBuilderAgent(
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);
-    // Keep session events for 10s so late SSE clients can see the result
+    // Clear files used in this processing — they live exactly one run
+    if (fileIds.length > 0) removeCachedFiles(fileIds);
     setTimeout(() => clearSession(sessionId), 10_000);
   }
 }

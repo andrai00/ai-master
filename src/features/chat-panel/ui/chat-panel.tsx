@@ -192,15 +192,12 @@ export const ChatPanel = ({
             break;
           case "done":
             onStepsDone?.();
-            es.close();
             break;
           case "stopped":
             onStepsDone?.();
-            es.close();
             break;
           case "error":
             onStepsError?.(data.message ?? "Unknown error");
-            es.close();
             break;
         }
       } catch {

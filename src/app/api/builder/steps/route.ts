@@ -52,13 +52,8 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Check for terminal events
-        const last = data.events[data.events.length - 1];
-        if (last && (last.type === "done" || last.type === "stopped")) {
-          controller.close();
-          return;
-        }
-
+        // Keep polling — don't close on terminal events.
+        // A new initSession() will produce new events that reuse the connection.
         setTimeout(poll, 300);
       };
 

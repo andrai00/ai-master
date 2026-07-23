@@ -291,8 +291,12 @@ export async function runBuilderAgent(
     }
 
     // Real error — notify clients
-    const message = err instanceof Error ? err.message : "Processing failed";
-    console.error("[builder] Error:", message);
+    const raw = err instanceof Error ? err.message : "Processing failed";
+    let message = raw;
+    if (raw.includes("Failed to process successful response")) {
+      message = "AI provider error: the response format was not recognized. Try a different model or provider.";
+    }
+    console.error("[builder] Error:", raw);
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);

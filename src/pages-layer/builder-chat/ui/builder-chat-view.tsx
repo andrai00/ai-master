@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App, notification } from "antd";
+import { Modal, Table, App } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatPanel } from "@/src/features/chat-panel";
 import { FileOutlined } from "@ant-design/icons";
@@ -32,6 +32,7 @@ async function uploadFile(file: File): Promise<string> {
 
 export const BuilderChatView = () => {
   const { t } = useTranslation();
+  const { notification } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -105,7 +106,7 @@ export const BuilderChatView = () => {
           fileIds = await Promise.all(files.map(uploadFile));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Upload failed";
-          notification.error({ message: msg });
+          notification.error({ title: msg });
           setUploading(false);
           return; // keep input + files, let user retry
         }
@@ -131,7 +132,7 @@ export const BuilderChatView = () => {
     async (messageId: string) => {
       const result = await deleteMutation.mutateAsync(messageId);
       if (!result.success) {
-        notification.error({ message: result.error });
+        notification.error({ title: result.error });
       }
     },
     [deleteMutation]
@@ -189,7 +190,7 @@ export const BuilderChatView = () => {
         stepsSessionId={sessionId ?? undefined}
         onStepsStart={() => { setTyping(true); setStopping(false); }}
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ message: msg }); setTyping(false); setStopping(false); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); }}
       />
       <Modal
         title={t("chat.historyTitle") || "История чата"}

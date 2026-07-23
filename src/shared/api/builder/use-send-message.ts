@@ -12,7 +12,6 @@ export function useSendBuilderMessage() {
       sendBuilderMessageAction(sessionId, content, fileIds ?? []),
     onMutate: async ({ sessionId, content, fileIds }) => {
       await qc.cancelQueries({ queryKey: ["builder", "messages", sessionId] });
-
       const prev = qc.getQueryData<IBuilderMessagesResult>(["builder", "messages", sessionId, 1]);
 
       const optimisticMsg: IBuilderMessage = {
@@ -32,13 +31,15 @@ export function useSendBuilderMessage() {
           total: prev.total + 1,
         });
       }
-
       return { prev };
     },
     onError: (_err, { sessionId }, context) => {
       if (context?.prev) {
         qc.setQueryData(["builder", "messages", sessionId, 1], context.prev);
       }
+    },
+    onSuccess: (_data, { sessionId }) => {
+      qc.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
     },
   });
 }

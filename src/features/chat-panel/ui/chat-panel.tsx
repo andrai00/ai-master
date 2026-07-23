@@ -32,10 +32,6 @@ import remarkGfm from "remark-gfm";
 import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
 
-export interface IStepLabel {
-  tool: string;
-}
-
 export interface IMessage {
   id: string;
   sender: string;
@@ -44,7 +40,6 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
-  steps?: IStepLabel[];
   /** Optional prefix rendered before the markdown text (e.g. file attachment icon) */
   prefix?: ReactNode;
 }
@@ -77,6 +72,8 @@ interface IChatPanelProps {
   onStepsStart?: () => void;
   /** Called when SSE reports processing is done */
   onStepsDone?: () => void;
+  /** Called when SSE reports an error */
+  onStepsError?: (message: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
 }
@@ -153,7 +150,7 @@ export const ChatPanel = ({
   onDelete, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stopping, onStepsDone, onStepsStart,
+  stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -181,16 +178,30 @@ export const ChatPanel = ({
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.tool) {
-          if (!started) {
+        switch (data.type) {
+          case "started":
             started = true;
             onStepsStart?.();
-          }
-          setLiveStep({ tool: data.tool, detail: data.detail });
-        }
-        if (data.done) {
-          onStepsDone?.();
-          es.close();
+            break;
+          case "step":
+            if (!started) { started = true; onStepsStart?.(); }
+            setLiveStep({ tool: data.tool, detail: data.detail });
+            break;
+          case "stopping":
+            setLiveStep(null);
+            break;
+          case "done":
+            onStepsDone?.();
+            es.close();
+            break;
+          case "stopped":
+            onStepsDone?.();
+            es.close();
+            break;
+          case "error":
+            onStepsError?.(data.message ?? "Unknown error");
+            es.close();
+            break;
         }
       } catch {
         // ignore parse errors

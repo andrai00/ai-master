@@ -1,55 +1,69 @@
 import "server-only";
 
-/** Per-session step tracking for real-time UI updates. */
+export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped";
 
-export interface IStepEntry {
-  tool: string;
-  detail?: string; // e.g. "15/32" for file reading progress
+export interface IStepEvent {
+  type: TStepEventType;
+  tool?: string;
+  detail?: string;
+  message?: string;
+  seq: number;
 }
 
-interface ISessionSteps {
-  steps: IStepEntry[];
-  done: boolean;
-  lastError: string;
+interface ISessionState {
+  events: IStepEvent[];
+  seq: number;
 }
 
-const globalSteps = globalThis as unknown as {
-  sessionSteps: Map<string, ISessionSteps> | undefined;
+const globalState = globalThis as unknown as {
+  sessions: Map<string, ISessionState> | undefined;
 };
 
-function getMap(): Map<string, ISessionSteps> {
-  if (!globalSteps.sessionSteps) {
-    globalSteps.sessionSteps = new Map();
-  }
-  return globalSteps.sessionSteps;
+function getMap(): Map<string, ISessionState> {
+  if (!globalState.sessions) globalState.sessions = new Map();
+  return globalState.sessions;
 }
 
-export function initSessionSteps(sessionId: string): void {
-  getMap().set(sessionId, { steps: [], done: false, lastError: "" });
+export function initSession(sessionId: string): void {
+  getMap().set(sessionId, { events: [], seq: 0 });
 }
 
-export function addStep(sessionId: string, tool: string, detail?: string): void {
-  const s = getMap().get(sessionId);
-  if (s) s.steps.push({ tool, detail });
-}
-
-export function finishSteps(sessionId: string): void {
-  const s = getMap().get(sessionId);
-  if (s) s.done = true;
-}
-
-export function failSteps(sessionId: string, error: string): void {
+function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
   const s = getMap().get(sessionId);
   if (s) {
-    s.done = true;
-    s.lastError = error;
+    s.seq++;
+    s.events.push({ ...event, seq: s.seq });
   }
 }
 
-export function getSteps(sessionId: string): ISessionSteps | undefined {
+export function emitStarted(sessionId: string): void {
+  emit(sessionId, { type: "started" });
+}
+
+export function emitStep(sessionId: string, tool: string, detail?: string): void {
+  emit(sessionId, { type: "step", tool, detail });
+}
+
+export function emitDone(sessionId: string): void {
+  emit(sessionId, { type: "done" });
+}
+
+export function emitError(sessionId: string, message: string): void {
+  emit(sessionId, { type: "error", message });
+}
+
+export function emitStopping(sessionId: string): void {
+  emit(sessionId, { type: "stopping" });
+}
+
+export function emitStopped(sessionId: string): void {
+  emit(sessionId, { type: "stopped" });
+}
+
+export function getEvents(sessionId: string): ISessionState | undefined {
   return getMap().get(sessionId);
 }
 
-export function clearSteps(sessionId: string): void {
+export function clearSession(sessionId: string): void {
   getMap().delete(sessionId);
 }

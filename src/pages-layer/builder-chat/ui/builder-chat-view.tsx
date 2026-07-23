@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App } from "antd";
+import { Modal, Table, App, notification } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatPanel } from "@/src/features/chat-panel";
 import { FileOutlined } from "@ant-design/icons";
@@ -13,13 +13,11 @@ import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-mes
 import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
-import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
-import type { IMessage, IStepLabel } from "@/src/features/chat-panel/ui/chat-panel";
+import type { IMessage } from "@/src/features/chat-panel/ui/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 
 const PAGE_SIZE = 30;
 
-/** Upload a file to the builder upload API. Parsing happens in background. Returns fileId immediately. */
 async function uploadFile(file: File): Promise<string> {
   const form = new FormData();
   form.append("file", file);
@@ -34,7 +32,6 @@ async function uploadFile(file: File): Promise<string> {
 
 export const BuilderChatView = () => {
   const { t } = useTranslation();
-  const { notification } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -42,33 +39,26 @@ export const BuilderChatView = () => {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // UI state — driven by SSE, not by mutation
   const [typing, setTyping] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const stepsRef = useRef<Map<string, IStepLabel[]>>(new Map());
+  const [uploading, setUploading] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
 
-  // Recover SSE / typing state when re-mounting (e.g. page navigation during processing)
+  // On mount: check if processing is already active (e.g. after page reload)
   useEffect(() => {
     if (!sessionId) return;
-    checkProcessingAction(sessionId).then((r) => {
-      if (r.processing) {
-        setTyping(true);
-      } else {
-        // Processing may have finished while away — refetch messages
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
-      }
+    import("@/src/shared/actions/builder/check-processing").then(({ checkProcessingAction }) => {
+      checkProcessingAction(sessionId).then((r) => {
+        if (r.processing) setTyping(true);
+      });
     });
-  }, [sessionId, queryClient]);
+  }, [sessionId]);
 
-  // Reset stopping when typing ends (stop completed)
-  useEffect(() => {
-    if (!typing) setStopping(false);
-  }, [typing]);
-
-  // Refetch messages when tab becomes visible (sync with other admins)
+  // Sync messages when tab becomes visible
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
@@ -79,7 +69,12 @@ export const BuilderChatView = () => {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [sessionId, queryClient]);
 
-  const { data: msgData, isLoading } = useBuilderMessages(sessionId, page);
+  // Reset stopping when typing ends
+  useEffect(() => {
+    if (!typing) setStopping(false);
+  }, [typing]);
+
+  const { data: msgData } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
@@ -90,19 +85,17 @@ export const BuilderChatView = () => {
     role: m.role,
     text: m.content,
     summarized: m.summarized,
-    steps: stepsRef.current.get(m.id),
     prefix: m.hasFiles
       ? <span style={{ fontSize: 11, opacity: 0.5 }}><FileOutlined /></span>
       : undefined,
   });
 
-  const messages: IMessage[] = (msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : []);
-  const total = (msgData && "total" in msgData ? msgData.total : 0);
+  const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];
 
+  // --- Send: upload files → save message → let SSE drive the rest ---
   const handleSend = useCallback(
     async (content: string, files: File[]) => {
       if (!sessionId) return;
-      setTyping(true);
 
       // Upload files first
       let fileIds: string[] = [];
@@ -112,54 +105,44 @@ export const BuilderChatView = () => {
           fileIds = await Promise.all(files.map(uploadFile));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Upload failed";
-          notification.error({ title: msg });
-          setTyping(false);
+          notification.error({ message: msg });
           setUploading(false);
-          return;
+          return; // keep input + files, let user retry
         }
         setUploading(false);
       }
 
-      const result = await sendMutation.mutateAsync({ sessionId, content, fileIds });
-      if ("error" in result) {
-        notification.error({ title: t("chat.sendError"), description: result.error });
-        setTyping(false);
-        return;
-      }
-      if ("builderMessage" in result && result.steps?.length) {
-        stepsRef.current.set(result.builderMessage.id, result.steps);
-      }
-      // Brief delay so client sees typing indicator before invalidation
-      await new Promise((r) => setTimeout(r, 500));
-      queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
-      setTyping(false);
+      // Save message (fire-and-forget, AI runs in background)
+      await sendMutation.mutateAsync({ sessionId, content, fileIds });
+      // Don't set typing — SSE does it when processing starts
     },
-    [sessionId, sendMutation, queryClient, notification]
+    [sessionId, sendMutation]
   );
 
-  const handleDelete = useCallback(
-    async (messageId: string) => {
-      const result = await deleteMutation.mutateAsync(messageId);
-      if (!result.success) {
-        notification.error({ title: result.error });
-      }
-    },
-    [deleteMutation, notification]
-  );
-
-  const handleClear = useCallback(() => {
-    if (sessionId) clearMutation.mutate(sessionId);
-  }, [sessionId, clearMutation]);
-
+  // --- Stop ---
   const handleStop = useCallback(async () => {
     if (!sessionId) return;
     setStopping(true);
     await stopBuilderAction(sessionId);
-    setTyping(false);
-    setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
-  }, [sessionId, queryClient]);
+  }, [sessionId]);
 
+  // --- Delete ---
+  const handleDelete = useCallback(
+    async (messageId: string) => {
+      const result = await deleteMutation.mutateAsync(messageId);
+      if (!result.success) {
+        notification.error({ message: result.error });
+      }
+    },
+    [deleteMutation]
+  );
+
+  // --- Clear ---
+  const handleClear = useCallback(() => {
+    if (sessionId) clearMutation.mutate(sessionId);
+  }, [sessionId, clearMutation]);
+
+  // --- History ---
   const openHistory = async () => {
     if (!sessionId) return;
     setHistoryOpen(true);
@@ -171,7 +154,7 @@ export const BuilderChatView = () => {
     if (!sessionId) return;
     setHistoryLoading(true);
     setHistoryPage(p);
-    const result = await getBuilderMessagesAction(sessionId, p, 30);
+    const result = await getBuilderMessagesAction(sessionId, p, PAGE_SIZE);
     if ("messages" in result) {
       setHistoryData(result.messages);
       setHistoryTotal(result.total);
@@ -180,21 +163,10 @@ export const BuilderChatView = () => {
   };
 
   const historyColumns: ColumnsType<IBuilderMessage> = [
-    {
-      title: t("chat.role") || "Роль",
-      dataIndex: "role",
-      width: 80,
-      render: (role: string) => (role === "builder" ? "Builder" : "Админ"),
-    },
-    {
-      title: t("chat.message") || "Сообщение",
-      dataIndex: "content",
-      render: (text: string) => (
-        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 500 }}>
-          {text}
-        </div>
-      ),
-    },
+    { title: t("chat.role") || "Роль", dataIndex: "role", width: 80,
+      render: (role: string) => (role === "builder" ? "Builder" : "Админ") },
+    { title: t("chat.message") || "Сообщение", dataIndex: "content",
+      render: (text: string) => <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 500 }}>{text}</div> },
   ];
 
   return (
@@ -215,40 +187,22 @@ export const BuilderChatView = () => {
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId ?? undefined}
-        onStepsStart={() => {
-          setTyping(true);
-          setStopping(false);
-        }}
-        onStepsDone={() => {
-          setTyping(false);
-          setStopping(false);
-          queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
-        }}
+        onStepsStart={() => { setTyping(true); setStopping(false); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ message: msg }); setTyping(false); setStopping(false); }}
       />
       <Modal
         title={t("chat.historyTitle") || "История чата"}
         open={historyOpen}
         onCancel={() => setHistoryOpen(false)}
         footer={null}
-        centered
-        width={640}
+        centered width={640}
       >
-        <Table
-          dataSource={historyData}
-          columns={historyColumns}
-          rowKey="id"
-          size="small"
+        <Table dataSource={historyData} columns={historyColumns} rowKey="id" size="small"
           loading={historyLoading}
-          pagination={{
-            current: historyPage,
-            total: historyTotal,
-            pageSize: 30,
-            showSizeChanger: false,
-            onChange: loadHistory,
-          }}
+          pagination={{ current: historyPage, total: historyTotal, pageSize: PAGE_SIZE, showSizeChanger: false, onChange: loadHistory }}
           showHeader={false}
-          locale={{ emptyText: t("chat.noMessages") || "Нет сообщений" }}
-        />
+          locale={{ emptyText: t("chat.noMessages") || "Нет сообщений" }} />
       </Modal>
     </>
   );

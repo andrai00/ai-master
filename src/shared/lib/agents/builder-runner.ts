@@ -10,22 +10,13 @@ import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { getCachedFile } from "./file-cache";
-import { initSessionSteps, addStep, finishSteps, failSteps } from "./step-tracker";
+import {
+  initSession, emitStarted, emitStep, emitDone, emitError,
+  emitStopping, emitStopped, clearSession,
+} from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { readFileSync } from "fs";
 import { join } from "path";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface IStepLabel {
-  tool: string;
-}
-
-export type TBuilderResult =
-  | { kind: "text"; text: string; steps: IStepLabel[] }
-  | { kind: "error"; error: string };
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -40,10 +31,9 @@ function getGuard(): Map<string, AbortController> {
   return globalGuard.processing;
 }
 
-/** Returns AbortSignal if processing started, or null if already processing. */
 export function startProcessing(sessionId: string): AbortController | null {
   const g = getGuard();
-  if (g.has(sessionId)) return null; // already processing
+  if (g.has(sessionId)) return null;
   const ac = new AbortController();
   g.set(sessionId, ac);
   return ac;
@@ -53,6 +43,7 @@ export function stopProcessing(sessionId: string): boolean {
   const g = getGuard();
   const ac = g.get(sessionId);
   if (ac) {
+    emitStopping(sessionId);
     ac.abort();
     g.delete(sessionId);
     return true;
@@ -78,28 +69,23 @@ function loadSystemPrompt(): string {
 }
 
 // ---------------------------------------------------------------------------
-// AI Provider factory
+// AI Provider
 // ---------------------------------------------------------------------------
 
 async function createProvider() {
   const prisma = getPrisma();
   const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
-
   if (!config || !config.apiKey) {
-    throw new Error("AI provider is not configured. Go to Settings → AI Settings.");
+    throw new Error("AI provider is not configured.");
   }
-
   const model = config.model?.trim() || "gpt-4o";
   const baseURL = config.baseUrl?.trim() || undefined;
-  const provider = config.provider?.trim() || "openai";
-
-  console.log(`[builder] Provider: ${provider}, model: ${model}, baseURL: ${baseURL ?? "default"}`);
   const openai = createOpenAI({ apiKey: config.apiKey, baseURL });
   return openai.chat(model);
 }
 
 // ---------------------------------------------------------------------------
-// Tools registry
+// Tools
 // ---------------------------------------------------------------------------
 
 function getTools() {
@@ -114,16 +100,13 @@ function getTools() {
 }
 
 // ---------------------------------------------------------------------------
-// Context builder
+// Context
 // ---------------------------------------------------------------------------
 
-async function buildContext(sessionId: string): Promise<{
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-  system: string;
-}> {
+async function buildContext(sessionId: string) {
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
-  const session = await getSession();
+  const sess = await getSession();
 
   let systemPrompt = loadSystemPrompt();
   systemPrompt = systemPrompt.replace("{uiLanguage}", "en");
@@ -137,19 +120,16 @@ async function buildContext(sessionId: string): Promise<{
       systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
+  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  if (session) {
-    systemPrompt += `\n- Admin: ${session.displayName || session.login}\n`;
-  }
-
-  const recentMessages = await prisma.message.findMany({
+  const recent = await prisma.message.findMany({
     where: { sessionId },
     orderBy: { createdAt: "asc" },
     take: 20,
     select: { role: true, content: true },
   });
 
-  const messages = recentMessages.map((m) => ({
+  const messages = recent.map((m) => ({
     role: (m.role === "admin" ? "user" : "assistant") as "user" | "assistant",
     content: m.content,
   }));
@@ -158,55 +138,35 @@ async function buildContext(sessionId: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Logging (full request/response + per-step)
+// Logging
 // ---------------------------------------------------------------------------
 
-async function writeThoughtLog(
-  masterId: string,
-  agent: string,
-  content: string
-): Promise<void> {
+async function writeThoughtLog(masterId: string, agent: string, content: string) {
   try {
     const prisma = getPrisma();
-    await prisma.thoughtLog.create({
-      data: { masterId, agent, content },
-    });
+    await prisma.thoughtLog.create({ data: { masterId, agent, content } });
   } catch {
-    console.error("[builder] Failed to write thought log");
+    // non-critical
   }
-}
-
-function formatAiMessages(
-  system: string,
-  messages: Array<{ role: string; content: string }>
-): string {
-  const lines = ["=== SYSTEM PROMPT ===", system, "", "=== CONVERSATION ==="];
-  for (const m of messages) {
-    lines.push(`\n[${m.role.toUpperCase()}]:`);
-    lines.push(m.content);
-  }
-  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
-// Main runner
+// Background runner — no return value, drives SSE events
 // ---------------------------------------------------------------------------
 
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
   fileIds: string[] = []
-): Promise<TBuilderResult> {
+): Promise<void> {
   const ac = startProcessing(sessionId);
-  if (!ac) {
-    return { kind: "error", error: "Already processing. Wait for the current task to finish." };
-  }
+  if (!ac) return; // already processing
 
-  // Initialize step tracking for real-time UI
-  initSessionSteps(sessionId);
+  initSession(sessionId);
   resetCancellation();
 
   try {
+    // --- Phase: prepare ---
     const ctx = await buildContext(sessionId);
     throwIfCancelled();
 
@@ -215,9 +175,7 @@ export async function runBuilderAgent(
 
     let fileHint = "";
     if (fileIds.length > 0) {
-      const names = fileIds
-        .map((id) => getCachedFile(id)?.filename ?? id)
-        .join(", ");
+      const names = fileIds.map((id) => getCachedFile(id)?.filename ?? id).join(", ");
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
     }
 
@@ -226,137 +184,119 @@ export async function runBuilderAgent(
       { role: "user", content: userMessage + fileHint },
     ];
 
-    // Log the full request
-    const requestLog = formatAiMessages(ctx.system, messages);
-    if (masterId) {
-      await writeThoughtLog(masterId, "builder", "=== REQUEST ===\n" + requestLog);
-    }
+    // Log request
+    const requestLog = `=== REQUEST ===\n${ctx.system}\n\n=== CONVERSATION ===\n${messages.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n\n")}`;
+    if (masterId) await writeThoughtLog(masterId, "builder", requestLog);
 
     const model = await createProvider();
     throwIfCancelled();
 
+    // --- Emit started: all clients see the bubble now ---
+    emitStarted(sessionId);
+
     const tools = getTools();
-    const steps: IStepLabel[] = [];
-    const stepDetails: string[] = [];
 
     const result = await generateText({
       model,
       system: ctx.system,
       messages,
       tools,
-      stopWhen: isStepCount(80), // large files need many read+create steps
+      stopWhen: isStepCount(80),
       abortSignal: ac.signal,
       onStepFinish: async (event: StepResult<typeof tools>) => {
-        const toolCalls = event.toolCalls ?? [];
-        const toolResults = event.toolResults ?? [];
+        const calls = event.toolCalls ?? [];
+        const res = event.toolResults ?? [];
 
-        if (toolCalls.length > 0) {
-          for (let i = 0; i < toolCalls.length; i++) {
-            const call = toolCalls[i];
-            const res = toolResults[i];
+        if (calls.length > 0) {
+          for (let i = 0; i < calls.length; i++) {
+            const call = calls[i];
+            const r = res[i];
             const toolName = call.toolName as string;
-            steps.push({ tool: toolName });
 
-            // Compute chunk progress for file reading
-            let stepDetail: string | undefined;
-            if (toolName === "read_parsed_file" && res?.output) {
-              const out = res.output as Record<string, unknown>;
+            let detail: string | undefined;
+            if (toolName === "read_parsed_file" && r?.output) {
+              const out = r.output as Record<string, unknown>;
               if (typeof out.offset === "number" && typeof out.totalSize === "number") {
-                const chunkNum = Math.floor(out.offset / 5000) + 1;
-                const totalChunks = Math.ceil(out.totalSize / 5000);
-                stepDetail = `${chunkNum}/${totalChunks}`;
+                detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
               }
             }
-            addStep(sessionId, toolName, stepDetail);
 
+            emitStep(sessionId, toolName, detail);
+
+            // Full log
             const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
-            const outputStr = res?.output !== undefined
-              ? JSON.stringify(res.output, null, 2).slice(0, 1000)
-              : "(no output)";
-            const detail = `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`;
-            stepDetails.push(detail);
-            if (masterId) await writeThoughtLog(masterId, "builder", detail);
+            const outputStr = r?.output !== undefined ? JSON.stringify(r.output, null, 2).slice(0, 1000) : "(no output)";
+            if (masterId) await writeThoughtLog(masterId, "builder", `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`);
           }
-        } else if (event.text) {
-          steps.push({ tool: "final" });
-          addStep(sessionId, "final");
         }
       },
     });
 
-    // Log the full response
-    const responseLog = `=== RESPONSE ===\n${result.text}\n\n=== STEPS ===\n${stepDetails.join("\n\n---\n\n")}`;
+    // --- Success: save builder message + log response ---
+    const builderText = result.text;
+    const prisma = getPrisma();
+
+    await prisma.message.create({
+      data: {
+        sessionId,
+        senderId: (await getSession())?.userId ?? "",
+        role: "builder",
+        content: builderText,
+      },
+    });
+
     if (masterId) {
-      await writeThoughtLog(masterId, "builder", responseLog);
+      await writeThoughtLog(masterId, "builder", `=== RESPONSE ===\n${builderText}`);
     }
 
-    finishSteps(sessionId);
-    return { kind: "text", text: result.text, steps };
-  } catch (err: unknown) {
-    const rawMessage = err instanceof Error ? err.message : "Unknown error";
+    // Auto-summarize if 20+ unsummarized
+    const msgCount = await prisma.message.count({ where: { sessionId, summarized: false } });
+    if (msgCount >= 20) {
+      const toSummarize = await prisma.message.findMany({
+        where: { sessionId, summarized: false },
+        orderBy: { createdAt: "asc" },
+        take: 20,
+      });
+      const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
 
+      const existing = await prisma.document.findFirst({
+        where: { masterId, category: "brain", type: "builder_summary" },
+      });
+      const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
+      const newContent = `📋 Саммари чата\n\n${prevContent}🆕 ${preview}`;
+
+      if (existing) {
+        await prisma.document.update({ where: { id: existing.id }, data: { content: newContent, summary: preview } });
+      } else {
+        await prisma.document.create({
+          data: { masterId, title: "Саммари чата настройки", type: "builder_summary", category: "brain", content: newContent, summary: preview },
+        });
+      }
+      await prisma.message.updateMany({ where: { id: { in: toSummarize.map(m => m.id) } }, data: { summarized: true } });
+    }
+
+    emitDone(sessionId);
+
+  } catch (err: unknown) {
     // Check if aborted
     if (err instanceof Error && err.name === "AbortError") {
-      failSteps(sessionId, "Aborted by user");
-      return { kind: "error", error: "Stopped." };
+      emitStopped(sessionId);
+      return;
     }
 
-    // Try to extract text from the error body (Responses API fallback)
-    const extracted = extractTextFromError(err);
-    if (extracted) {
-      finishSteps(sessionId);
-      return { kind: "text", text: extracted, steps: [{ tool: "final" }] };
+    // Check if cancelled by our flag
+    if (err instanceof DOMException && err.name === "AbortError") {
+      emitStopped(sessionId);
+      return;
     }
 
-    failSteps(sessionId, rawMessage);
-    console.error("[builder] Agent error:", rawMessage);
-
-    let message = rawMessage;
-    if (rawMessage.includes("Invalid JSON response")) {
-      message = "AI provider returned a response format the SDK doesn't understand.";
-    } else if (rawMessage.includes("401") || rawMessage.includes("Unauthorized")) {
-      message = "AI provider rejected the request. Check your API key in AI Settings.";
-    } else if (rawMessage.includes("404")) {
-      message = "AI model not found. Check the model name in AI Settings.";
-    }
-
-    return { kind: "error", error: message };
+    // Real error — notify clients
+    const message = err instanceof Error ? err.message : "Processing failed";
+    console.error("[builder] Error:", message);
+    emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Responses API → text extraction (fallback)
-// ---------------------------------------------------------------------------
-
-function extractTextFromError(err: unknown): string | null {
-  const obj = err as Record<string, unknown>;
-  const body = obj.responseBody as string | undefined;
-  if (!body) return null;
-
-  try {
-    const json = JSON.parse(body) as Record<string, unknown>;
-    const output = json.output as Array<Record<string, unknown>> | undefined;
-    if (!output) return null;
-
-    const parts: string[] = [];
-    for (const item of output) {
-      if (item.type === "message" && item.role === "assistant") {
-        const content = item.content;
-        if (Array.isArray(content)) {
-          for (const part of content as Array<Record<string, unknown>>) {
-            if (part.type === "output_text" && typeof part.text === "string") {
-              parts.push(part.text);
-            }
-          }
-        } else if (typeof content === "string") {
-          parts.push(content);
-        }
-      }
-    }
-    return parts.length > 0 ? parts.join("\n") : null;
-  } catch {
-    return null;
+    // Keep session events for 10s so late SSE clients can see the result
+    setTimeout(() => clearSession(sessionId), 10_000);
   }
 }

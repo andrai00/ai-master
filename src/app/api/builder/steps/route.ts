@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
-import { getSteps } from "@/src/shared/lib/agents/step-tracker";
+import { getEvents } from "@/src/shared/lib/agents/step-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -17,33 +17,33 @@ export async function GET(request: NextRequest) {
 
   const encoder = new TextEncoder();
   let closed = false;
+  let lastSeq = 0;
 
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(": connected\n\n"));
 
-      let lastCount = 0;
       const poll = () => {
         if (closed) return;
-        const data = getSteps(sessionId);
+        const data = getEvents(sessionId);
         if (!data) {
           setTimeout(poll, 500);
           return;
         }
 
-        // Send new steps
-        if (data.steps.length > lastCount) {
-          const newSteps = data.steps.slice(lastCount);
-          lastCount = data.steps.length;
-          for (const step of newSteps) {
+        // Send new events since last seq
+        for (const ev of data.events) {
+          if (ev.seq > lastSeq) {
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ tool: step.tool, detail: step.detail })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify(ev)}\n\n`)
             );
+            lastSeq = ev.seq;
           }
         }
 
-        if (data.done) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, error: data.lastError })}\n\n`));
+        // Check for terminal events
+        const last = data.events[data.events.length - 1];
+        if (last && (last.type === "done" || last.type === "stopped")) {
           controller.close();
           return;
         }

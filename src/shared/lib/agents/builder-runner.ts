@@ -196,41 +196,69 @@ export async function runBuilderAgent(
 
     const tools = getTools();
 
-    const result = await generateText({
-      model,
-      system: ctx.system,
-      messages,
-      tools,
-      stopWhen: isStepCount(80),
-      abortSignal: ac.signal,
-      onStepFinish: async (event: StepResult<typeof tools>) => {
-        const calls = event.toolCalls ?? [];
-        const res = event.toolResults ?? [];
+    // Retry loop: up to 5 attempts for transient errors
+    const MAX_RETRIES = 5;
+    let result: Awaited<ReturnType<typeof generateText<typeof tools>>> | undefined;
+    let lastError: unknown;
 
-        if (calls.length > 0) {
-          for (let i = 0; i < calls.length; i++) {
-            const call = calls[i];
-            const r = res[i];
-            const toolName = call.toolName as string;
-
-            let detail: string | undefined;
-            if (toolName === "read_parsed_file" && r?.output) {
-              const out = r.output as Record<string, unknown>;
-              if (typeof out.offset === "number" && typeof out.totalSize === "number") {
-                detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        result = await generateText({
+          model,
+          system: ctx.system,
+          messages,
+          tools,
+          stopWhen: isStepCount(80),
+          abortSignal: ac.signal,
+          onStepFinish: async (event: StepResult<typeof tools>) => {
+            const calls = event.toolCalls ?? [];
+            const res = event.toolResults ?? [];
+            if (calls.length > 0) {
+              for (let i = 0; i < calls.length; i++) {
+                const call = calls[i];
+                const r = res[i];
+                const toolName = call.toolName as string;
+                let detail: string | undefined;
+                if (toolName === "read_parsed_file" && r?.output) {
+                  const out = r.output as Record<string, unknown>;
+                  if (typeof out.offset === "number" && typeof out.totalSize === "number") {
+                    detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
+                  }
+                }
+                emitStep(sessionId, toolName, detail);
+                const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
+                const outputStr = r?.output !== undefined ? JSON.stringify(r.output, null, 2).slice(0, 1000) : "(no output)";
+                if (masterId) await writeThoughtLog(masterId, "builder", `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`);
               }
             }
+          },
+        });
+        break; // success — exit retry loop
+      } catch (err: unknown) {
+        lastError = err;
 
-            emitStep(sessionId, toolName, detail);
+        // Never retry user stop
+        if (err instanceof Error && err.name === "AbortError") throw err;
+        if (err instanceof DOMException && err.name === "AbortError") throw err;
 
-            // Full log
-            const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
-            const outputStr = r?.output !== undefined ? JSON.stringify(r.output, null, 2).slice(0, 1000) : "(no output)";
-            if (masterId) await writeThoughtLog(masterId, "builder", `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`);
-          }
-        }
-      },
-    });
+        // Also check our cancellation flag
+        if ((err as Error)?.message === "Cancelled.") throw err;
+
+        // Don't retry config errors
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("not configured")) throw err;
+
+        // Last attempt — give up
+        if (attempt === MAX_RETRIES) throw err;
+
+        // Emit retry step to SSE
+        emitStep(sessionId, "retry", `${attempt + 1}/${MAX_RETRIES}`);
+        console.warn(`[builder] Attempt ${attempt} failed, retrying in ${2 ** (attempt - 1)}s: ${msg}`);
+        await new Promise((r) => setTimeout(r, 2 ** (attempt - 1) * 1000));
+      }
+    }
+
+    if (!result) throw lastError; // should never happen
 
     // --- Success: save builder message + log response ---
     const builderText = result.text;

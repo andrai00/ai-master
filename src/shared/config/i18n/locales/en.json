@@ -208,12 +208,13 @@
   },
   "builder": {
     "steps": {
-      "read_parsed_file": "Reading uploaded file",
-      "list_uploaded_files": "Listing files",
-      "create_document": "Creating document",
-      "update_document": "Updating document",
-      "read_document": "Reading document",
-      "search_documents": "Searching",
+      "read_parsed_file": ["Studying rules", "Reading source", "Parsing content", "Going through text"],
+      "list_uploaded_files": ["Checking files", "Listing uploads"],
+      "create_document": ["Writing glossary", "Structuring rules", "Saving information", "Building data"],
+      "update_document": ["Updating entry", "Refining data", "Editing document"],
+      "read_document": ["Checking database", "Reviewing notes"],
+      "search_documents": ["Searching database", "Looking up reference"],
+      "retry": ["Retrying"],
       "final": "Writing response"
     }
   },

@@ -141,8 +141,16 @@ function getStepIcon(tool: string): ReactNode {
   }
 }
 
-function getStepLabel(tool: string, t: (key: string) => string): string {
-  return t(`builder.steps.${tool}`);
+function getStepLabel(tool: string, t: (key: string) => string, exclude?: string): string {
+  const key = `builder.steps.${tool}`;
+  const raw = t(key);
+  // If it's an array of phrases, pick one randomly (excluding last used)
+  if (Array.isArray(raw)) {
+    const pool = raw as string[];
+    const available = exclude ? pool.filter((p) => p !== exclude) : pool;
+    return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : pool[0];
+  }
+  return raw;
 }
 
 export const ChatPanel = ({
@@ -163,6 +171,7 @@ export const ChatPanel = ({
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLabelRef = useRef<Map<string, string>>(new Map());
 
   // Subscribe to SSE for real-time step tracking (always connected on builder page)
   useEffect(() => {
@@ -462,8 +471,14 @@ export const ChatPanel = ({
                   ) : liveStep ? (
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}
-                      <span>{getStepLabel(liveStep.tool, t)}{liveStep.detail ? ` (${liveStep.detail})` : ""}</span>
-                      <span className={styles.dot} />
+                      <span>
+                        {(() => {
+                          const exclude = lastLabelRef.current.get(liveStep.tool);
+                          const label = getStepLabel(liveStep.tool, t, exclude);
+                          lastLabelRef.current.set(liveStep.tool, label);
+                          return label;
+                        })()}{liveStep.detail ? ` (${liveStep.detail})` : ""}
+                      </span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                     </div>

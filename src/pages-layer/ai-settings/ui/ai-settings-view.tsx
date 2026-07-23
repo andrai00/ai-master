@@ -63,6 +63,16 @@ const PROVIDERS = [
   },
 ];
 
+const PROVIDER_LIMITS: Record<string, number> = {
+  deepseek: 128000,
+  openai: 128000,
+  openrouter: 128000,
+  groq: 128000,
+  ollama: 8192,
+  anthropic: 200000,
+  custom: 128000,
+};
+
 function getProvider(v: string) {
   return PROVIDERS.find((p) => p.value === v) || PROVIDERS[0];
 }
@@ -81,8 +91,11 @@ export const AiSettingsView = () => {
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [contextLimit, setContextLimit] = useState<string>("");
   const [testing, setTesting] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
+
+  const contextDefault = PROVIDER_LIMITS[provider] ?? 128000;
 
   useEffect(() => {
     if (config) {
@@ -90,6 +103,7 @@ export const AiSettingsView = () => {
       setBaseUrl(config.baseUrl);
       setApiKey(config.apiKey);
       setModel(config.model);
+      setContextLimit(config.contextLimit > 0 ? String(config.contextLimit) : "");
     }
   }, [config]);
 
@@ -100,6 +114,7 @@ export const AiSettingsView = () => {
         baseUrl,
         apiKey,
         model,
+        contextLimit: parseInt(contextLimit, 10) || 0,
       }),
     onSuccess: (result) => {
       if (result.success) {
@@ -217,6 +232,18 @@ export const AiSettingsView = () => {
             loading={modelsLoading}
             onOpenChange={(open) => setModelsOpen(open)}
             notFoundContent={modelsLoading ? t("aiSettings.loading") : apiKey ? t("aiSettings.noModels") : t("aiSettings.enterKey")}
+          />
+        </div>
+
+        {/* Context Limit */}
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+            {t("aiSettings.contextLimit")}
+          </div>
+          <Input
+            value={contextLimit}
+            onChange={(e) => setContextLimit(e.target.value.replace(/\D/g, ""))}
+            placeholder={contextDefault ? t("aiSettings.contextLimitAuto", { count: contextDefault.toLocaleString("ru") }) : t("aiSettings.contextLimitHint")}
           />
         </div>
 

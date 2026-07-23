@@ -8,13 +8,14 @@ export interface IAiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  contextLimit: number;
   extra: string;
 }
 
 export async function getAiConfigAction(): Promise<IAiConfig> {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return { provider: "custom", baseUrl: "", apiKey: "", model: "", extra: "" };
+    return { provider: "custom", baseUrl: "", apiKey: "", model: "", contextLimit: 0, extra: "" };
   }
 
   const prisma = getPrisma();
@@ -29,6 +30,7 @@ export async function getAiConfigAction(): Promise<IAiConfig> {
     baseUrl: config.baseUrl,
     apiKey: config.apiKey,
     model: config.model,
+    contextLimit: config.contextLimit,
     extra: config.extra,
   };
 }

@@ -253,6 +253,9 @@
     "modelsFound": "models",
     "loading": "Loading models...",
     "noModels": "No models found",
-    "enterKey": "Enter API key"
+    "enterKey": "Enter API key",
+    "contextLimit": "Context limit (tokens)",
+    "contextLimitHint": "Auto (by provider)",
+    "contextLimitAuto": "{{count}} tokens (auto)"
   }
 }

@@ -1,4 +1,4 @@
-import { generateText, isStepCount, type StepResult } from "ai";
+import { generateText, isStepCount, type StepResult, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -71,6 +71,25 @@ function loadSystemPrompt(): string {
 // ---------------------------------------------------------------------------
 // AI Provider
 // ---------------------------------------------------------------------------
+
+/** Default context windows per provider (used when user doesn't set contextLimit). */
+const PROVIDER_DEFAULTS: Record<string, number> = {
+  deepseek: 128_000,
+  openai: 128_000,
+  openrouter: 128_000,
+  groq: 128_000,
+  ollama: 8_192,
+  anthropic: 200_000,
+  custom: 128_000,
+};
+
+async function getContextLimit(): Promise<number> {
+  const prisma = getPrisma();
+  const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+  if (config?.contextLimit && config.contextLimit > 0) return config.contextLimit;
+  const provider = config?.provider?.trim() || "custom";
+  return PROVIDER_DEFAULTS[provider] ?? 128_000;
+}
 
 async function createProvider() {
   const prisma = getPrisma();
@@ -191,6 +210,10 @@ export async function runBuilderAgent(
     const model = await createProvider();
     throwIfCancelled();
 
+    // Read context limit from config (with auto-defaults per provider)
+    const contextLimit = await getContextLimit();
+    const compressThreshold = contextLimit * 0.7; // start compressing at 70%
+
     // --- Emit started: all clients see the bubble now ---
     emitStarted(sessionId);
 
@@ -209,6 +232,53 @@ export async function runBuilderAgent(
           messages,
           tools,
           stopWhen: isStepCount(80),
+          prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
+            const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+            const estimated = totalChars / 4;
+            if (estimated < compressThreshold) return {};
+
+            // Compress: keep system + last admin message + pin last tool step.
+            // Summarize everything in between into one message.
+            const systemMsg = allMsgs.find(m => m.role === "system");
+            const adminMsgs = allMsgs.filter(m => m.role === "user");
+            const lastAdmin = adminMsgs[adminMsgs.length - 1];
+
+            // Pin last step (current processing — never compress)
+            const lastToolIdx = allMsgs.length - 1;
+            const lastTool = allMsgs[lastToolIdx];
+
+            // Build summary from all completed steps
+            let reads = 0, created = 0, updated = 0, searched = 0, listed = 0;
+            for (const s of allSteps ?? []) {
+              for (const c of (s.toolCalls ?? [])) {
+                switch (c.toolName) {
+                  case "read_parsed_file": reads++; break;
+                  case "create_document": created++; break;
+                  case "update_document": updated++; break;
+                  case "search_documents": searched++; break;
+                  case "list_uploaded_files": listed++; break;
+                }
+              }
+            }
+
+            const summary = [
+              "[Compressed — previous steps]",
+              reads ? `Read ${reads} file chunks` : "",
+              created ? `Created ${created} documents` : "",
+              updated ? `Updated ${updated} documents` : "",
+              searched ? `Searched ${searched} times` : "",
+              listed ? `Listed files ${listed} times` : "",
+            ].filter(Boolean).join(". ");
+
+            const compressed: ModelMessage[] = [];
+            if (systemMsg) compressed.push(systemMsg);
+            if (lastAdmin) compressed.push(lastAdmin);
+            compressed.push({ role: "assistant", content: summary });
+            if (lastTool) compressed.push(lastTool);
+
+            console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.length} msgs, ${Math.round(estimated/1000)}K→~${Math.round(totalChars/4/compressed.length/1000)}K tokens`);
+            return { messages: compressed };
+          },
           abortSignal: ac.signal,
           onStepFinish: async (event: StepResult<typeof tools>) => {
             const calls = event.toolCalls ?? [];

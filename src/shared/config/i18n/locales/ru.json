@@ -253,6 +253,9 @@
     "modelsFound": "моделей",
     "loading": "Загрузка моделей...",
     "noModels": "Модели не найдены",
-    "enterKey": "Укажите API ключ"
+    "enterKey": "Укажите API ключ",
+    "contextLimit": "Лимит контекста (токенов)",
+    "contextLimitHint": "Авто (по провайдеру)",
+    "contextLimitAuto": "{{count}} токенов (авто)"
   }
 }

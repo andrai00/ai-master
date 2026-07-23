@@ -109,10 +109,11 @@ model ThoughtLog {
 }
 
 model AppConfig {
-  id        String @id @default("singleton")
-  provider  String @default("custom")     // "openrouter" | "openai" | "anthropic" | "groq" | "ollama" | "custom"
-  baseUrl   String @default("")            // custom endpoint
-  apiKey    String @default("")            // encrypted or plain
-  model     String @default("")            // selected model ID
-  extra     String @default("")            // JSON: additional models list
+  id           String  @id @default("singleton")
+  provider     String  @default("custom")     // "openrouter" | "openai" | "anthropic" | "groq" | "ollama" | "custom"
+  baseUrl      String  @default("")            // custom endpoint
+  apiKey       String  @default("")            // encrypted or plain
+  model        String  @default("")            // selected model ID
+  contextLimit Int     @default(0)             // max context tokens (0 = auto-detect)
+  extra        String  @default("")            // JSON: additional models list
 }

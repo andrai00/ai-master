@@ -73,6 +73,8 @@ interface IChatPanelProps {
   maxFileSize?: number;
   /** Session ID for real-time step tracking via SSE (builder chat) */
   stepsSessionId?: string;
+  /** Called when first step event arrives (processing started) */
+  onStepsStart?: () => void;
   /** Called when SSE reports processing is done */
   onStepsDone?: () => void;
   /** True while stop is in progress (waiting for abort to complete) */
@@ -151,7 +153,7 @@ export const ChatPanel = ({
   onDelete, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stopping, onStepsDone,
+  stepsSessionId, stopping, onStepsDone, onStepsStart,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -165,20 +167,25 @@ export const ChatPanel = ({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Subscribe to SSE for real-time step tracking
+  // Subscribe to SSE for real-time step tracking (always connected on builder page)
   useEffect(() => {
-    if (!stepsSessionId || !typing) {
+    if (!stepsSessionId) {
       setLiveStep(null);
       return;
     }
 
     setLiveStep(null);
+    let started = false;
     const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
 
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.tool) {
+          if (!started) {
+            started = true;
+            onStepsStart?.();
+          }
           setLiveStep({ tool: data.tool, detail: data.detail });
         }
         if (data.done) {
@@ -195,7 +202,7 @@ export const ChatPanel = ({
     };
 
     return () => es.close();
-  }, [stepsSessionId, typing]);
+  }, [stepsSessionId]);
 
   useEffect(() => {
     if (scrollRef.current) {

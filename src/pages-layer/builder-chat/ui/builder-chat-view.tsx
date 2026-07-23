@@ -215,6 +215,10 @@ export const BuilderChatView = () => {
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId ?? undefined}
+        onStepsStart={() => {
+          setTyping(true);
+          setStopping(false);
+        }}
         onStepsDone={() => {
           setTyping(false);
           setStopping(false);

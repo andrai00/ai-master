@@ -13,7 +13,7 @@ import { useDeleteBuilderMessage } from "@/src/shared/api/builder/use-delete-mes
 import { useClearBuilderChat } from "@/src/shared/api/builder/use-clear-chat";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
-import type { IMessage } from "@/src/features/chat-panel/ui/chat-panel";
+import type { IMessage } from "@/src/features/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 
 const PAGE_SIZE = 30;

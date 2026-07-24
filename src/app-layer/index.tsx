@@ -6,7 +6,7 @@ import ruRU from "antd/locale/ru_RU";
 import { FC, ReactNode, Suspense, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { queryClient } from "./providers/query-provider";
-import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "./theme-context";
+import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "@/src/shared/lib/theme";
 import "@/src/shared/config/i18n";
 
 const darkTokens = {

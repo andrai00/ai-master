@@ -2,7 +2,7 @@
 
 import { Modal, Switch, Select } from "antd";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "@/src/app-layer/theme-context";
+import { useTheme } from "@/src/shared/lib/theme";
 import { saveLanguage, type TLanguage } from "@/src/shared/config/i18n";
 
 interface IAppSettingsProps {

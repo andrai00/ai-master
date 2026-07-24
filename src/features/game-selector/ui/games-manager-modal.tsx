@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Table, Button, Input, App, Popconfirm, Tooltip } from "antd";
+import { Modal, Table, Button, Input, App, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, SearchOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import { useCreateGame } from "@/src/shared/api/admin/useCreateGame";
 import { useUpdateGame } from "@/src/shared/api/admin/useUpdateGame";
 import { useSwitchGame } from "@/src/shared/api/admin/useSwitchGame";
 import { useDeleteGame } from "@/src/shared/api/admin/useDeleteGame";
+import { deleteGameWithInfoAction } from "@/src/shared/actions/admin/manage-games";
 import type { IGameItem } from "@/src/shared/actions/admin/manage-games";
 import type { ColumnsType } from "antd/es/table";
 
@@ -20,7 +21,7 @@ interface IGamesManagerProps {
 
 export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManagerProps) => {
   const { t } = useTranslation();
-  const { notification } = App.useApp();
+  const { notification, modal } = App.useApp();
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
   }, [games, search]);
 
   const handleSwitch = (id: string) => {
-    switchMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ title: t("gameSelector.switched") }); } });
+    switchMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ message: t("gameSelector.switched") }); } });
   };
 
   const handleSaveEdit = () => {
@@ -49,8 +50,37 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ title: t("gameSelector.deleted") }); } });
+  const handleDelete = async (id: string) => {
+    const info = await deleteGameWithInfoAction(id);
+    if (!info.success || !info.info) {
+      notification.error({ message: info.error ? t(info.error) : t("gameSelector.deleteError") });
+      return;
+    }
+    const { sessions, messages, documents } = info.info;
+    const game = games.find((g) => g.id === id);
+    modal.confirm({
+      title: t("gameSelector.deleteConfirm"),
+      content: (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p>{t("gameSelector.deleteWarn")}</p>
+          <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.8 }}>
+            <div>{t("gameSelector.sessionsLabel")}: <strong>{sessions}</strong></div>
+            <div>{t("gameSelector.messagesLabel")}: <strong>{messages}</strong></div>
+            <div>{t("gameSelector.documentsLabel")}: <strong>{documents}</strong></div>
+          </div>
+          {game?.isCurrent && (
+            <p style={{ color: "#ff4d4f", margin: 0 }}>{t("gameSelector.currentGameWarning")}</p>
+          )}
+        </div>
+      ),
+      okText: t("gameSelector.deleteOk"),
+      cancelText: t("gameSelector.cancel"),
+      okButtonProps: { danger: true },
+      maskClosable: true,
+      onOk: () => {
+        deleteMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ message: t("gameSelector.deleted") }); } });
+      },
+    });
   };
 
   const handleCreate = () => {
@@ -97,10 +127,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
             <Button type="text" size="small" icon={<EditOutlined />} onClick={() => { setEditId(record.id); setEditName(record.name); }} />
           </Tooltip>
           <Tooltip title={t("gameSelector.deleteConfirm")}>
-            <Popconfirm title={t("gameSelector.deleteConfirm")} description={t("gameSelector.deleteWarn")} onConfirm={() => handleDelete(record.id)}
-              okText={t("gameSelector.deleteOk")} cancelText={t("gameSelector.cancel")}>
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
           </Tooltip>
         </span>
       ),

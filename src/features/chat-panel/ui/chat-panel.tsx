@@ -76,6 +76,8 @@ interface IChatPanelProps {
   onStepsError?: (message: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
+  /** Optional element to render inside the input bar, between attach button and text input */
+  inputPrefix?: ReactNode;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -159,6 +161,7 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
+  inputPrefix,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -518,6 +521,21 @@ export const ChatPanel = ({
         )}
 
         <div className={styles.inputInner}>
+          {inputPrefix}
+          <Input.TextArea
+            placeholder={placeholder || t("chat.placeholder")}
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            className={styles.input}
+            disabled={disabled || sending || typing}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onPressEnter={(e) => {
+              if (!e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+          />
           {allowFiles && (
             <>
               <Tooltip title={t("chat.attachFile")}>
@@ -540,20 +558,6 @@ export const ChatPanel = ({
               />
             </>
           )}
-          <Input.TextArea
-            placeholder={placeholder || t("chat.placeholder")}
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            className={styles.input}
-            disabled={disabled || sending || typing}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-          />
           {typing ? (
             onStop && !stopping ? (
               <Tooltip title={t("chat.stop")}>

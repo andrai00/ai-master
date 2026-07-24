@@ -54,6 +54,10 @@ export const Shell = ({ user, children }: IShellProps) => {
       if (type === "builder_mode_change") {
         queryClient.invalidateQueries({ queryKey: ["builderMode"] });
       }
+      if (type === "game_deleted") {
+        queryClient.invalidateQueries();
+        router.refresh();
+      }
     };
     eventSource.onerror = () => {
       eventSource.close();

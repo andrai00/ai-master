@@ -18,6 +18,7 @@ import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/act
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import type { IMessage } from "@/src/features/chat-panel";
 import type { ColumnsType } from "antd/es/table";
+import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
 
 const PAGE_SIZE = 30;
 
@@ -223,16 +224,6 @@ export const BuilderChatView = () => {
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 0 4px" }}>
-        <Segmented
-          value={mode}
-          onChange={(v) => handleModeChange(v as TBuilderMode)}
-          options={[
-            { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
-            { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
-          ]}
-        />
-      </div>
       <ChatPanel
         messages={messages}
         placeholder={t("chat.placeholder")}
@@ -240,6 +231,18 @@ export const BuilderChatView = () => {
         hideShare
         allowFiles
         acceptFiles=".pdf,.txt,.md,.docx"
+        inputPrefix={
+          <Segmented
+            size="small"
+            className={styles.modeSwitcher}
+            value={mode}
+            onChange={(v) => handleModeChange(v as TBuilderMode)}
+            options={[
+              { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
+              { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
+            ]}
+          />
+        }
         onDelete={handleDelete}
         onHistoryClick={openHistory}
         onClearChat={handleClear}

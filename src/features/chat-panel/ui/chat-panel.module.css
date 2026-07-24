@@ -244,6 +244,15 @@
   width: 100%;
 }
 
+.modeSwitcher {
+  flex-shrink: 0;
+}
+
+.modeSwitcher :global(.ant-segmented-item-selected) {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
 .input {
   flex: 1;
   font-size: 13px;

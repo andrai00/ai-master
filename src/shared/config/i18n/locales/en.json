@@ -174,9 +174,14 @@
     "rename": "Rename",
     "switched": "Game switched",
     "deleted": "Game deleted",
-    "deleteConfirm": "Delete game?",
-    "deleteWarn": "All game data (sessions, documents, chats) will be permanently deleted.",
-    "deleteOk": "Delete",
+    "deleteConfirm": "Delete game permanently?",
+    "deleteWarn": "The following will be permanently deleted: all sessions (player chats, personal chats, builder chats), all messages within them, all documents (glossary, memos, rules), agent thought logs, and player access rights to this game.",
+    "deleteOk": "Delete permanently",
+    "deleteError": "Failed to get deletion info",
+    "sessionsLabel": "Sessions (chats):",
+    "messagesLabel": "Messages:",
+    "documentsLabel": "Documents:",
+    "currentGameWarning": "This is the current active game. After deletion the system will switch to another game.",
     "noGames": "No games created"
   },
   "mode": {

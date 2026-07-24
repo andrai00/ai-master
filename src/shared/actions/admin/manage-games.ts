@@ -2,7 +2,8 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
-import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { getActiveGame, invalidateActiveGameCache } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export interface IGameItem {
   id: string;
@@ -81,13 +82,23 @@ export async function deleteGameAction(
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   const prisma = getPrisma();
+  const activeGame = await getActiveGame();
   const game = await prisma.master.findUnique({ where: { id } });
   if (!game || game.ownerId !== session.userId) return { success: false, error: "errors.forbidden" };
 
   const count = await prisma.master.count({ where: { ownerId: session.userId } });
   if (count <= 1) return { success: false, error: "errors.cannotDeleteLastGame" };
 
+  const wasCurrentGame = activeGame ? activeGame.currentMasterId === id : false;
+
+  // Prisma cascades: GameAccess, ActiveGame, Session→Message, Document, ThoughtLog — all deleted automatically
   await prisma.master.delete({ where: { id } });
+
+  if (wasCurrentGame) {
+    invalidateActiveGameCache();
+    broadcastGameEvent("game_deleted", { masterId: id });
+  }
+
   return { success: true };
 }
 
@@ -106,7 +117,7 @@ export async function updateGameAction(
 
 export async function deleteGameWithInfoAction(
   id: string
-): Promise<{ success: boolean; error?: string; info?: { sessions: number; documents: number } }> {
+): Promise<{ success: boolean; error?: string; info?: { sessions: number; messages: number; documents: number } }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
@@ -117,5 +128,11 @@ export async function deleteGameWithInfoAction(
   const count = await prisma.master.count({ where: { ownerId: session.userId } });
   if (count <= 1) return { success: false, error: "errors.cannotDeleteLastGame" };
 
-  return { success: true, info: { sessions: 0, documents: 0 } };
+  const [sessions, messages, documents] = await Promise.all([
+    prisma.session.count({ where: { masterId: id } }),
+    prisma.message.count({ where: { session: { masterId: id } } }),
+    prisma.document.count({ where: { masterId: id } }),
+  ]);
+
+  return { success: true, info: { sessions, messages, documents } };
 }

@@ -7,7 +7,8 @@
     "upload": "Upload",
     "loading": "Loading...",
     "appName": "ai-master",
-    "noData": "-"
+    "noData": "-",
+    "switch": "Switch"
   },
   "sidebar": {
     "logo": "ai-master",
@@ -225,7 +226,16 @@
       "search_documents": ["Searching database", "Looking up reference"],
       "retry": ["Retrying"],
       "final": "Writing response"
-    }
+    },
+    "modeBrain": "Brain",
+    "modeBrainHint": "Configuring rules and AI Master instructions",
+    "modeBrainTitle": "Switch to Brain mode",
+    "modeBrainDesc": "You will be working with game rules (glossary) and AI Master instructions (brain). Game memory (character sheets, state) will be inaccessible.",
+    "modeMemory": "Memory",
+    "modeMemoryHint": "Editing game state, character sheets, hidden notes",
+    "modeMemoryTitle": "Switch to Game Memory mode",
+    "modeMemoryDesc": "You will be working with game state — character sheets, hidden notes, world data. Rules and AI instructions become read-only.",
+    "modeMemoryLongTime": "It's been a while since you last edited game memory. Make sure you want to modify game state, not rules."
   },
   "documents": {
     "title_page": "Game Documents",

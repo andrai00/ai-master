@@ -130,6 +130,14 @@ async function buildContext(sessionId: string) {
   let systemPrompt = loadSystemPrompt();
   systemPrompt = systemPrompt.replace("{uiLanguage}", "en");
 
+  // Get builder mode for this session
+  const builderSession = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { builderMode: true },
+  });
+  const builderMode = builderSession?.builderMode ?? "brain";
+  systemPrompt = systemPrompt.replace("{builderMode}", builderMode);
+
   if (activeGame) {
     const master = await prisma.master.findUnique({
       where: { id: activeGame.currentMasterId },

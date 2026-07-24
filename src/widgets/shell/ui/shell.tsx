@@ -5,6 +5,7 @@ import { MenuOutlined } from "@ant-design/icons";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Sidebar } from "@/src/widgets/sidebar";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
 
@@ -18,6 +19,7 @@ interface IShellProps {
 
 export const Shell = ({ user, children }: IShellProps) => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -36,12 +38,21 @@ export const Shell = ({ user, children }: IShellProps) => {
   useEffect(() => {
     const eventSource = new EventSource("/api/game-events");
     eventSource.onmessage = (e) => {
-      if (e.data === "kick") {
+      let type = e.data;
+      try {
+        const parsed = JSON.parse(e.data);
+        type = parsed.type ?? e.data;
+      } catch { /* legacy format — data is the event type string */ }
+
+      if (type === "kick") {
         eventSource.close();
         window.location.href = "/api/logout?redirect=/login";
       }
-      if (e.data === "mode_switch") {
+      if (type === "mode_switch") {
         router.refresh();
+      }
+      if (type === "builder_mode_change") {
+        queryClient.invalidateQueries({ queryKey: ["builderMode"] });
       }
     };
     eventSource.onerror = () => {

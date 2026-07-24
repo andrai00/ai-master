@@ -5,6 +5,7 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
+import { assertCanWrite, getWritableCategories } from "./builder-mode-guard";
 
 export const createDocumentTool = {
   description: TOOL_DESCRIPTIONS.create_document,
@@ -28,26 +29,29 @@ export const createDocumentTool = {
   }) => {
     throwIfCancelled();
     await assertNotGameMode();
+    await assertCanWrite(args.category);
+
     const activeGame = await getActiveGame();
     if (!activeGame) throw new Error("errors.noActiveGameTool");
 
     const prisma = getPrisma();
 
     // Check for existing document with the same title
+    const writableCategories = await getWritableCategories();
     const existing = await prisma.document.findFirst({
       where: {
         masterId: activeGame.currentMasterId,
         title: args.title,
-        category: args.category,
+        category: { in: writableCategories },
       },
-      select: { id: true, title: true, summary: true },
+      select: { id: true, title: true, summary: true, category: true },
     });
 
     if (existing) {
       return {
         id: existing.id,
         title: existing.title,
-        category: args.category,
+        category: existing.category,
         summary: existing.summary,
         created: false,
         note: `Document with title "${args.title}" already exists (id: ${existing.id}). Use update_document() to overwrite it, or choose a different title.`,

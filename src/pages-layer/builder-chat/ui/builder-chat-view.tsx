@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App } from "antd";
+import { Modal, Table, App, Segmented, Tooltip } from "antd";
+import { SettingOutlined, DatabaseOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatPanel } from "@/src/features/chat-panel";
 import { FileOutlined } from "@ant-design/icons";
@@ -11,6 +12,8 @@ import { useBuilderMessages } from "@/src/shared/api/builder/useBuilderMessages"
 import { useSendBuilderMessage } from "@/src/shared/api/builder/useSendMessage";
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/useDeleteMessage";
 import { useClearBuilderChat } from "@/src/shared/api/builder/useClearChat";
+import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
+import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import type { IMessage } from "@/src/features/chat-panel";
@@ -48,6 +51,54 @@ export const BuilderChatView = () => {
 
   const { data: sessionData } = useBuilderSession();
   const sessionId = sessionData?.id;
+  const { mode, setMode } = useBuilderMode(sessionId ?? null);
+  const { modal } = App.useApp();
+
+  const [switchingMode, setSwitchingMode] = useState(false);
+  const lastMemorySwitch = useRef<number>(0);
+
+  // --- Mode switching ---
+  const handleModeChange = useCallback(async (newMode: TBuilderMode) => {
+    if (newMode === mode || switchingMode) return;
+    setSwitchingMode(true);
+
+    const descriptions: Record<TBuilderMode, { title: string; content: string }> = {
+      brain: {
+        title: t("builder.modeBrainTitle"),
+        content: t("builder.modeBrainDesc"),
+      },
+      memory: {
+        title: t("builder.modeMemoryTitle"),
+        content: t("builder.modeMemoryDesc"),
+      },
+    };
+
+    let extra = "";
+    if (newMode === "memory") {
+      const elapsed = Date.now() - lastMemorySwitch.current;
+      if (lastMemorySwitch.current > 0 && elapsed > 30 * 60 * 1000) {
+        extra = "\n\n" + t("builder.modeMemoryLongTime");
+      }
+    }
+
+    const confirmed = await new Promise<boolean>((resolve) => {
+      modal.confirm({
+        title: descriptions[newMode].title,
+        content: descriptions[newMode].content + extra,
+        okText: t("common.switch"),
+        cancelText: t("common.cancel"),
+        mask: { closable: true },
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+
+    if (confirmed) {
+      await setMode(newMode);
+      if (newMode === "memory") lastMemorySwitch.current = Date.now();
+    }
+    setSwitchingMode(false);
+  }, [mode, switchingMode, setMode, modal, t]);
 
   // On mount: check if processing is already active (e.g. after page reload)
   useEffect(() => {
@@ -172,6 +223,16 @@ export const BuilderChatView = () => {
 
   return (
     <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 0 4px" }}>
+        <Segmented
+          value={mode}
+          onChange={(v) => handleModeChange(v as TBuilderMode)}
+          options={[
+            { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
+            { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
+          ]}
+        />
+      </div>
       <ChatPanel
         messages={messages}
         placeholder={t("chat.placeholder")}

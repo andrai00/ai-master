@@ -4,7 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
-export async function getBuilderSessionAction(): Promise<{ id: string; name: string } | null> {
+export async function getBuilderSessionAction(): Promise<{ id: string; name: string; builderMode: string } | null> {
   const session = await getSession();
   if (!session || session.role !== "admin") return null;
 
@@ -27,5 +27,5 @@ export async function getBuilderSessionAction(): Promise<{ id: string; name: str
     });
   }
 
-  return { id: s.id, name: s.name };
+  return { id: s.id, name: s.name, builderMode: s.builderMode };
 }

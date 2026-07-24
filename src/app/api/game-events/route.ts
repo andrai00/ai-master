@@ -17,10 +17,11 @@ export async function GET() {
     async start(controller) {
       controller.enqueue(encoder.encode(": connected\n\n"));
 
-      // Subscribe to broadcast events (mode_switch etc.)
+      // Subscribe to broadcast events (mode_switch, builder_mode_change, etc.)
       const unsubscribe = onGameEvent((event) => {
         if (closed) return;
-        controller.enqueue(encoder.encode(`data: ${event.type}\n\n`));
+        const data = JSON.stringify({ type: event.type, payload: event.payload });
+        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
       });
 
       // For players: poll access every 3 seconds, send kick if access lost

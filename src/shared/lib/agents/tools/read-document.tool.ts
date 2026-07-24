@@ -3,6 +3,7 @@ import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
+import { assertCanRead } from "./builder-mode-guard";
 
 export const readDocumentTool = {
   description: TOOL_DESCRIPTIONS.read_document,
@@ -14,6 +15,7 @@ export const readDocumentTool = {
   execute: async (args: { id: string }) => {
     throwIfCancelled();
     const prisma = getPrisma();
+
     const doc = await prisma.document.findUnique({
       where: { id: args.id },
       select: {
@@ -27,6 +29,7 @@ export const readDocumentTool = {
       },
     });
     if (!doc) throw new Error("errors.documentNotFound");
+    await assertCanRead(doc.category);
     return doc;
   },
 };

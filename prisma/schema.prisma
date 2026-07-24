@@ -74,15 +74,16 @@ model Document {
 }
 
 model Session {
-  id        String    @id @default(uuid())
-  masterId  String
-  type      String    // "game" | "personal" | "builder"
-  playerId  String?
-  name      String
-  createdAt DateTime  @default(now())
-  master    Master    @relation(fields: [masterId], references: [id])
-  player    User?     @relation("SessionPlayer", fields: [playerId], references: [id])
-  messages  Message[]
+  id          String    @id @default(uuid())
+  masterId    String
+  type        String    // "game" | "personal" | "builder"
+  playerId    String?
+  name        String
+  builderMode String    @default("brain") // "brain" | "memory" (builder sessions only)
+  createdAt   DateTime  @default(now())
+  master      Master    @relation(fields: [masterId], references: [id])
+  player      User?     @relation("SessionPlayer", fields: [playerId], references: [id])
+  messages    Message[]
 }
 
 model Message {

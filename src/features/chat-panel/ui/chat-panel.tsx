@@ -141,16 +141,16 @@ function getStepIcon(tool: string): ReactNode {
   }
 }
 
-function getStepLabel(tool: string, t: (key: string) => string, exclude?: string): string {
+function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: boolean }) => unknown, exclude?: string): string {
   const key = `builder.steps.${tool}`;
-  const raw = t(key);
+  const raw = t(key, { returnObjects: true });
   // If it's an array of phrases, pick one randomly (excluding last used)
   if (Array.isArray(raw)) {
     const pool = raw as string[];
     const available = exclude ? pool.filter((p) => p !== exclude) : pool;
     return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : pool[0];
   }
-  return raw;
+  return raw as string;
 }
 
 export const ChatPanel = ({

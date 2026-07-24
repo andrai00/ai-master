@@ -41,7 +41,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
   }, [games, search]);
 
   const handleSwitch = (id: string) => {
-    switchMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ message: t("gameSelector.switched") }); } });
+    switchMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ title: t("gameSelector.switched") }); } });
   };
 
   const handleSaveEdit = () => {
@@ -53,7 +53,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
   const handleDelete = async (id: string) => {
     const info = await deleteGameWithInfoAction(id);
     if (!info.success || !info.info) {
-      notification.error({ message: info.error ? t(info.error) : t("gameSelector.deleteError") });
+      notification.error({ title: info.error ? t(info.error) : t("gameSelector.deleteError") });
       return;
     }
     const { sessions, messages, documents } = info.info;
@@ -78,7 +78,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
       okButtonProps: { danger: true },
       mask: { closable: true },
       onOk: () => {
-        deleteMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ message: t("gameSelector.deleted") }); } });
+        deleteMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ title: t("gameSelector.deleted") }); } });
       },
     });
   };

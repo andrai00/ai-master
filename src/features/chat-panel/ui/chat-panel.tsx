@@ -29,8 +29,24 @@ import { useRef, useEffect, useState, useCallback, type DragEvent } from "react"
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
+import { WikiLink } from "@/src/features/md-viewer/ui/wiki-link";
+import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import styles from "./chat-panel.module.css";
+
+/** Reusable wiki-link renderer for chat messages — plain text, no navigation */
+const wikiComponents: Components = {
+  span(props) {
+    const { node, children, ...rest } = props;
+    const href = (node?.properties as Record<string, string> | undefined)?.["data-wiki-link"];
+    if (href) {
+      const [docId, anchor] = href.split("|");
+      return <WikiLink docId={docId!} anchor={anchor || null} plain />;
+    }
+    return <span {...rest}>{children}</span>;
+  },
+};
 
 export interface IMessage {
   id: string;
@@ -344,7 +360,10 @@ export const ChatPanel = ({
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkWikiLink]}
+              components={wikiComponents}
+            >
               {String(msg.text)}
             </ReactMarkdown>
           </div>

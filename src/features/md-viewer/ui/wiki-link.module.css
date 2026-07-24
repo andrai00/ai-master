@@ -1,0 +1,20 @@
+.wikiLink {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--text-dim);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  opacity: 0.85;
+  transition: opacity 0.12s;
+}
+
+.wikiLink:hover {
+  opacity: 1;
+  border-bottom-color: var(--text-primary);
+}
+
+.wikiText {
+  opacity: 0.6;
+}

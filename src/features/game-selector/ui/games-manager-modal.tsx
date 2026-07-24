@@ -76,7 +76,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
       okText: t("gameSelector.deleteOk"),
       cancelText: t("gameSelector.cancel"),
       okButtonProps: { danger: true },
-      maskClosable: true,
+      mask: { closable: true },
       onOk: () => {
         deleteMutation.mutate(id, { onSuccess: () => { onGameChanged(); notification.success({ message: t("gameSelector.deleted") }); } });
       },

@@ -1,12 +1,12 @@
 "use client";
 
-import { Tabs, Table, Modal, Empty } from "antd";
-import { FileTextOutlined, BookOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined } from "@ant-design/icons";
+import { Tabs, Table, Modal, Empty, Button, Space } from "antd";
+import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { ColumnsType } from "antd/es/table";
 
 const CATEGORIES = [
@@ -19,10 +19,56 @@ const CATEGORIES = [
 export const DocumentsView = () => {
   const { t } = useTranslation();
   const [previewDoc, setPreviewDoc] = useState<IDocumentItem | null>(null);
+  const [navStack, setNavStack] = useState<IDocumentItem[]>([]);
+  const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
 
   const { data: docs = [], isLoading } = useDocuments();
 
+  const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
+
   const getCategoryDocs = (cat: string) => docs.filter((d) => d.category === cat);
+
+  const handleOpenDoc = useCallback((doc: IDocumentItem) => {
+    setScrollTo(undefined);
+    setPreviewDoc((prev) => {
+      if (prev) setNavStack((s) => [...s, prev]);
+      return doc;
+    });
+  }, []);
+
+  const handleNavigate = useCallback((docId: string, anchor?: string) => {
+    const target = docMap.get(docId);
+    if (!target) return;
+    const anchorSlug = anchor
+      ?.toLowerCase()
+      .replace(/<[^>]*>/g, "")
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    setScrollTo(anchorSlug || undefined);
+    setPreviewDoc((prev) => {
+      if (prev && prev.id !== docId) {
+        setNavStack((s) => [...s, prev]);
+      }
+      return { ...target, content: target.content }; // fresh ref for scrollTo effect
+    });
+  }, [docMap]);
+
+  const handleBack = useCallback(() => {
+    setScrollTo(undefined);
+    setNavStack((s) => {
+      if (s.length === 0) return s;
+      const prev = s[s.length - 1]!;
+      setPreviewDoc(prev);
+      return s.slice(0, -1);
+    });
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setPreviewDoc(null);
+    setNavStack([]);
+  }, []);
 
   const columns: ColumnsType<IDocumentItem> = [
     {
@@ -81,7 +127,7 @@ export const DocumentsView = () => {
               size="small"
               loading={isLoading}
               onRow={(record) => ({
-                onClick: () => setPreviewDoc(record),
+                onClick: () => handleOpenDoc(record),
                 style: { cursor: "pointer" },
               })}
               pagination={{ pageSize: 20, hideOnSinglePage: true }}
@@ -92,14 +138,35 @@ export const DocumentsView = () => {
         }))}
       />
       <Modal
-        title={previewDoc?.title || t("documents.preview")}
+        title={
+          <Space>
+            {navStack.length > 0 && (
+              <Button
+                type="text"
+                size="small"
+                icon={<ArrowLeftOutlined />}
+                onClick={handleBack}
+                style={{ marginRight: 4 }}
+              />
+            )}
+            <span>{previewDoc?.title || t("documents.preview")}</span>
+          </Space>
+        }
         open={!!previewDoc}
-        onCancel={() => setPreviewDoc(null)}
+        onCancel={handleClose}
         footer={null}
         centered
-        width={640}
+        width={860}
+        styles={{ body: { padding: 0, height: "65vh", overflow: "hidden" } }}
       >
-        {previewDoc && <MdViewer content={previewDoc.content} />}
+        {previewDoc && (
+          <MdViewer
+            content={previewDoc.content}
+            onNavigate={handleNavigate}
+            scrollTo={scrollTo}
+            showToc
+          />
+        )}
       </Modal>
     </div>
   );

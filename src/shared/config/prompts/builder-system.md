@@ -61,6 +61,20 @@ The database may already contain documents from previous sessions. Use `search_d
 - After the glossary is solid, write brain documents: an index, character creation flow, combat mechanics, message routing rules
 - Files expire after 30 minutes — extract everything you need into documents before then
 
+## Cross-references between documents
+
+Documents can link to each other using wiki-link syntax:
+
+- `[[document-id]]` — link to another document by its ID
+- `[[document-id#heading]]` — link to a specific section within another document
+
+**When to create links:**
+- In the brain `_index` — link to each major glossary section so the AI Master can navigate easily
+- In brain instructions — link to specific rules you reference (e.g. "see [[combat-rules-id#initiative]]")
+- Between related glossary documents — if one rule builds on another
+
+**How to find document IDs:** Use `search_documents(query)` to find the target, then use the returned ID in your link. Prefer linking by ID — titles may change.
+
 ## Migrations (Memory mode)
 
 When you change rules that affect existing game data (character sheets, states, world info), you can update the affected documents in Memory mode:

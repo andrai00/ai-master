@@ -32,7 +32,7 @@ export async function testAiConnectionAction(
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return { success: false, message: `Ошибка ${res.status}: ${text.slice(0, 200)}` };
+      return { success: false, message: `Error ${res.status}: ${text.slice(0, 200)}` };
     }
 
     const data = await res.json();
@@ -46,7 +46,7 @@ export async function testAiConnectionAction(
       models = data.map((m: any) => m.id || m.name || m.model).filter(Boolean);
     }
 
-    return { success: true, message: `Найдено: ${models.length}`, models };
+    return { success: true, message: `Found: ${models.length}`, models };
   } catch (e: any) {
     return { success: false, message: e.message || "errors.unknownError" };
   }

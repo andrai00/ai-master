@@ -361,13 +361,13 @@ export async function runBuilderAgent(
         where: { masterId, category: "brain", type: "builder_summary" },
       });
       const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
-      const newContent = `📋 Саммари чата\n\n${prevContent}🆕 ${preview}`;
+      const newContent = `📋 Chat Summary\n\n${prevContent}🆕 ${preview}`;
 
       if (existing) {
         await prisma.document.update({ where: { id: existing.id }, data: { content: newContent, summary: preview } });
       } else {
         await prisma.document.create({
-          data: { masterId, title: "Саммари чата настройки", type: "builder_summary", category: "brain", content: newContent, summary: preview },
+          data: { masterId, title: "Builder Chat Summary", type: "builder_summary", category: "brain", content: newContent, summary: preview },
         });
       }
       await prisma.message.updateMany({ where: { id: { in: toSummarize.map(m => m.id) } }, data: { summarized: true } });

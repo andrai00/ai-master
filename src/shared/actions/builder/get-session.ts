@@ -22,7 +22,7 @@ export async function getBuilderSessionAction(): Promise<{ id: string; name: str
       data: {
         masterId: activeGame.currentMasterId,
         type: "builder",
-        name: "Настройка AI мастера",
+        name: "AI Master Setup",
       },
     });
   }

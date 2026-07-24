@@ -141,8 +141,15 @@ async function buildContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
+  // Load summary document to inject into context
+  const summaryDoc = await prisma.document.findFirst({
+    where: { masterId: activeGame?.currentMasterId ?? "", category: "brain", type: "builder_summary" },
+    select: { content: true },
+  });
+
+  // Fetch only unsummarized messages (summarized ones are replaced by the summary)
   const recent = await prisma.message.findMany({
-    where: { sessionId },
+    where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 20,
     select: { role: true, content: true },
@@ -152,6 +159,11 @@ async function buildContext(sessionId: string) {
     role: (m.role === "admin" ? "user" : "assistant") as "user" | "assistant",
     content: m.content,
   }));
+
+  // Prepend summary as a system context message if it exists
+  if (summaryDoc?.content) {
+    systemPrompt += `\n\n## Chat History Summary\n${summaryDoc.content}\n`;
+  }
 
   return { messages, system: systemPrompt };
 }
@@ -347,14 +359,15 @@ export async function runBuilderAgent(
       await writeThoughtLog(masterId, "builder", `=== RESPONSE ===\n${builderText}`);
     }
 
-    // Auto-summarize if 20+ unsummarized
-    const msgCount = await prisma.message.count({ where: { sessionId, summarized: false } });
-    if (msgCount >= 20) {
-      const toSummarize = await prisma.message.findMany({
-        where: { sessionId, summarized: false },
-        orderBy: { createdAt: "asc" },
-        take: 20,
-      });
+    // Auto-summarize if 20+ unsummarized with text content
+    const allUnsummarized = await prisma.message.findMany({
+      where: { sessionId, summarized: false },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, role: true, content: true },
+    });
+    const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
+    if (withText.length >= 20) {
+      const toSummarize = withText.slice(0, 20);
       const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
 
       const existing = await prisma.document.findFirst({

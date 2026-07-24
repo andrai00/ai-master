@@ -9,10 +9,10 @@ export async function editUserAction(
 ): Promise<{ success: boolean; error?: string }> {
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return { success: false, error: "Пользователь не найден" };
+  if (!user) return { success: false, error: "errors.userNotFound" };
   if (user.role === "admin" && data.role === "player") {
     const adminCount = await prisma.user.count({ where: { role: "admin" } });
-    if (adminCount <= 1) return { success: false, error: "Нельзя удалить последнего администратора" };
+    if (adminCount <= 1) return { success: false, error: "errors.cannotDemoteLastAdmin" };
   }
 
   const update: Record<string, string> = {};

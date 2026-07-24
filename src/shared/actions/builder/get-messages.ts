@@ -26,7 +26,7 @@ export async function getBuilderMessagesAction(
   pageSize: number = 30
 ): Promise<IBuilderMessagesResult | { error: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { error: "Нет прав" };
+  if (!session || session.role !== "admin") return { error: "errors.forbidden" };
 
   const prisma = getPrisma();
 

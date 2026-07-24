@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme, App } from "antd";
 import ruRU from "antd/locale/ru_RU";
 import { FC, ReactNode, Suspense, useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { queryClient } from "./providers/query-provider";
 import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "./theme-context";
 import "@/src/shared/config/i18n";
@@ -121,7 +122,7 @@ const Providers: FC<{ children: ReactNode }> = ({ children }) => {
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={ruRU} theme={themeConfig}>
         <App>
-          <Suspense fallback={<div style={{ color: "#999", padding: 32 }}>Loading...</div>}>
+          <Suspense fallback={<LoadingFallback />}>
             {ready && (
               <ThemeContext.Provider value={{ mode, setMode: handleSetMode }}>
                 {children}
@@ -135,3 +136,8 @@ const Providers: FC<{ children: ReactNode }> = ({ children }) => {
 };
 
 export default Providers;
+
+const LoadingFallback = () => {
+  const { t } = useTranslation();
+  return <div style={{ color: "#999", padding: 32 }}>{t("common.loading")}</div>;
+};

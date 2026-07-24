@@ -24,7 +24,7 @@ export const LoginForm = () => {
       router.push("/");
       router.refresh();
     } else {
-      notification.error({ title: result.error || t("auth.loginError") });
+      notification.error({ title: result.error ? t(result.error) : t("auth.loginError") });
     }
   };
 

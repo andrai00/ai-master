@@ -5,7 +5,9 @@
     "delete": "Delete",
     "logout": "Log out",
     "upload": "Upload",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "appName": "ai-master",
+    "noData": "-"
   },
   "sidebar": {
     "logo": "ai-master",
@@ -49,7 +51,9 @@
   "settings": {
     "title": "Settings",
     "darkTheme": "Dark theme",
-    "language": "Language"
+    "language": "Language",
+    "langRu": "Русский",
+    "langEn": "English"
   },
   "auth": {
     "login": "Log in",
@@ -91,7 +95,9 @@
     "fileTooLarge": "File too large (max {{max}})",
     "maxFilesReached": "Maximum {{count}} files",
     "sendError": "Send error",
-    "stop": "Stop"
+    "stop": "Stop",
+    "builderLabel": "Builder",
+    "stopping": "Stopping..."
   },
   "tabs": {
     "commonChat": "Game Chat",
@@ -235,7 +241,9 @@
   "logs": {
     "title": "Thought Logs",
     "empty": "No logs yet",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "agentBuilder": "Builder",
+    "agentGameMaster": "Game Master"
   },
   "aiSettings": {
     "title": "AI Settings",
@@ -257,6 +265,65 @@
     "enterKey": "Enter API key",
     "contextLimit": "Context limit (tokens)",
     "contextLimitHint": "Auto (by provider)",
-    "contextLimitAuto": "{{count}} tokens (auto)"
+    "contextLimitAuto": "{{count}} tokens (auto)",
+    "providerOpenRouter": "OpenRouter",
+    "providerOpenAI": "OpenAI",
+    "providerAnthropic": "Anthropic",
+    "providerGroq": "Groq",
+    "providerOllama": "Ollama (local)",
+    "providerCustom": "Custom API"
+  },
+  "chatPersonal": {
+    "title": "Personal chat with master",
+    "subtitle": "Private communication will be here"
+  },
+  "errors": {
+    "emptyLoginPassword": "Enter login and password",
+    "invalidCredentials": "Invalid login or password",
+    "noActiveGame": "Game not yet configured by admin",
+    "noGameAccess": "You do not have access to the current game",
+    "passwordTooShort": "Password must be at least 4 characters",
+    "adminExists": "Administrator already exists",
+    "unauthorized": "Not authorized",
+    "nameEmpty": "Name cannot be empty",
+    "forbidden": "No permission",
+    "cannotDeleteLastGame": "Cannot delete the last game",
+    "userNotFound": "User not found",
+    "cannotDemoteLastAdmin": "Cannot demote the last administrator",
+    "cannotDeleteAdmin": "Cannot delete an administrator",
+    "duplicateLogin": "A user with this login already exists",
+    "adminOnlySwitchGame": "Only admin can switch the game",
+    "adminOnlyChangeMode": "Only admin can change the mode",
+    "apiKeyMissing": "API key not provided",
+    "unknownError": "Unknown error",
+    "configNotFound": "Settings not found",
+    "emptyMessage": "Message is empty",
+    "messageNotFound": "Message not found",
+    "cannotDeleteSummarized": "Cannot delete — already summarized",
+    "sessionNotFound": "Session not found",
+    "aiTestError": "Error {{status}}: {{text}}",
+    "aiTestFound": "Found: {{count}}",
+    "fileTooLarge": "File too large (max 5MB)",
+    "onlyImagesAllowed": "Only images allowed",
+    "notFound": "Not found",
+    "invalidFormat": "Invalid format",
+    "missingParam": "Missing {{param}}",
+    "unknownFileId": "Unknown fileId",
+    "noFileProvided": "No file provided. Use field name 'file'.",
+    "readFileFailed": "Failed to read file: {{msg}}. The file might be too large, or the request was interrupted.",
+    "fileTooLargeBytes": "File too large: {{size}}MB. Limit is 100MB.",
+    "unsupportedFileType": "Unsupported file type: {{ext}}. Allowed: .pdf, .txt, .md, .docx",
+    "parsedFileTooLarge": "File too large after parsing: {{bytes}} bytes (max {{max}})",
+    "pdfProcessingFailed": "PDF processing failed",
+    "pdfParseFailed": "PDF parse failed",
+    "aiNotConfigured": "AI provider is not configured.",
+    "processingFailed": "Processing failed",
+    "aiResponseFormat": "AI provider error: the response format was not recognized. Try a different model or provider.",
+    "noActiveGameTool": "No active game",
+    "documentNotFound": "Document not found: {{id}}",
+    "fileParseError": "File parse error: {{error}}",
+    "fileParseTimeout": "File parse timed out: {{fileId}}",
+    "cancelled": "Cancelled.",
+    "gameModeReadOnly": "Cannot modify glossary/brain in game mode"
   }
 }

@@ -25,6 +25,6 @@ export function isCancelled(): boolean { return globalCancelled.cancelled === tr
  */
 export function throwIfCancelled(): void {
   if (globalCancelled.cancelled) {
-    throw new DOMException("Cancelled.", "AbortError");
+    throw new DOMException("errors.cancelled", "AbortError");
   }
 }

@@ -28,7 +28,7 @@ export const createDocumentTool = {
     throwIfCancelled();
     await assertNotGameMode();
     const activeGame = await getActiveGame();
-    if (!activeGame) throw new Error("No active game");
+    if (!activeGame) throw new Error("errors.noActiveGameTool");
 
     const prisma = getPrisma();
     const doc = await prisma.document.create({

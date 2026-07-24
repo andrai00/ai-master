@@ -46,7 +46,7 @@ export const DocumentsView = () => {
       dataIndex: "summary",
       ellipsis: true,
       width: 200,
-      render: (s: string | null) => s || "-",
+      render: (s: string | null) => s || t("common.noData"),
     },
     {
       title: t("documents.updated"),

@@ -5,7 +5,9 @@
     "delete": "Удалить",
     "logout": "Выйти",
     "upload": "Загрузить",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "appName": "ai-master",
+    "noData": "-"
   },
   "sidebar": {
     "logo": "ai-master",
@@ -49,7 +51,9 @@
   "settings": {
     "title": "Настройки",
     "darkTheme": "Тёмная тема",
-    "language": "Язык"
+    "language": "Язык",
+    "langRu": "Русский",
+    "langEn": "English"
   },
   "auth": {
     "login": "Войти",
@@ -91,7 +95,9 @@
     "fileTooLarge": "Файл слишком большой (макс. {{max}})",
     "maxFilesReached": "Максимум {{count}} файлов",
     "sendError": "Ошибка отправки",
-    "stop": "Остановить"
+    "stop": "Остановить",
+    "builderLabel": "Builder",
+    "stopping": "Остановка..."
   },
   "tabs": {
     "commonChat": "Общий чат",
@@ -235,7 +241,9 @@
   "logs": {
     "title": "Логи размышлений",
     "empty": "Логов пока нет",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "agentBuilder": "Builder",
+    "agentGameMaster": "Game Master"
   },
   "aiSettings": {
     "title": "Настройки AI",
@@ -257,6 +265,65 @@
     "enterKey": "Укажите API ключ",
     "contextLimit": "Лимит контекста (токенов)",
     "contextLimitHint": "Авто (по провайдеру)",
-    "contextLimitAuto": "{{count}} токенов (авто)"
+    "contextLimitAuto": "{{count}} токенов (авто)",
+    "providerOpenRouter": "OpenRouter",
+    "providerOpenAI": "OpenAI",
+    "providerAnthropic": "Anthropic",
+    "providerGroq": "Groq",
+    "providerOllama": "Ollama (локально)",
+    "providerCustom": "Свой API"
+  },
+  "chatPersonal": {
+    "title": "Личный чат с мастером",
+    "subtitle": "Здесь будет приватное общение"
+  },
+  "errors": {
+    "emptyLoginPassword": "Введите логин и пароль",
+    "invalidCredentials": "Неверный логин или пароль",
+    "noActiveGame": "Администратор ещё не настроил игру",
+    "noGameAccess": "У вас нет доступа к текущей игре",
+    "passwordTooShort": "Пароль должен быть не менее 4 символов",
+    "adminExists": "Администратор уже существует",
+    "unauthorized": "Не авторизован",
+    "nameEmpty": "Имя не может быть пустым",
+    "forbidden": "Нет прав",
+    "cannotDeleteLastGame": "Нельзя удалить последнюю игру",
+    "userNotFound": "Пользователь не найден",
+    "cannotDemoteLastAdmin": "Нельзя удалить последнего администратора",
+    "cannotDeleteAdmin": "Нельзя удалить администратора",
+    "duplicateLogin": "Пользователь с таким логином уже существует",
+    "adminOnlySwitchGame": "Только админ может переключать игру",
+    "adminOnlyChangeMode": "Только админ может менять режим",
+    "apiKeyMissing": "API ключ не указан",
+    "unknownError": "Неизвестная ошибка",
+    "configNotFound": "Настройки не найдены",
+    "emptyMessage": "Пустое сообщение",
+    "messageNotFound": "Сообщение не найдено",
+    "cannotDeleteSummarized": "Нельзя удалить — уже в саммари",
+    "sessionNotFound": "Сессия не найдена",
+    "aiTestError": "Ошибка {{status}}: {{text}}",
+    "aiTestFound": "Найдено: {{count}}",
+    "fileTooLarge": "Файл слишком большой (макс. 5MB)",
+    "onlyImagesAllowed": "Разрешены только изображения",
+    "notFound": "Не найдено",
+    "invalidFormat": "Неверный формат",
+    "missingParam": "Не указан {{param}}",
+    "unknownFileId": "Неизвестный fileId",
+    "noFileProvided": "Файл не предоставлен. Используйте поле 'file'.",
+    "readFileFailed": "Ошибка чтения файла: {{msg}}. Возможно файл слишком большой или запрос был прерван.",
+    "fileTooLargeBytes": "Файл слишком большой: {{size}}MB. Лимит 100MB.",
+    "unsupportedFileType": "Неподдерживаемый тип файла: {{ext}}. Разрешены: .pdf, .txt, .md, .docx",
+    "parsedFileTooLarge": "Файл слишком большой после обработки: {{bytes}} байт (макс. {{max}})",
+    "pdfProcessingFailed": "Ошибка обработки PDF",
+    "pdfParseFailed": "Ошибка разбора PDF",
+    "aiNotConfigured": "AI провайдер не настроен.",
+    "processingFailed": "Ошибка обработки",
+    "aiResponseFormat": "Ошибка AI: формат ответа не распознан. Попробуйте другую модель или провайдера.",
+    "noActiveGameTool": "Нет активной игры",
+    "documentNotFound": "Документ не найден: {{id}}",
+    "fileParseError": "Ошибка разбора файла: {{error}}",
+    "fileParseTimeout": "Таймаут разбора файла: {{fileId}}",
+    "cancelled": "Отменено.",
+    "gameModeReadOnly": "В режиме игры нельзя изменять глоссарий и мозг"
   }
 }

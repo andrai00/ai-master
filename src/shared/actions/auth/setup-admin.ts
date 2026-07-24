@@ -15,12 +15,12 @@ export async function setupFirstAdmin(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!login || !password) return { success: false, error: "Логин и пароль обязательны" };
-  if (password.length < 4) return { success: false, error: "Пароль должен быть не менее 4 символов" };
+  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
+  if (password.length < 4) return { success: false, error: "errors.passwordTooShort" };
 
   const prisma = getPrisma();
   const existingAdmin = await prisma.user.findFirst({ where: { role: "admin" } });
-  if (existingAdmin) return { success: false, error: "Администратор уже существует" };
+  if (existingAdmin) return { success: false, error: "errors.adminExists" };
 
   const id = generateId();
   const hash = hashPassword(password);

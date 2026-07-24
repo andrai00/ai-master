@@ -59,20 +59,20 @@ async function parsePdf(buffer: Buffer): Promise<string> {
         resolve(lines.join("\n"));
       } catch (err: unknown) {
         cleanup();
-        reject(err instanceof Error ? err : new Error("PDF processing failed"));
+        reject(err instanceof Error ? err : new Error("errors.pdfProcessingFailed"));
       }
     });
 
     parser.on("pdfParser_dataError", (err: unknown) => {
       cleanup();
-      reject(err instanceof Error ? err : new Error("PDF parse failed"));
+      reject(err instanceof Error ? err : new Error("errors.pdfParseFailed"));
     });
 
     try {
       parser.parseBuffer(buffer);
     } catch (err: unknown) {
       cleanup();
-      reject(err instanceof Error ? err : new Error("PDF parse failed"));
+      reject(err instanceof Error ? err : new Error("errors.pdfParseFailed"));
     }
   });
 }
@@ -80,7 +80,7 @@ async function parsePdf(buffer: Buffer): Promise<string> {
 export async function parseFile(buffer: Buffer, filename: string): Promise<IParsedFile> {
   const ext = getExtension(filename);
   if (!isAllowed(ext)) {
-    throw new Error(`Unsupported file type: ${ext}. Allowed: .pdf, .txt, .md, .docx`);
+    throw new Error("errors.unsupportedFileType");
   }
 
   let text: string;
@@ -97,7 +97,7 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<IPars
   }
 
   if (text.length > MAX_TEXT_SIZE) {
-    throw new Error(`File too large after parsing: ${text.length} bytes (max ${MAX_TEXT_SIZE})`);
+    throw new Error("errors.parsedFileTooLarge");
   }
 
   return { text, size: text.length, filename };

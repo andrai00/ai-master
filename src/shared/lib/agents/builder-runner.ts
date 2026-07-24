@@ -95,7 +95,7 @@ async function createProvider() {
   const prisma = getPrisma();
   const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
   if (!config || !config.apiKey) {
-    throw new Error("AI provider is not configured.");
+    throw new Error("errors.aiNotConfigured");
   }
   const model = config.model?.trim() || "gpt-4o";
   const baseURL = config.baseUrl?.trim() || undefined;
@@ -312,7 +312,7 @@ export async function runBuilderAgent(
         if (err instanceof DOMException && err.name === "AbortError") throw err;
 
         // Also check our cancellation flag
-        if ((err as Error)?.message === "Cancelled.") throw err;
+        if ((err as Error)?.message === "errors.cancelled") throw err;
 
         // Don't retry config errors
         const msg = err instanceof Error ? err.message : "";
@@ -389,10 +389,10 @@ export async function runBuilderAgent(
     }
 
     // Real error — notify clients
-    const raw = err instanceof Error ? err.message : "Processing failed";
+    const raw = err instanceof Error ? err.message : "errors.processingFailed";
     let message = raw;
     if (raw.includes("Failed to process successful response")) {
-      message = "AI provider error: the response format was not recognized. Try a different model or provider.";
+      message = "errors.aiResponseFormat";
     }
     console.error("[builder] Error:", raw);
     emitError(sessionId, message);

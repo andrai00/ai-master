@@ -8,10 +8,10 @@ export async function updateProfileAction(
   displayName: string
 ): Promise<{ success: boolean; error?: string; displayName?: string }> {
   const session = await getSession();
-  if (!session) return { success: false, error: "Не авторизован" };
+  if (!session) return { success: false, error: "errors.unauthorized" };
 
   const newDisplayName = displayName.trim();
-  if (!newDisplayName) return { success: false, error: "Имя не может быть пустым" };
+  if (!newDisplayName) return { success: false, error: "errors.nameEmpty" };
 
   const prisma = getPrisma();
   await prisma.user.update({
@@ -34,9 +34,9 @@ export async function changePasswordAction(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session) return { success: false, error: "Не авторизован" };
+  if (!session) return { success: false, error: "errors.unauthorized" };
 
-  if (newPassword.length < 4) return { success: false, error: "Пароль должен быть не менее 4 символов" };
+  if (newPassword.length < 4) return { success: false, error: "errors.passwordTooShort" };
 
   const prisma = getPrisma();
   await prisma.user.update({

@@ -11,8 +11,8 @@ export async function sendBuilderMessageAction(
   fileIds: string[] = []
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
-  if (!content.trim() && fileIds.length === 0) return { success: false, error: "Пустое сообщение" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
+  if (!content.trim() && fileIds.length === 0) return { success: false, error: "errors.emptyMessage" };
 
   try {
     await assertNotGameMode();

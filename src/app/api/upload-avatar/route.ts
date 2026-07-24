@@ -4,14 +4,14 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 
 export async function POST(request: Request) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "errors.unauthorized" }, { status: 401 });
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
 
-  if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
-  if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
-  if (!file.type.startsWith("image/")) return NextResponse.json({ error: "Only images allowed" }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "errors.noFileProvided" }, { status: 400 });
+  if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: "errors.fileTooLarge" }, { status: 400 });
+  if (!file.type.startsWith("image/")) return NextResponse.json({ error: "errors.onlyImagesAllowed" }, { status: 400 });
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString("base64");

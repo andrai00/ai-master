@@ -23,7 +23,7 @@ export const LogsView = () => {
       <div>
         <div style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
           <Tag color={log.agent === "builder" ? "blue" : "green"}>
-            {log.agent === "builder" ? "Builder" : "Game Master"}
+            {log.agent === "builder" ? t("logs.agentBuilder") : t("logs.agentGameMaster")}
           </Tag>
           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
             {new Date(log.createdAt).toLocaleString("ru")}

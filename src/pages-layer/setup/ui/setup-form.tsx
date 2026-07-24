@@ -24,7 +24,7 @@ export const SetupForm = () => {
       router.push("/");
       router.refresh();
     } else {
-      notification.error({ title: result.error });
+      notification.error({ title: t(result.error || "errors.unknownError") });
     }
   };
 

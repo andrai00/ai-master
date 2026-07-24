@@ -37,8 +37,8 @@ export const AppSettingsModal = ({ open, onClose }: IAppSettingsProps) => {
             onChange={handleLangChange}
             style={{ width: 120 }}
             options={[
-              { value: "ru", label: "Русский" },
-              { value: "en", label: "English" },
+              { value: "ru", label: t("settings.langRu") },
+              { value: "en", label: t("settings.langEn") },
             ]}
           />
         </div>

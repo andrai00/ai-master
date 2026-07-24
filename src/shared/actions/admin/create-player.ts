@@ -14,12 +14,12 @@ export async function createPlayerAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!login || !password) return { success: false, error: "Логин и пароль обязательны" };
-  if (password.length < 4) return { success: false, error: "Пароль должен быть не менее 4 символов" };
+  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
+  if (password.length < 4) return { success: false, error: "errors.passwordTooShort" };
 
   const prisma = getPrisma();
   const existing = await prisma.user.findUnique({ where: { login } });
-  if (existing) return { success: false, error: "Пользователь с таким логином уже существует" };
+  if (existing) return { success: false, error: "errors.duplicateLogin" };
 
   const id = generateId();
   const hash = hashPassword(password);

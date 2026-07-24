@@ -39,7 +39,7 @@ export async function saveAiConfigAction(
   data: Partial<IAiConfig>
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   const prisma = getPrisma();
   await prisma.appConfig.upsert({

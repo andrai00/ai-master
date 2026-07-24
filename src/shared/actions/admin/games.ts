@@ -64,8 +64,8 @@ export async function createGameAction(
   description?: string
 ): Promise<{ success: boolean; error?: string; id?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
-  if (!name.trim()) return { success: false, error: "Название не может быть пустым" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
+  if (!name.trim()) return { success: false, error: "errors.nameEmpty" };
 
   const prisma = getPrisma();
   const game = await prisma.master.create({
@@ -78,14 +78,14 @@ export async function deleteGameAction(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   const prisma = getPrisma();
   const game = await prisma.master.findUnique({ where: { id } });
-  if (!game || game.ownerId !== session.userId) return { success: false, error: "Нет прав" };
+  if (!game || game.ownerId !== session.userId) return { success: false, error: "errors.forbidden" };
 
   const count = await prisma.master.count({ where: { ownerId: session.userId } });
-  if (count <= 1) return { success: false, error: "Нельзя удалить последнюю игру" };
+  if (count <= 1) return { success: false, error: "errors.cannotDeleteLastGame" };
 
   await prisma.master.delete({ where: { id } });
   return { success: true };
@@ -96,8 +96,8 @@ export async function updateGameAction(
   name: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
-  if (!name.trim()) return { success: false, error: "Название не может быть пустым" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
+  if (!name.trim()) return { success: false, error: "errors.nameEmpty" };
 
   const prisma = getPrisma();
   await prisma.master.update({ where: { id }, data: { name: name.trim() } });
@@ -108,14 +108,14 @@ export async function deleteGameWithInfoAction(
   id: string
 ): Promise<{ success: boolean; error?: string; info?: { sessions: number; documents: number } }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   const prisma = getPrisma();
   const game = await prisma.master.findUnique({ where: { id } });
-  if (!game || game.ownerId !== session.userId) return { success: false, error: "Нет прав" };
+  if (!game || game.ownerId !== session.userId) return { success: false, error: "errors.forbidden" };
 
   const count = await prisma.master.count({ where: { ownerId: session.userId } });
-  if (count <= 1) return { success: false, error: "Нельзя удалить последнюю игру" };
+  if (count <= 1) return { success: false, error: "errors.cannotDeleteLastGame" };
 
   return { success: true, info: { sessions: 0, documents: 0 } };
 }

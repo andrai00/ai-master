@@ -14,13 +14,13 @@ export async function GET(
   });
 
   if (!user || !user.avatar) {
-    return new NextResponse("Not found", { status: 404 });
+    return new NextResponse("errors.notFound", { status: 404 });
   }
 
   // avatar is stored as data:image/png;base64,...
   const match = user.avatar.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
-    return new NextResponse("Invalid format", { status: 500 });
+    return new NextResponse("errors.invalidFormat", { status: 500 });
   }
 
   const mime = match[1];

@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ai-master",
-  description: "ИИ-мастер для настольных ролевых игр",
+  description: "AI Game Master for tabletop RPGs",
 };
 
 export default function RootLayout({

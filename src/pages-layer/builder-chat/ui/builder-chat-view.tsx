@@ -82,7 +82,7 @@ export const BuilderChatView = () => {
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
-    sender: m.role === "builder" ? "Builder" : "Админ",
+    sender: m.role === "builder" ? t("chat.builderLabel") : t("admin.roleAdmin"),
     role: m.role,
     text: m.content,
     summarized: m.summarized,
@@ -132,7 +132,7 @@ export const BuilderChatView = () => {
     async (messageId: string) => {
       const result = await deleteMutation.mutateAsync(messageId);
       if (!result.success) {
-        notification.error({ title: result.error });
+        notification.error({ title: t(result.error || "errors.unknownError") });
       }
     },
     [deleteMutation]
@@ -164,9 +164,9 @@ export const BuilderChatView = () => {
   };
 
   const historyColumns: ColumnsType<IBuilderMessage> = [
-    { title: t("chat.role") || "Роль", dataIndex: "role", width: 80,
-      render: (role: string) => (role === "builder" ? "Builder" : "Админ") },
-    { title: t("chat.message") || "Сообщение", dataIndex: "content",
+    { title: t("chat.role"), dataIndex: "role", width: 80,
+      render: (role: string) => (role === "builder" ? t("chat.builderLabel") : t("admin.roleAdmin")) },
+    { title: t("chat.message"), dataIndex: "content",
       render: (text: string) => <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 500 }}>{text}</div> },
   ];
 
@@ -193,7 +193,7 @@ export const BuilderChatView = () => {
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); }}
       />
       <Modal
-        title={t("chat.historyTitle") || "История чата"}
+        title={t("chat.historyTitle")}
         open={historyOpen}
         onCancel={() => setHistoryOpen(false)}
         footer={null}
@@ -203,7 +203,7 @@ export const BuilderChatView = () => {
           loading={historyLoading}
           pagination={{ current: historyPage, total: historyTotal, pageSize: PAGE_SIZE, showSizeChanger: false, onChange: loadHistory }}
           showHeader={false}
-          locale={{ emptyText: t("chat.noMessages") || "Нет сообщений" }} />
+          locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>
     </>
   );

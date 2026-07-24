@@ -20,14 +20,14 @@ function getStatusMap(): Map<string, { status: "parsing" | "done" | "error"; err
 export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "errors.unauthorized" }, { status: 401 });
   }
 
   const contentLength = request.headers.get("content-length");
   console.log(`[upload] Content-Length: ${contentLength ?? "not set"}`);
   if (contentLength && parseInt(contentLength, 10) > MAX_SIZE) {
     return NextResponse.json({
-      error: `File too large: ${Math.round(parseInt(contentLength, 10) / 1024 / 1024)}MB. Limit is 100MB.`,
+      error: `errors.fileTooLargeBytes: ${Math.round(parseInt(contentLength, 10) / 1024 / 1024)}MB. Limit is 100MB.`,
     }, { status: 413 });
   }
 
@@ -40,13 +40,13 @@ export async function POST(request: NextRequest) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("[upload] formData parse failed:", msg);
     return NextResponse.json({
-      error: `Failed to read file: ${msg}. The file might be too large, or the request was interrupted.`,
+      error: `errors.readFileFailed: ${msg}. The file might be too large, or the request was interrupted.`,
     }, { status: 400 });
   }
 
   const file = formData.get("file") as File | null;
   if (!file) {
-    return NextResponse.json({ error: "No file provided. Use field name 'file'." }, { status: 400 });
+    return NextResponse.json({ error: "errors.noFileProvided" }, { status: 400 });
   }
 
   console.log(`[upload] File received: ${file.name} (${file.size} bytes)`);
@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
 // Status check endpoint
 export async function GET(request: NextRequest) {
   const fileId = request.nextUrl.searchParams.get("fileId");
-  if (!fileId) return NextResponse.json({ error: "Missing fileId" }, { status: 400 });
+  if (!fileId) return NextResponse.json({ error: "errors.missingParam" }, { status: 400 });
 
   const status = getStatusMap().get(fileId);
-  if (!status) return NextResponse.json({ error: "Unknown fileId" }, { status: 404 });
+  if (!status) return NextResponse.json({ error: "errors.unknownFileId" }, { status: 404 });
 
   return NextResponse.json(status);
 }

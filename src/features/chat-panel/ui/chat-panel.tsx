@@ -360,7 +360,7 @@ export const ChatPanel = ({
             )}
             {onDelete && !msg.summarized && (
               <Tooltip
-                title={confirmDelete === msg.id ? (t("chat.deleteConfirm") || "Нажми ещё раз") : (t("chat.delete") || "Удалить")}
+                title={confirmDelete === msg.id ? t("chat.deleteConfirm") : t("chat.delete")}
                 placement="top"
               >
                 <button
@@ -414,20 +414,20 @@ export const ChatPanel = ({
           <div className={styles.headerActions}>
             {onClearChat && (
               <Popconfirm
-                title={t("chat.clearConfirm") || "Очистить чат?"}
-                description={t("chat.clearDesc") || "Все сообщения и саммари будут удалены"}
+                title={t("chat.clearConfirm")}
+                description={t("chat.clearDesc")}
                 onConfirm={onClearChat}
-                okText={t("chat.clear") || "Очистить"}
+                okText={t("chat.clear")}
                 cancelText={t("common.cancel")}
                 placement="bottomRight"
               >
-                <Tooltip title={t("chat.clearChat") || "Очистить чат"} placement="bottom">
+                <Tooltip title={t("chat.clearChat")} placement="bottom">
                   <Button type="text" size="small" icon={<ClearOutlined />} className={styles.headerBtn} />
                 </Tooltip>
               </Popconfirm>
             )}
             {onHistoryClick && (
-              <Tooltip title={t("chat.showFullHistory") || "Показать всю историю"} placement="bottom">
+              <Tooltip title={t("chat.showFullHistory")} placement="bottom">
                 <Button type="text" size="small" icon={<HistoryOutlined />} onClick={onHistoryClick} className={styles.headerBtn} />
               </Tooltip>
             )}
@@ -464,10 +464,10 @@ export const ChatPanel = ({
             <div className={`${styles.messageRow} ${styles.masterRow}`}>
               <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
               <div className={styles.msgContent}>
-                <div className={styles.sender}>Builder</div>
+                <div className={styles.sender}>{t("chat.builderLabel")}</div>
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
                   {stopping ? (
-                    <span style={{ color: "var(--text-dim)", fontSize: 12 }}>Stopping...</span>
+                    <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>
                   ) : liveStep ? (
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}

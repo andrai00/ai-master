@@ -20,7 +20,7 @@ export const readParsedFileTool = {
 
     // Check if parsing failed
     const parseError = getFileParseError(fileId);
-    if (parseError) throw new Error(`File parse error: ${parseError}`);
+    if (parseError) throw new Error("errors.fileParseError");
 
     // Wait for async parsing to finish
     let file = getCachedFile(fileId);
@@ -31,7 +31,7 @@ export const readParsedFileTool = {
         file = getCachedFile(fileId);
         if (file) break;
       }
-      if (!file) throw new Error("File parse timed out: " + fileId);
+      if (!file) throw new Error("errors.fileParseTimeout");
     }
 
     // Check cancellation before reading

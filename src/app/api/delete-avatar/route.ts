@@ -4,7 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 
 export async function POST() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "errors.unauthorized" }, { status: 401 });
 
   const prisma = getPrisma();
   await prisma.user.update({

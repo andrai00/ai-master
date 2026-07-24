@@ -8,7 +8,7 @@ export async function clearBuilderChatAction(
   sessionId: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Нет прав" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   // Clearing brain documents only allowed in development mode
   try {
@@ -24,7 +24,7 @@ export async function clearBuilderChatAction(
     where: { id: sessionId },
     select: { masterId: true },
   });
-  if (!s) return { success: false, error: "Сессия не найдена" };
+  if (!s) return { success: false, error: "errors.sessionNotFound" };
 
   // Delete all messages
   await prisma.message.deleteMany({ where: { sessionId } });

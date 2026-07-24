@@ -8,11 +8,11 @@ export async function switchGameAction(
   masterId: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
-  if (!session || session.role !== "admin") return { success: false, error: "Только админ может переключать игру" };
+  if (!session || session.role !== "admin") return { success: false, error: "errors.adminOnlySwitchGame" };
 
   const prisma = getPrisma();
   const game = await prisma.master.findUnique({ where: { id: masterId } });
-  if (!game || game.ownerId !== session.userId) return { success: false, error: "Нет прав" };
+  if (!game || game.ownerId !== session.userId) return { success: false, error: "errors.forbidden" };
 
   await prisma.activeGame.upsert({
     where: { id: "singleton" },

@@ -13,10 +13,10 @@ export async function testAiConnectionAction(
 }> {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return { success: false, message: "Нет прав" };
+    return { success: false, message: "errors.forbidden" };
   }
 
-  if (!apiKey) return { success: false, message: "API ключ не указан" };
+  if (!apiKey) return { success: false, message: "errors.apiKeyMissing" };
 
   const url = baseUrl || getDefaultUrl(provider);
   const modelsUrl = `${url}/models`;
@@ -48,7 +48,7 @@ export async function testAiConnectionAction(
 
     return { success: true, message: `Найдено: ${models.length}`, models };
   } catch (e: any) {
-    return { success: false, message: e.message || "неизвестная ошибка" };
+    return { success: false, message: e.message || "errors.unknownError" };
   }
 }
 
@@ -60,12 +60,12 @@ export async function testAiConnectionFromDbAction(): Promise<{
   const { getPrisma } = await import("@/src/shared/lib/db/prisma");
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return { success: false, message: "Нет прав" };
+    return { success: false, message: "errors.forbidden" };
   }
 
   const prisma = getPrisma();
   const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
-  if (!config) return { success: false, message: "Настройки не найдены" };
+  if (!config) return { success: false, message: "errors.configNotFound" };
 
   return testAiConnectionAction(config.provider, config.baseUrl, config.apiKey);
 }

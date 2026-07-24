@@ -9,22 +9,22 @@ export async function loginAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string; role?: string }> {
-  if (!login || !password) return { success: false, error: "Введите логин и пароль" };
+  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
 
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({ where: { login } });
-  if (!user) return { success: false, error: "Неверный логин или пароль" };
+  if (!user) return { success: false, error: "errors.invalidCredentials" };
 
   if (!verifyPassword(password, user.passwordHash)) {
-    return { success: false, error: "Неверный логин или пароль" };
+    return { success: false, error: "errors.invalidCredentials" };
   }
 
   if (user.role === "player") {
     const activeGame = await getActiveGame();
-    if (!activeGame) return { success: false, error: "Администратор ещё не настроил игру" };
+    if (!activeGame) return { success: false, error: "errors.noActiveGame" };
     const hasAccess =
       (await prisma.gameAccess.count({ where: { userId: user.id, masterId: activeGame.currentMasterId } })) > 0;
-    if (!hasAccess) return { success: false, error: "У вас нет доступа к текущей игре" };
+    if (!hasAccess) return { success: false, error: "errors.noGameAccess" };
   }
 
   const token = await createSessionToken({

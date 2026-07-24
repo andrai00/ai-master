@@ -18,7 +18,7 @@ export async function assertNotGameMode(): Promise<void> {
 
 export class GameModeReadOnlyError extends Error {
   constructor() {
-    super("В режиме игры нельзя изменять глоссарий и мозг (glossary/brain)");
+    super("errors.gameModeReadOnly");
     this.name = "GameModeReadOnlyError";
   }
 }

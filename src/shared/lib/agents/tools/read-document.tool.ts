@@ -25,7 +25,7 @@ export const readDocumentTool = {
         tags: true,
       },
     });
-    if (!doc) throw new Error(`Document not found: ${args.id}`);
+    if (!doc) throw new Error("errors.documentNotFound");
     return doc;
   },
 };

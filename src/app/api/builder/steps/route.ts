@@ -7,12 +7,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response("errors.unauthorized", { status: 401 });
   }
 
   const sessionId = request.nextUrl.searchParams.get("sessionId");
   if (!sessionId) {
-    return new Response("Missing sessionId", { status: 400 });
+    return new Response("errors.missingParam", { status: 400 });
   }
 
   const encoder = new TextEncoder();

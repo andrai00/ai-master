@@ -10,12 +10,12 @@ export async function setMasterModeAction(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") {
-    return { success: false, error: "Только админ может менять режим" };
+    return { success: false, error: "errors.adminOnlyChangeMode" };
   }
 
   const activeGame = await getActiveGame();
   if (!activeGame) {
-    return { success: false, error: "Нет активной игры" };
+    return { success: false, error: "errors.noActiveGame" };
   }
 
   const prisma = getPrisma();

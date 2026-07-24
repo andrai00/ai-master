@@ -21,42 +21,42 @@ import { useState, useEffect } from "react";
 const PROVIDERS = [
   {
     value: "openrouter",
-    label: "OpenRouter",
+    labelKey: "aiSettings.providerOpenRouter",
     icon: <CloudOutlined />,
     defaultUrl: "https://openrouter.ai/api/v1",
     modelHint: "openai/gpt-4o, anthropic/claude-3-opus",
   },
   {
     value: "openai",
-    label: "OpenAI",
+    labelKey: "aiSettings.providerOpenAI",
     icon: <RobotOutlined />,
     defaultUrl: "https://api.openai.com/v1",
     modelHint: "gpt-4o, gpt-4o-mini, o3-mini",
   },
   {
     value: "anthropic",
-    label: "Anthropic",
+    labelKey: "aiSettings.providerAnthropic",
     icon: <ApiOutlined />,
     defaultUrl: "https://api.anthropic.com/v1",
     modelHint: "claude-3-5-sonnet-20240620, claude-3-opus-20240229",
   },
   {
     value: "groq",
-    label: "Groq",
+    labelKey: "aiSettings.providerGroq",
     icon: <ThunderboltOutlined />,
     defaultUrl: "https://api.groq.com/openai/v1",
     modelHint: "llama-3.1-70b-versatile, mixtral-8x7b-32768",
   },
   {
     value: "ollama",
-    label: "Ollama (local)",
+    labelKey: "aiSettings.providerOllama",
     icon: <SettingOutlined />,
     defaultUrl: "http://localhost:11434/v1",
     modelHint: "llama3:latest, mistral:latest, gemma2:latest",
   },
   {
     value: "custom",
-    label: "Custom API",
+    labelKey: "aiSettings.providerCustom",
     icon: <ApiOutlined />,
     defaultUrl: "",
     modelHint: "any-model-id",
@@ -184,7 +184,7 @@ export const AiSettingsView = () => {
               value: p.value,
               label: (
                 <span>
-                  {p.icon} {p.label}
+                  {p.icon} {t(p.labelKey)}
                 </span>
               ),
             }))}

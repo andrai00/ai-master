@@ -1,11 +1,11 @@
 "use client";
 
-import { Spin } from "antd";
 import { useTranslation } from "react-i18next";
 import "@/src/shared/config/i18n";
 
-export default function Loading() {
+export const PersonalChatPlaceholder = () => {
   const { t } = useTranslation();
+
   return (
     <div
       style={{
@@ -13,13 +13,13 @@ export default function Loading() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        height: "100vh",
-        background: "var(--bg-root)",
-        gap: 16,
+        height: "100%",
+        gap: 8,
+        color: "var(--text-muted)",
       }}
     >
-      <Spin size="large" />
-      <span style={{ color: "var(--text-dim)", fontSize: 13 }}>{t("common.appName")}</span>
+      <span style={{ fontSize: 14 }}>{t("chatPersonal.title")}</span>
+      <span style={{ fontSize: 12 }}>{t("chatPersonal.subtitle")}</span>
     </div>
   );
-}
+};

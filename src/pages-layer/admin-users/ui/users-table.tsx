@@ -76,7 +76,7 @@ export const UsersTable = () => {
     deleteMutation.mutate(userId, {
       onSuccess: (result) => result.success
         ? notification.success({ title: t("admin.userDeleted") })
-        : notification.error({ title: result.error }),
+        : notification.error({ title: t(result.error || "errors.unknownError") }),
     });
   };
 

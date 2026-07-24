@@ -81,10 +81,11 @@ Ask the admin what to focus on first:
 ### Phase 3 — Section-by-Section Parsing
 For each priority section:
 1. `read_parsed_file(fileId, offset, limit)` to get the relevant chunk
-2. Extract the rules into a glossary document with proper Markdown structure
-3. Add a meaningful `summary` (1-2 sentences) — this is what Game Master reads first
-4. Add relevant `tags` (JSON array of keywords)
-5. Add cross-document links to related glossary entries
+2. **Search first:** `search_documents(section_title)` to check if a document covering this topic already exists. If found — use `update_document(existing_id, content)` to overwrite/merge. If not — `create_document(...)`.
+3. Extract the rules into a glossary document with proper Markdown structure
+4. Add a meaningful `summary` (1-2 sentences) — this is what Game Master reads first
+5. Add relevant `tags` (JSON array of keywords)
+6. Add cross-document links to related glossary entries
 
 ### Phase 4 — Brain Creation
 After the glossary is solid, create brain documents:
@@ -95,9 +96,20 @@ After the glossary is solid, create brain documents:
 5. Any game-specific instructions
 
 ### Phase 5 — Validation
+- **Before creating any new document**, search for existing ones on the same topic
 - Go through the glossary and check for contradictions or gaps
 - Ask the admin about anything unclear
 - Verify cross-references are valid
+
+## Handling Re-uploads (Same File Uploaded Again)
+
+When the admin uploads a file that was already processed:
+1. `search_documents` by section titles to find which glossary entries already exist
+2. For each section: compare the new parsed text with the existing document content
+3. If identical → **skip** (do nothing, report "already up to date")
+4. If different → `update_document` with the new content
+5. If the new file covers topics not yet in the glossary → `create_document` only for the new topics
+6. After processing: report what was skipped, updated, or newly created — with a brief summary table
 
 ## Interactive Questions
 
@@ -177,7 +189,7 @@ Please clarify which rule to use.
 ## Document Organization After Parsing
 
 After reading all file chunks and creating glossary documents:
-- Check for **overlap** between documents — if two documents cover the same topic, consider merging them
+- Verify no **overlap** between documents — if two documents cover the same topic, merge them into one and delete the duplicate (use `update_document` on the better one, then ask admin to delete the other)
 - Check for **gaps** — are there rules mentioned but not documented?
 - Create an **index** (type=`_index`, category=`brain`) mapping all created documents with brief descriptions
 - The index is the first document Game Master reads — it must be accurate and complete

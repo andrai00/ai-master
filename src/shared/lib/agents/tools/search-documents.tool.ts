@@ -6,7 +6,7 @@ import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const searchDocumentsTool = {
   description:
-    "Full-text search across glossary and brain documents. Searches title, summary, and content.",
+    "Full-text search across glossary and brain documents. Searches title, summary, and content. Use a section name or topic as query to find existing documents before creating new ones. Returns up to 20 matches.",
   inputSchema: zodSchema(
     z.object({
       query: z.string().describe("Search query"),
@@ -40,7 +40,7 @@ export const searchDocumentsTool = {
         summary: true,
         content: true,
       },
-      take: 10,
+      take: 20,
     });
     return docs;
   },

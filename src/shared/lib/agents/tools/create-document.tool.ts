@@ -6,7 +6,7 @@ import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 
 export const createDocumentTool = {
-  description: "Create a new document in the database (glossary or brain category only). Returns the created document's ID.",
+  description: "Create a new document in the database (glossary or brain category only). Returns the created document's ID. IMPORTANT: If a document with the same title already exists, the tool returns the existing document info with a note — you should use update_document() instead.",
   inputSchema: zodSchema(
     z.object({
       title: z.string().describe("Document title"),
@@ -31,6 +31,28 @@ export const createDocumentTool = {
     if (!activeGame) throw new Error("errors.noActiveGameTool");
 
     const prisma = getPrisma();
+
+    // Check for existing document with the same title
+    const existing = await prisma.document.findFirst({
+      where: {
+        masterId: activeGame.currentMasterId,
+        title: args.title,
+        category: args.category,
+      },
+      select: { id: true, title: true, summary: true },
+    });
+
+    if (existing) {
+      return {
+        id: existing.id,
+        title: existing.title,
+        category: args.category,
+        summary: existing.summary,
+        created: false,
+        note: `Document with title "${args.title}" already exists (id: ${existing.id}). Use update_document() to overwrite it, or choose a different title.`,
+      };
+    }
+
     const doc = await prisma.document.create({
       data: {
         masterId: activeGame.currentMasterId,
@@ -42,6 +64,6 @@ export const createDocumentTool = {
         summary: args.summary ?? null,
       },
     });
-    return { id: doc.id, title: doc.title, category: doc.category };
+    return { id: doc.id, title: doc.title, category: doc.category, created: true };
   },
 };

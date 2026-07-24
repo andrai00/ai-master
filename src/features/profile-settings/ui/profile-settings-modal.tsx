@@ -4,9 +4,9 @@ import { Modal, Input, Button, App, Upload, Popconfirm, Avatar, Tooltip } from "
 import { CameraOutlined, DeleteOutlined, CrownOutlined, UserOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useUpdateProfile } from "@/src/shared/api/profile/use-update-profile";
-import { useChangePassword } from "@/src/shared/api/profile/use-change-password";
-import { useUserAvatar } from "@/src/shared/api/profile/use-user-avatar";
+import { useUpdateProfile } from "@/src/shared/api/profile/useUpdateProfile";
+import { useChangePassword } from "@/src/shared/api/profile/useChangePassword";
+import { useUserAvatar } from "@/src/shared/api/profile/useUserAvatar";
 import { useQueryClient } from "@tanstack/react-query";
 import type { RcFile } from "antd/es/upload";
 
@@ -55,12 +55,12 @@ export const ProfileSettingsModal = ({
         <AvatarEditor userId={userId} role={role} onChange={setAvatar} />
 
         <div style={{ width: "100%" }}>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.login")}</div>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("profileModal.login")}</div>
           <Input value={login} disabled />
         </div>
 
         <div style={{ width: "100%" }}>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("profileModal.displayName")}</div>
+          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("profileModal.displayName")}</div>
           <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </div>
 
@@ -149,7 +149,7 @@ function AvatarEditor({ userId, role, onChange }: { userId: string; role?: strin
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
           >
-            <CameraOutlined style={{ color: "#fff", fontSize: 20 }} />
+            <CameraOutlined style={{ color: "var(--text-on-accent)", fontSize: 20 }} />
           </div>
         </div>
 

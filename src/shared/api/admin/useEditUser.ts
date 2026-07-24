@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { editUserAction } from "@/src/shared/actions/admin/edit-user";
-import { setUserGameAccessAction } from "@/src/shared/actions/admin/game-access";
+import { setUserGameAccessAction } from "@/src/shared/actions/admin/manage-game-access";
 
 export function useEditUser() {
   const qc = useQueryClient();

@@ -12,9 +12,9 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/use-ai-config";
+import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/useAiConfig";
 import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
-import { useModelList } from "@/src/shared/api/admin/use-model-list";
+import { useModelList } from "@/src/shared/api/admin/useModelList";
 import { VirtualSelect } from "@/src/features/virtual-select";
 import { useState, useEffect } from "react";
 

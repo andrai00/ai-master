@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAiConfigAction, saveAiConfigAction } from "@/src/shared/actions/admin/ai-config";
+import { getAiConfigAction, saveAiConfigAction } from "@/src/shared/actions/admin/manage-ai-config";
 import { useTranslation } from "react-i18next";
 import { App } from "antd";
-import type { IAiConfig } from "@/src/shared/actions/admin/ai-config";
+import type { IAiConfig } from "@/src/shared/actions/admin/manage-ai-config";
 
 export function useAiConfig() {
   return useQuery({

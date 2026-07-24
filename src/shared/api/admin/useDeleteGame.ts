@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteGameAction, deleteGameWithInfoAction } from "@/src/shared/actions/admin/games";
+import { deleteGameAction, deleteGameWithInfoAction } from "@/src/shared/actions/admin/manage-games";
 
 export function useDeleteGame() {
   const qc = useQueryClient();

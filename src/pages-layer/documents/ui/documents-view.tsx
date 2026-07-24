@@ -3,7 +3,7 @@
 import { Tabs, Table, Modal, Empty } from "antd";
 import { FileTextOutlined, BookOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useDocuments } from "@/src/shared/api/admin/use-documents";
+import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useState } from "react";

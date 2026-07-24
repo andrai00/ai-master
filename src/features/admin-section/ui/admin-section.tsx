@@ -5,8 +5,8 @@ import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOut
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter, usePathname } from "next/navigation";
-import { useActiveMode } from "@/src/shared/api/admin/use-active-mode";
-import { useSetMasterMode } from "@/src/shared/api/admin/use-set-master-mode";
+import { useActiveMode } from "@/src/shared/api/admin/useActiveMode";
+import { useSetMasterMode } from "@/src/shared/api/admin/useSetMasterMode";
 import { ImportMasterModal } from "./import-master-modal";
 import { ExportMasterModal } from "./export-master-modal";
 import styles from "./admin-section.module.css";

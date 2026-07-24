@@ -4,12 +4,12 @@ import { Modal, Table, Button, Input, App, Popconfirm, Tooltip } from "antd";
 import { EditOutlined, DeleteOutlined, SearchOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useListGames } from "@/src/shared/api/admin/use-list-games";
-import { useCreateGame } from "@/src/shared/api/admin/use-create-game";
-import { useUpdateGame } from "@/src/shared/api/admin/use-update-game";
-import { useSwitchGame } from "@/src/shared/api/admin/use-switch-game";
-import { useDeleteGame } from "@/src/shared/api/admin/use-delete-game";
-import type { IGameItem } from "@/src/shared/actions/admin/games";
+import { useListGames } from "@/src/shared/api/admin/useListGames";
+import { useCreateGame } from "@/src/shared/api/admin/useCreateGame";
+import { useUpdateGame } from "@/src/shared/api/admin/useUpdateGame";
+import { useSwitchGame } from "@/src/shared/api/admin/useSwitchGame";
+import { useDeleteGame } from "@/src/shared/api/admin/useDeleteGame";
+import type { IGameItem } from "@/src/shared/actions/admin/manage-games";
 import type { ColumnsType } from "antd/es/table";
 
 interface IGamesManagerProps {

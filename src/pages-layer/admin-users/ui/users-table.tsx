@@ -4,12 +4,12 @@ import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Checkbox,
 import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useListUsers } from "@/src/shared/api/admin/use-list-users";
-import { useCreatePlayer } from "@/src/shared/api/admin/use-create-player";
-import { useEditUser } from "@/src/shared/api/admin/use-edit-user";
-import { useDeleteUser } from "@/src/shared/api/admin/use-delete-user";
-import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/games";
-import { getUserGameAccessAction } from "@/src/shared/actions/admin/game-access";
+import { useListUsers } from "@/src/shared/api/admin/useListUsers";
+import { useCreatePlayer } from "@/src/shared/api/admin/useCreatePlayer";
+import { useEditUser } from "@/src/shared/api/admin/useEditUser";
+import { useDeleteUser } from "@/src/shared/api/admin/useDeleteUser";
+import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/manage-games";
+import { getUserGameAccessAction } from "@/src/shared/actions/admin/manage-game-access";
 import type { IUserListItem } from "@/src/shared/actions/admin/list-users";
 import { UserAvatarCell } from "./user-avatar-cell";
 import type { ColumnsType } from "antd/es/table";
@@ -176,11 +176,11 @@ export const UsersTable = () => {
         onOk={handleEdit} confirmLoading={editMutation.isPending}
         okText={t("common.save")} cancelText={t("gameSelector.cancel")} centered>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} autoComplete="off" /></div>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.passwordHint")}</div><Input.Password value={editPw} onChange={(e) => setEditPw(e.target.value)} /></div>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.roleCol")}</div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} autoComplete="off" /></div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.passwordHint")}</div><Input.Password value={editPw} onChange={(e) => setEditPw(e.target.value)} /></div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.roleCol")}</div>
             <Select value={editRole} onChange={setEditRole} style={{ width: "100%" }} options={[{ value: "admin", label: t("admin.roleAdmin") }, { value: "player", label: t("admin.rolePlayer") }]} /></div>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "#999" }}>{t("admin.gameAccess")}</div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.gameAccess")}</div>
             {editGames.map((g) => (
               <div key={g.id} style={{ marginBottom: 4 }}>
                 <Checkbox checked={editGameAccess.includes(g.id)} onChange={(e) => {

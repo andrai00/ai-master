@@ -3,7 +3,7 @@
 import { Button, Input, App } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { setupFirstAdmin } from "@/src/shared/actions/auth/setup-admin";
+import { setupFirstAdminAction } from "@/src/shared/actions/auth/setup-admin";
 import { useRouter } from "next/navigation";
 import styles from "./setup-form.module.css";
 
@@ -17,7 +17,7 @@ export const SetupForm = () => {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const result = await setupFirstAdmin(login, password);
+    const result = await setupFirstAdminAction(login, password);
     setLoading(false);
 
     if (result.success) {

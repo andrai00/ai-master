@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tooltip } from "antd";
 import { DownOutlined } from "@ant-design/icons";
-import { useCurrentGame } from "@/src/shared/api/admin/use-current-game";
+import { useCurrentGame } from "@/src/shared/api/admin/useCurrentGame";
 import { GamesManagerModal } from "./games-manager-modal";
 import styles from "./game-selector.module.css";
 

@@ -2,7 +2,7 @@
 
 import { Avatar } from "antd";
 import { UserOutlined, CrownOutlined } from "@ant-design/icons";
-import { useUserAvatar } from "@/src/shared/api/profile/use-user-avatar";
+import { useUserAvatar } from "@/src/shared/api/profile/useUserAvatar";
 
 export function UserAvatarCell({ userId, role }: { userId: string; role: string }) {
   const { data: avatarUri } = useUserAvatar(userId);

@@ -3,7 +3,7 @@
 import { Timeline, Empty, Tag, Typography } from "antd";
 import { BulbOutlined, RobotOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useThoughtLogs } from "@/src/shared/api/admin/use-thought-logs";
+import { useThoughtLogs } from "@/src/shared/api/admin/useThoughtLogs";
 
 const { Paragraph } = Typography;
 

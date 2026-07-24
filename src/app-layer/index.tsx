@@ -139,5 +139,5 @@ export default Providers;
 
 const LoadingFallback = () => {
   const { t } = useTranslation();
-  return <div style={{ color: "#999", padding: 32 }}>{t("common.loading")}</div>;
+  return <div style={{ color: "var(--text-secondary)", padding: 32 }}>{t("common.loading")}</div>;
 };

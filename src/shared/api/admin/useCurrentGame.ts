@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { listGamesAction, getCurrentGameAction } from "@/src/shared/actions/admin/games";
+import { listGamesAction, getCurrentGameAction } from "@/src/shared/actions/admin/manage-games";
 
 export function useCurrentGame() {
   return useQuery({

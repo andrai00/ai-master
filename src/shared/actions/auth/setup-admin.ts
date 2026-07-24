@@ -11,7 +11,7 @@ function generateId(): string {
   });
 }
 
-export async function setupFirstAdmin(
+export async function setupFirstAdminAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {

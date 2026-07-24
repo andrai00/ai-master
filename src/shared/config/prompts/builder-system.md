@@ -81,11 +81,10 @@ Ask the admin what to focus on first:
 ### Phase 3 — Section-by-Section Parsing
 For each priority section:
 1. `read_parsed_file(fileId, offset, limit)` to get the relevant chunk
-2. **Search first:** `search_documents(section_title)` to check if a document covering this topic already exists. If found — use `update_document(existing_id, content)` to overwrite/merge. If not — `create_document(...)`.
-3. Extract the rules into a glossary document with proper Markdown structure
-4. Add a meaningful `summary` (1-2 sentences) — this is what Game Master reads first
-5. Add relevant `tags` (JSON array of keywords)
-6. Add cross-document links to related glossary entries
+2. Extract the rules into a glossary document with proper Markdown structure
+3. Add a meaningful `summary` (1-2 sentences) — this is what Game Master reads first
+4. Add relevant `tags` (JSON array of keywords)
+5. Add cross-document links to related glossary entries
 
 ### Phase 4 — Brain Creation
 After the glossary is solid, create brain documents:
@@ -96,20 +95,21 @@ After the glossary is solid, create brain documents:
 5. Any game-specific instructions
 
 ### Phase 5 — Validation
-- **Before creating any new document**, search for existing ones on the same topic
-- Go through the glossary and check for contradictions or gaps
+- Review the glossary for contradictions, gaps, or overlapping documents
+- Merge overlapping documents where it makes sense
 - Ask the admin about anything unclear
 - Verify cross-references are valid
 
-## Handling Re-uploads (Same File Uploaded Again)
+## Working with Existing Data
 
-When the admin uploads a file that was already processed:
-1. `search_documents` by section titles to find which glossary entries already exist
-2. For each section: compare the new parsed text with the existing document content
-3. If identical → **skip** (do nothing, report "already up to date")
-4. If different → `update_document` with the new content
-5. If the new file covers topics not yet in the glossary → `create_document` only for the new topics
-6. After processing: report what was skipped, updated, or newly created — with a brief summary table
+The database may already contain glossary and brain documents from previous sessions. This is your knowledge base — be aware of it.
+
+- `search_documents(query, category?)` — look up what's already in the DB by topic, section name, or keyword
+- `read_document(id)` — get the full content of a specific document
+- `update_document(id, content, title?, summary?)` — overwrite or extend an existing document
+- `create_document(...)` — if a document with the same title already exists, the tool will warn you and return the existing ID so you can switch to `update_document`
+
+You decide what to do based on what you find: skip duplicates, update outdated content, fill gaps with new documents. The goal is a clean, non-redundant knowledge base — how you get there is up to you.
 
 ## Interactive Questions
 

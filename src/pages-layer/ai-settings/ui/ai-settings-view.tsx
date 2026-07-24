@@ -11,8 +11,8 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAiConfigAction, saveAiConfigAction } from "@/src/shared/actions/admin/ai-config";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/use-ai-config";
 import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
 import { useModelList } from "@/src/shared/api/admin/use-model-list";
 import { VirtualSelect } from "@/src/features/virtual-select";
@@ -82,10 +82,7 @@ export const AiSettingsView = () => {
   const { notification } = App.useApp();
   const qc = useQueryClient();
 
-  const { data: config, isLoading } = useQuery({
-    queryKey: ["admin", "aiConfig"],
-    queryFn: getAiConfigAction,
-  });
+  const { data: config, isLoading } = useAiConfig();
 
   const [provider, setProvider] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -107,22 +104,7 @@ export const AiSettingsView = () => {
     }
   }, [config]);
 
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      saveAiConfigAction({
-        provider,
-        baseUrl,
-        apiKey,
-        model,
-        contextLimit: parseInt(contextLimit, 10) || 0,
-      }),
-    onSuccess: (result) => {
-      if (result.success) {
-        notification.success({ title: t("aiSettings.saved") });
-        qc.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
-      }
-    },
-  });
+  const saveMutation = useSaveAiConfig();
 
   const currentProvider = getProvider(provider);
 
@@ -200,7 +182,7 @@ export const AiSettingsView = () => {
           <Input
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={currentProvider.defaultUrl || "https://..."}
+            placeholder={currentProvider.defaultUrl || t("aiSettings.urlPlaceholder")}
           />
         </div>
 
@@ -212,7 +194,7 @@ export const AiSettingsView = () => {
           <Input.Password
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-or-..."
+            placeholder={t("aiSettings.keyPlaceholder")}
           />
         </div>
 
@@ -260,7 +242,7 @@ export const AiSettingsView = () => {
           <Button
             type="primary"
             icon={<SaveOutlined />}
-            onClick={() => saveMutation.mutate()}
+            onClick={() => saveMutation.mutate({ provider, baseUrl, apiKey, model, contextLimit: parseInt(contextLimit, 10) || 0, extra: "" })}
             loading={saveMutation.isPending}
             style={{ flex: 1 }}
           >

@@ -3,19 +3,14 @@
 import { Timeline, Empty, Tag, Typography } from "antd";
 import { BulbOutlined, RobotOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { listThoughtLogsAction } from "@/src/shared/actions/admin/list-thought-logs";
+import { useThoughtLogs } from "@/src/shared/api/admin/use-thought-logs";
 
 const { Paragraph } = Typography;
 
 export const LogsView = () => {
   const { t } = useTranslation();
 
-  const { data: logs = [], isLoading } = useQuery({
-    queryKey: ["admin", "thoughtLogs"],
-    queryFn: listThoughtLogsAction,
-    refetchInterval: 5000,
-  });
+  const { data: logs = [], isLoading } = useThoughtLogs();
 
   const items = logs.map((log) => ({
     color: log.agent === "builder" ? "blue" : "green",

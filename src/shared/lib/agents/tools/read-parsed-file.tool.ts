@@ -2,10 +2,10 @@ import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getCachedFile, getFileParseError } from "@/src/shared/lib/agents/file-cache";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
 export const readParsedFileTool = {
-  description:
-    "Read a chunk of a previously uploaded and parsed file. Default reads first 5000 characters. Use offset and limit to paginate.",
+  description: TOOL_DESCRIPTIONS.read_parsed_file,
   inputSchema: zodSchema(
     z.object({
       fileId: z.string().describe("File ID from upload"),

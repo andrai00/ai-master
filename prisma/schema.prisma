@@ -69,7 +69,7 @@ model Document {
   content     String
   status      String   @default("active")
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
   master      Master   @relation(fields: [masterId], references: [id])
 }
 

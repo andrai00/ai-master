@@ -206,7 +206,7 @@ export const ChatPanel = ({
             onStepsDone?.();
             break;
           case "error":
-            onStepsError?.(data.message ?? "Unknown error");
+            onStepsError?.(data.message ?? t("errors.unknownError"));
             break;
         }
       } catch {
@@ -565,22 +565,26 @@ export const ChatPanel = ({
                 />
               </Tooltip>
             ) : (
+              <Tooltip title={t("chat.send")}>
+                <Button
+                  type="default"
+                  icon={<SendOutlined />}
+                  className={styles.sendBtn}
+                  disabled
+                />
+              </Tooltip>
+            )
+          ) : (
+            <Tooltip title={t("chat.send")}>
               <Button
                 type="default"
                 icon={<SendOutlined />}
                 className={styles.sendBtn}
-                disabled
+                disabled={disabled || sending}
+                loading={sending}
+                onClick={handleSend}
               />
-            )
-          ) : (
-            <Button
-              type="default"
-              icon={<SendOutlined />}
-              className={styles.sendBtn}
-              disabled={disabled || sending}
-              loading={sending}
-              onClick={handleSend}
-            />
+            </Tooltip>
           )}
         </div>
       </div>

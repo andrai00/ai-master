@@ -3,8 +3,8 @@
 import { Tabs, Table, Modal, Empty } from "antd";
 import { FileTextOutlined, BookOutlined, EyeOutlined, EyeInvisibleOutlined, UserOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { listDocumentsAction, type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
+import { useDocuments } from "@/src/shared/api/admin/use-documents";
+import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useState } from "react";
 import type { ColumnsType } from "antd/es/table";
@@ -20,10 +20,7 @@ export const DocumentsView = () => {
   const { t } = useTranslation();
   const [previewDoc, setPreviewDoc] = useState<IDocumentItem | null>(null);
 
-  const { data: docs = [], isLoading } = useQuery({
-    queryKey: ["admin", "documents"],
-    queryFn: listDocumentsAction,
-  });
+  const { data: docs = [], isLoading } = useDocuments();
 
   const getCategoryDocs = (cat: string) => docs.filter((d) => d.category === cat);
 

@@ -51,6 +51,8 @@
   "settings": {
     "title": "Настройки",
     "darkTheme": "Тёмная тема",
+    "themeDark": "Тёмная",
+    "themeLight": "Светлая",
     "language": "Язык",
     "langRu": "Русский",
     "langEn": "English"
@@ -96,6 +98,7 @@
     "maxFilesReached": "Максимум {{count}} файлов",
     "sendError": "Ошибка отправки",
     "stop": "Остановить",
+    "send": "Отправить",
     "builderLabel": "Builder",
     "stopping": "Остановка..."
   },
@@ -265,6 +268,8 @@
     "enterKey": "Укажите API ключ",
     "contextLimit": "Лимит контекста (токенов)",
     "contextLimitHint": "Авто (по провайдеру)",
+    "urlPlaceholder": "https://...",
+    "keyPlaceholder": "sk-or-...",
     "contextLimitAuto": "{{count}} токенов (авто)",
     "providerOpenRouter": "OpenRouter",
     "providerOpenAI": "OpenAI",
@@ -296,6 +301,7 @@
     "adminOnlyChangeMode": "Только админ может менять режим",
     "apiKeyMissing": "API ключ не указан",
     "unknownError": "Неизвестная ошибка",
+    "uploadFailed": "Ошибка загрузки",
     "configNotFound": "Настройки не найдены",
     "emptyMessage": "Пустое сообщение",
     "messageNotFound": "Сообщение не найдено",

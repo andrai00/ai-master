@@ -3,10 +3,10 @@ import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
 export const searchDocumentsTool = {
-  description:
-    "Full-text search across glossary and brain documents. Searches title, summary, and content. Use a section name or topic as query to find existing documents before creating new ones. Returns up to 20 matches.",
+  description: TOOL_DESCRIPTIONS.search_documents,
   inputSchema: zodSchema(
     z.object({
       query: z.string().describe("Search query"),

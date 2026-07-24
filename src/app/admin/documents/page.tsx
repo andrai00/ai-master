@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { Shell } from "@/src/widgets/shell";
-import { DocumentsView } from "@/src/pages-layer/documents/ui/documents-view";
+import { DocumentsView } from "@/src/pages-layer/documents";
 
 export default async function DocumentsPage() {
   const session = await getSession();

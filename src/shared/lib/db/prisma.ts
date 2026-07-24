@@ -6,9 +6,8 @@ import path from "path";
 
 const globalPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  devPrisma: PrismaClient | undefined;
 };
-
-let devPrisma: PrismaClient | undefined;
 
 function createPrismaClient(): PrismaClient {
   const dbPath = path.join(process.cwd(), "data", "ai-master.db");
@@ -21,6 +20,6 @@ export function getPrisma(): PrismaClient {
     if (!globalPrisma.prisma) globalPrisma.prisma = createPrismaClient();
     return globalPrisma.prisma;
   }
-  if (!devPrisma) devPrisma = createPrismaClient();
-  return devPrisma;
+  if (!globalPrisma.devPrisma) globalPrisma.devPrisma = createPrismaClient();
+  return globalPrisma.devPrisma;
 }

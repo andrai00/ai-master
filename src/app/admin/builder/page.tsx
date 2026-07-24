@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { Shell } from "@/src/widgets/shell";
-import { BuilderChatView } from "@/src/pages-layer/builder-chat/ui/builder-chat-view";
+import { BuilderChatView } from "@/src/pages-layer/builder-chat";
 
 export default async function BuilderPage() {
   const session = await getSession();

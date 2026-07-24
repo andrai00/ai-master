@@ -105,7 +105,7 @@ export const BuilderChatView = () => {
         try {
           fileIds = await Promise.all(files.map(uploadFile));
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "Upload failed";
+          const msg = err instanceof Error ? err.message : t("errors.uploadFailed");
           notification.error({ title: msg });
           setUploading(false);
           return; // keep input + files, let user retry
@@ -201,7 +201,7 @@ export const BuilderChatView = () => {
       >
         <Table dataSource={historyData} columns={historyColumns} rowKey="id" size="small"
           loading={historyLoading}
-          pagination={{ current: historyPage, total: historyTotal, pageSize: PAGE_SIZE, showSizeChanger: false, onChange: loadHistory }}
+          pagination={{ current: historyPage, total: historyTotal, pageSize: PAGE_SIZE, showSizeChanger: false, hideOnSinglePage: true, onChange: loadHistory }}
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>

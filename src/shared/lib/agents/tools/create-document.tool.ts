@@ -4,9 +4,10 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
 export const createDocumentTool = {
-  description: "Create a new document in the database (glossary or brain category only). Returns the created document's ID. IMPORTANT: If a document with the same title already exists, the tool returns the existing document info with a note — you should use update_document() instead.",
+  description: TOOL_DESCRIPTIONS.create_document,
   inputSchema: zodSchema(
     z.object({
       title: z.string().describe("Document title"),

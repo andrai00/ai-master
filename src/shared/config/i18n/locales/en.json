@@ -51,6 +51,8 @@
   "settings": {
     "title": "Settings",
     "darkTheme": "Dark theme",
+    "themeDark": "Dark",
+    "themeLight": "Light",
     "language": "Language",
     "langRu": "Русский",
     "langEn": "English"
@@ -96,6 +98,7 @@
     "maxFilesReached": "Maximum {{count}} files",
     "sendError": "Send error",
     "stop": "Stop",
+    "send": "Send",
     "builderLabel": "Builder",
     "stopping": "Stopping..."
   },
@@ -265,6 +268,8 @@
     "enterKey": "Enter API key",
     "contextLimit": "Context limit (tokens)",
     "contextLimitHint": "Auto (by provider)",
+    "urlPlaceholder": "https://...",
+    "keyPlaceholder": "sk-or-...",
     "contextLimitAuto": "{{count}} tokens (auto)",
     "providerOpenRouter": "OpenRouter",
     "providerOpenAI": "OpenAI",
@@ -296,6 +301,7 @@
     "adminOnlyChangeMode": "Only admin can change the mode",
     "apiKeyMissing": "API key not provided",
     "unknownError": "Unknown error",
+    "uploadFailed": "Upload failed",
     "configNotFound": "Settings not found",
     "emptyMessage": "Message is empty",
     "messageNotFound": "Message not found",

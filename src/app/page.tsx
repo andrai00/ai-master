@@ -3,7 +3,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { Shell } from "@/src/widgets/shell";
-import { ChatGamePlaceholder } from "@/src/pages-layer/chat-game/ui/chat-game-placeholder";
+import { ChatGamePlaceholder } from "@/src/pages-layer/chat-game";
 
 export default async function Home() {
   const prisma = getPrisma();

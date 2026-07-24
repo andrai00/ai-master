@@ -3,9 +3,10 @@ import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
 export const updateDocumentTool = {
-  description: "Update the content of an existing glossary or brain document. Use this when a document already exists (from search or create_document returning an existing ID) and you need to overwrite or merge content.",
+  description: TOOL_DESCRIPTIONS.update_document,
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID to update"),

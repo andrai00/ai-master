@@ -2,9 +2,10 @@ import { z } from "zod";
 import { zodSchema } from "@ai-sdk/provider-utils";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
 export const readDocumentTool = {
-  description: "Read a document from the database by ID. Returns title, category, type, summary, and full content.",
+  description: TOOL_DESCRIPTIONS.read_document,
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID to read"),

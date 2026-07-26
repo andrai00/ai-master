@@ -6,8 +6,10 @@ import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
+import GithubSlug from "github-slugger";
 import { useState, useCallback, useMemo } from "react";
 import type { ColumnsType } from "antd/es/table";
+import styles from "./documents-view.module.css";
 
 const CATEGORIES = [
   { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
@@ -39,13 +41,7 @@ export const DocumentsView = () => {
   const handleNavigate = useCallback((docId: string, anchor?: string) => {
     const target = docMap.get(docId);
     if (!target) return;
-    const anchorSlug = anchor
-      ?.toLowerCase()
-      .replace(/<[^>]*>/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+    const anchorSlug = anchor ? new GithubSlug().slug(anchor) : undefined;
     setScrollTo(anchorSlug || undefined);
     setPreviewDoc((prev) => {
       if (prev && prev.id !== docId) {
@@ -83,12 +79,14 @@ export const DocumentsView = () => {
       title: t("documents.type"),
       dataIndex: "type",
       width: 120,
+      responsive: ["md"],
     },
     {
       title: t("documents.summary"),
       dataIndex: "summary",
       ellipsis: true,
       width: 200,
+      responsive: ["md"],
       render: (s: string | null) => s || t("common.noData"),
     },
     {
@@ -100,7 +98,7 @@ export const DocumentsView = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
+    <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
       <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 0, color: "var(--text-primary)" }}>
         {t("documents.title_page")}
       </h2>
@@ -156,6 +154,7 @@ export const DocumentsView = () => {
         onCancel={handleClose}
         footer={null}
         centered
+        wrapClassName={styles.modal}
         width={860}
         styles={{ body: { padding: 0, height: "65vh", overflow: "hidden" } }}
       >

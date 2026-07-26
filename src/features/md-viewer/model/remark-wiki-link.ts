@@ -6,6 +6,7 @@ interface WikiLinkNode {
   type: "wikiLink";
   docId: string;
   anchor: string | null;
+  displayText: string | null;
   children: [];
   data: {
     hName: "span";
@@ -19,7 +20,7 @@ declare module "mdast" {
   }
 }
 
-const WIKI_LINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?\]\]/g;
+const WIKI_LINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
 
 /**
  * remark plugin that parses [[doc-id]] and [[doc-id#heading]] syntax
@@ -49,15 +50,24 @@ export const remarkWikiLink: Plugin<[], Root> = () => {
 
         const docId = match[1]!.trim();
         const anchor = match[2]?.trim() || null;
+        const displayText = match[3]?.trim() || null;
+
+        const hProperties: Record<string, string> = {
+          "data-wiki-link": docId + (anchor ? `|${anchor}` : ""),
+        };
+        if (displayText) {
+          hProperties["data-wiki-display"] = displayText;
+        }
 
         children.push({
           type: "wikiLink",
           docId,
           anchor,
+          displayText,
           children: [],
           data: {
             hName: "span",
-            hProperties: { "data-wiki-link": docId + (anchor ? `|${anchor}` : "") },
+            hProperties,
           },
         });
 

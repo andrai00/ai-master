@@ -7,6 +7,7 @@ import styles from "./wiki-link.module.css";
 interface IWikiLinkProps {
   docId: string;
   anchor?: string | null;
+  displayText?: string | null;
   onNavigate?: (docId: string, anchor?: string) => void;
   /** If true, only render as plain text (no click) — for inaccessible docs */
   plain?: boolean;
@@ -39,15 +40,16 @@ function scheduleResolve(docId: string) {
   }
 }
 
-export const WikiLink = ({ docId, anchor, onNavigate, plain }: IWikiLinkProps) => {
+export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWikiLinkProps) => {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    scheduleResolve(docId);
-  }, [docId]);
+    if (!displayText) scheduleResolve(docId);
+  }, [docId, displayText]);
 
-  // Subscribe to cache — re-render when resolved
+  // Subscribe to cache — re-render when resolved (only when no displayText override)
   useEffect(() => {
+    if (displayText) return;
     if (!resolvedCache.has(docId)) {
       const interval = setInterval(() => {
         if (resolvedCache.has(docId)) {
@@ -57,11 +59,11 @@ export const WikiLink = ({ docId, anchor, onNavigate, plain }: IWikiLinkProps) =
       }, 50);
       return () => clearInterval(interval);
     }
-  }, [docId]);
+  }, [docId, displayText]);
 
   const cached = resolvedCache.get(docId);
-  const display = cached?.title || docId;
-  const exists = cached?.exists ?? true; // assume exists until resolved
+  const resolvedDisplay = displayText || cached?.title || docId;
+  const exists = displayText ? true : (cached?.exists ?? true); // assume exists until resolved
 
   const handleClick = () => {
     if (plain || !exists) return;
@@ -71,7 +73,7 @@ export const WikiLink = ({ docId, anchor, onNavigate, plain }: IWikiLinkProps) =
   if (plain || !exists) {
     return (
       <span className={styles.wikiText}>
-        {anchor ? `${display} › ${anchor}` : display}
+        {anchor ? `${resolvedDisplay} › ${anchor}` : resolvedDisplay}
       </span>
     );
   }
@@ -81,9 +83,9 @@ export const WikiLink = ({ docId, anchor, onNavigate, plain }: IWikiLinkProps) =
       type="button"
       className={styles.wikiLink}
       onClick={handleClick}
-      title={anchor ? `Открыть «${display}» → ${anchor}` : `Открыть «${display}»`}
+      title={anchor ? `Открыть «${resolvedDisplay}» → ${anchor}` : `Открыть «${resolvedDisplay}»`}
     >
-      {anchor ? `${display} › ${anchor}` : display}
+      {anchor ? `${resolvedDisplay} › ${anchor}` : resolvedDisplay}
     </button>
   );
 };

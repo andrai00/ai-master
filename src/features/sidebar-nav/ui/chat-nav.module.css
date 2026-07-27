@@ -19,6 +19,7 @@
   font-family: inherit;
   width: 100%;
   text-align: left;
+  text-decoration: none;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -71,6 +72,7 @@
   cursor: pointer;
   border-radius: 6px;
   font-size: 15px;
+  text-decoration: none;
   transition: color 0.15s, background 0.15s;
 }
 

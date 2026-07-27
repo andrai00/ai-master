@@ -3,7 +3,8 @@
 import { Tooltip } from "antd";
 import { CommentOutlined, MessageOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import styles from "./chat-nav.module.css";
 
@@ -26,7 +27,6 @@ interface IChatNavProps {
 
 export const ChatNav = ({ collapsed, isDev }: IChatNavProps) => {
   const { t } = useTranslation();
-  const router = useRouter();
   const pathname = usePathname();
 
   const items = isDev
@@ -40,12 +40,12 @@ export const ChatNav = ({ collapsed, isDev }: IChatNavProps) => {
       <div className={styles.collapsed}>
         {items.map((item) => (
           <Tooltip key={item.key} title={t(item.labelKey)} placement="right">
-            <button
+            <Link
+              href={item.route ?? "/"}
               className={`${styles.collapsedItem} ${isActive(item) ? styles.active : ""}`}
-              onClick={() => item.route && router.push(item.route)}
             >
               {item.icon}
-            </button>
+            </Link>
           </Tooltip>
         ))}
       </div>
@@ -55,14 +55,14 @@ export const ChatNav = ({ collapsed, isDev }: IChatNavProps) => {
   return (
     <div className={styles.nav}>
       {items.map((item) => (
-        <button
+        <Link
           key={item.key}
+          href={item.route ?? "/"}
           className={`${styles.item} ${isActive(item) ? styles.active : ""}`}
-          onClick={() => item.route && router.push(item.route)}
         >
           <span className={styles.itemIcon}>{item.icon}</span>
           <span className={styles.itemLabel}>{t(item.labelKey)}</span>
-        </button>
+        </Link>
       ))}
     </div>
   );

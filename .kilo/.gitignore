@@ -1,0 +1,18 @@
+# Kilo agent — local-only files (not shared between developers)
+#
+# Everything else in .kilo/ is tracked in git:
+#   skills/    — agent knowledge base
+#   command/   — commit/merge procedures
+#   scripts    — run-script.ps1, setup-script.ps1
+#   AGENTS.md  — agent workflow index
+#   docs/      — Kilo-specific documentation
+
+# Local agent state (session list, etc.)
+/agent-manager.json
+
+# Local worktree directories
+/worktrees/
+
+# Local dependencies (if .kilo/ has its own package.json)
+/node_modules/
+/package-lock.json

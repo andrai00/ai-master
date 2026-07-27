@@ -16,6 +16,7 @@ import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/useAiConfig
 import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
 import { useModelList } from "@/src/shared/api/admin/useModelList";
 import { VirtualSelect } from "@/src/features/virtual-select";
+import { PageHeader } from "@/src/shared/ui/page-header";
 import { useState, useEffect } from "react";
 
 const PROVIDERS = [
@@ -132,26 +133,18 @@ export const AiSettingsView = () => {
   };
 
   return (
-    <div
-      style={{
-        padding: 24,
-        width: 440,
-        margin: "0 auto",
-        height: "100%",
-        overflow: "auto",
-      }}
-    >
-      <h2
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <PageHeader title={t("aiSettings.title")} />
+      <div
         style={{
-          fontSize: 16,
-          fontWeight: 600,
-          marginBottom: 20,
-          color: "var(--text-primary)",
+          padding: 24,
+          width: 440,
+          maxWidth: "100%",
+          margin: "0 auto",
+          overflow: "auto",
+          flex: 1,
         }}
       >
-        <SettingOutlined style={{ marginRight: 8 }} />
-        {t("aiSettings.title")}
-      </h2>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Provider */}
@@ -248,6 +241,7 @@ export const AiSettingsView = () => {
           >
             {t("common.save")}
           </Button>
+        </div>
         </div>
       </div>
     </div>

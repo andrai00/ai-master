@@ -33,6 +33,16 @@
   color: var(--text-primary);
 }
 
+.mobileMenuHeaderBtn {
+  color: var(--text-dim) !important;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.mobileMenuHeaderBtn:hover {
+  color: var(--text-primary) !important;
+}
+
 .headerActions {
   display: flex;
   align-items: center;
@@ -605,6 +615,14 @@
 
   .modalFile {
     padding: 6px 8px;
+  }
+
+  .inputInner {
+    flex-wrap: wrap;
+  }
+
+  .modeSwitcher {
+    width: 100%;
   }
 }
 

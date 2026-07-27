@@ -10,6 +10,7 @@ import GithubSlug from "github-slugger";
 import { useState, useCallback, useMemo } from "react";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
+import { PageHeader } from "@/src/shared/ui/page-header";
 
 const CATEGORIES = [
   { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
@@ -99,10 +100,9 @@ export const DocumentsView = () => {
   ];
 
   return (
-    <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 0, color: "var(--text-primary)" }}>
-        {t("documents.title_page")}
-      </h2>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <PageHeader title={t("documents.title_page")} />
+      <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", width: "100%", overflow: "auto", flex: 1 }}>
       <Tabs
         style={{ marginTop: 8 }}
         tabBarGutter={24}
@@ -168,6 +168,7 @@ export const DocumentsView = () => {
           />
         )}
       </Modal>
+    </div>
     </div>
   );
 };

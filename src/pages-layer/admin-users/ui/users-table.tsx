@@ -12,6 +12,7 @@ import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/mana
 import { getUserGameAccessAction } from "@/src/shared/actions/admin/manage-game-access";
 import type { IUserListItem } from "@/src/shared/actions/admin/list-users";
 import { UserAvatarCell } from "./user-avatar-cell";
+import { PageHeader } from "@/src/shared/ui/page-header";
 import type { ColumnsType } from "antd/es/table";
 
 export const UsersTable = () => {
@@ -157,11 +158,12 @@ export const UsersTable = () => {
   ];
 
   return (
-    <div style={{ width: "100%", maxWidth: 760, margin: "0 auto", padding: "24px 16px", height: "100%", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0, fontSize: 18, color: "var(--text-primary)" }}>{t("admin.users")}</h2>
-        <Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>
-      </div>
+    <div style={{ width: "100%", height: "100%", overflow: "auto", display: "flex", flexDirection: "column" }}>
+      <PageHeader
+        title={t("admin.users")}
+        actions={<Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>}
+      />
+      <div style={{ padding: "16px", flex: 1, overflow: "auto" }}>
       <Table dataSource={users} columns={columns} rowKey="id" loading={isLoading}
         pagination={{ size: "small", pageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: (_page, size) => setPageSize(size) }} size="middle" scroll={{ x: "max-content" }}
         locale={{ emptyText: t("admin.noUsers") }}
@@ -194,6 +196,7 @@ export const UsersTable = () => {
           </div>
         </div>
       </Modal>
+      </div>
     </div>
   );
 };

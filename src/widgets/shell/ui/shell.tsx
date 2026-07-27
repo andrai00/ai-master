@@ -1,11 +1,11 @@
 "use client";
 
 import { Layout } from "antd";
-import { MenuOutlined } from "@ant-design/icons";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Sidebar } from "@/src/widgets/sidebar";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { MobileMenuProvider } from "@/src/shared/ui/page-header";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
 
@@ -107,12 +107,9 @@ export const Shell = ({ user, children }: IShellProps) => {
       )}
 
       <Content className={styles.content}>
-        {isMobile && !mobileOpen && (
-          <button className={styles.mobileMenuBtn} onClick={toggleSidebar}>
-            <MenuOutlined />
-          </button>
-        )}
-        {children}
+        <MobileMenuProvider isMobile={isMobile && !mobileOpen} toggle={toggleSidebar}>
+          {children}
+        </MobileMenuProvider>
       </Content>
     </Layout>
   );

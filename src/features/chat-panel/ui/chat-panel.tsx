@@ -24,6 +24,7 @@ import {
   CloseOutlined,
   CaretRightOutlined,
   FileOutlined,
+  MenuOutlined,
   SettingOutlined,
   StopOutlined,
 } from "@ant-design/icons";
@@ -35,6 +36,7 @@ import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link"
 import { WikiLink } from "@/src/features/md-viewer/ui/wiki-link";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
+import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages — plain text, no navigation */
@@ -198,6 +200,7 @@ export const ChatPanel = ({
   inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
+  const { isMobile, toggle } = useMobileMenu();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -448,9 +451,12 @@ export const ChatPanel = ({
         </div>
       )}
 
-      {(title || onHistoryClick) && (
+      {(title || onHistoryClick || isMobile) && (
         <div className={styles.header}>
-          <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>
+          {isMobile && (
+            <Button type="text" size="small" icon={<MenuOutlined />} onClick={toggle} className={styles.mobileMenuHeaderBtn} />
+          )}
+          {(title || onHistoryClick) && <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>}
           <div className={styles.headerActions}>
             {onClearChat && (
               <Popconfirm

@@ -24,10 +24,6 @@
     max-width: 100% !important;
   }
 
-  .page h2 {
-    font-size: 14px !important;
-  }
-
   .modal :global(.ant-modal) {
     max-width: 100vw;
     width: 100vw !important;
@@ -48,5 +44,21 @@
   .modal :global(.ant-modal-body) {
     height: calc(100vh - 110px) !important;
     max-height: none;
+  }
+
+  /* Make tabs fully scrollable on mobile — hide the "..." dropdown */
+  .page :global(.ant-tabs-nav-operations) {
+    display: none !important;
+  }
+
+  .page :global(.ant-tabs-nav-wrap)::before,
+  .page :global(.ant-tabs-nav-wrap)::after {
+    display: none !important;
+  }
+
+  .page :global(.ant-tabs-nav-list) {
+    transform: none !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

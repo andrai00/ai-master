@@ -138,6 +138,18 @@
 ### Why: клиент не получит прогресс шагов и ответ.
 ### Good: SSE подключается при заходе на страницу, не только при отправке
 
+### Bad: сохранять чанки файла в отдельные записи БД
+### Why: множественная запись чанков = SQLite single-writer lock на каждую запись → блокирует все остальные запросы (страницы, server actions, SSE). Плюс сложная логика восстановления позиции.
+### Good: `UploadedFile.text` — полный текст одной записью. Чанки через `text.slice(offset, limit)` на чтении. Прогресс — `lastReadOffset`.
+
+### Bad: 10+ параллельных `generateText()` без контроля concurrency
+### Why: забивает event loop, память, SQLite. Next.js начинает лагать на обычных запросах.
+### Good: `better-queue` с `concurrent: 3`. Персистентная очередь через `BuilderJob` table, восстановление при рестарте.
+
+### Bad: полагаться что React Query сам синхронизирует мутации между клиентами
+### Why: React Query cache — per-browser. `invalidateQueries` на админе A не влияет на админа B.
+### Good: SSE-push через `broadcastGameEvent` + `shell.tsx` обработчик. Пример: `builder_message_deleted` → `invalidateQueries` у всех подключённых.
+
 ---
 
 ## Git

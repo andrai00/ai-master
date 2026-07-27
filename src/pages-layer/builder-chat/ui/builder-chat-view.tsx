@@ -256,7 +256,18 @@ export const BuilderChatView = () => {
     { title: t("chat.role"), dataIndex: "role", width: 80,
       render: (role: string) => (role === "builder" ? t("chat.builderLabel") : t("admin.roleAdmin")) },
     { title: t("chat.message"), dataIndex: "content",
-      render: (text: string) => <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 500 }}>{text}</div> },
+      render: (text: string, record: IBuilderMessage) => (
+        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: 500 }}>
+          {record.attachedFiles?.length ? (
+            <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 2 }}>
+              <PaperClipOutlined style={{ fontSize: 10, marginRight: 4 }} />
+              {record.attachedFiles.map((f) => truncateName(f.filename)).join(", ")}
+            </div>
+          ) : null}
+          {text}
+        </div>
+      ),
+    },
   ];
 
   return (

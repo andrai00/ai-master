@@ -4,6 +4,7 @@ import { Timeline, Empty, Tag, Typography } from "antd";
 import { BulbOutlined, RobotOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useThoughtLogs } from "@/src/shared/api/admin/useThoughtLogs";
+import { PageHeader } from "@/src/shared/ui/page-header";
 
 const { Paragraph } = Typography;
 
@@ -35,10 +36,9 @@ export const LogsView = () => {
   }));
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: "0 auto", height: "100%", overflow: "auto" }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: "var(--text-primary)" }}>
-        {t("logs.title")}
-      </h2>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <PageHeader title={t("logs.title")} />
+      <div style={{ padding: 24, maxWidth: 960, margin: "0 auto", width: "100%", overflow: "auto", flex: 1 }}>
       {isLoading ? (
         <div style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>
           {t("logs.loading")}
@@ -48,6 +48,7 @@ export const LogsView = () => {
       ) : (
         <Timeline items={items} />
       )}
+    </div>
     </div>
   );
 };

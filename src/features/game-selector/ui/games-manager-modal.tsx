@@ -34,6 +34,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
   const updateMutation = useUpdateGame();
   const switchMutation = useSwitchGame();
   const deleteMutation = useDeleteGame();
+  const [pageSize, setPageSize] = useState(8);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -155,7 +156,7 @@ export const GamesManagerModal = ({ open, onClose, onGameChanged }: IGamesManage
         </div>
 
         <Table dataSource={filtered} columns={columns} rowKey="id" loading={isLoading}
-          pagination={{ size: "small", pageSize: 8, hideOnSinglePage: true }} size="small" showHeader={false}
+          pagination={{ size: "small", pageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: (_page, size) => setPageSize(size) }} size="small" showHeader={false}
           locale={{ emptyText: t("gameSelector.noGames") }} />
 
         <Modal title={t("gameSelector.newGame")} open={createOpen} onCancel={() => setCreateOpen(false)}

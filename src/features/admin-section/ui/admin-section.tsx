@@ -4,7 +4,8 @@ import { App } from "antd";
 import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useActiveMode } from "@/src/shared/api/admin/useActiveMode";
 import { useSetMasterMode } from "@/src/shared/api/admin/useSetMasterMode";
 import { ImportMasterModal } from "./import-master-modal";
@@ -14,7 +15,6 @@ import styles from "./admin-section.module.css";
 export const AdminSection = () => {
   const { t } = useTranslation();
   const { modal, notification } = App.useApp();
-  const router = useRouter();
   const pathname = usePathname();
   const { data: modeData } = useActiveMode();
 
@@ -50,20 +50,20 @@ export const AdminSection = () => {
     <div className={styles.section}>
       <div className={styles.label}>{t("mode.adminSection")}</div>
 
-      <button
+      <Link
+        href="/admin/users"
         className={`${styles.row} ${isActive("/admin/users") ? styles.rowActive : ""}`}
-        onClick={() => router.push("/admin/users")}
       >
         <UserOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.users")}</span>
-      </button>
-      <button
+      </Link>
+      <Link
+        href="/admin/ai-settings"
         className={`${styles.row} ${isActive("/admin/ai-settings") ? styles.rowActive : ""}`}
-        onClick={() => router.push("/admin/ai-settings")}
       >
         <SettingOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.aiSettings")}</span>
-      </button>
+      </Link>
 
       <div className={styles.modeRow}>
         <button className={`${styles.inlineBtn} ${styles.modeBtn}`} onClick={handleToggle}>
@@ -74,10 +74,10 @@ export const AdminSection = () => {
 
       {isDev && (
         <>
-          <button className={`${styles.row} ${isActive("/admin/builder") ? styles.rowActive : ""}`} onClick={() => router.push("/admin/builder")}>
+          <Link href="/admin/builder" className={`${styles.row} ${isActive("/admin/builder") ? styles.rowActive : ""}`}>
             <CodeOutlined className={styles.rowIcon} />
             <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
-          </button>
+          </Link>
           <div className={styles.inlineRow}>
             <button className={styles.inlineBtn} onClick={() => setImportOpen(true)}>
               <ImportOutlined />
@@ -91,22 +91,20 @@ export const AdminSection = () => {
         </>
       )}
       {isDev && (
-        <button
+        <Link href="/admin/documents"
           className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
-          onClick={() => router.push("/admin/documents")}
         >
           <FileTextOutlined className={styles.rowIcon} />
           <span className={styles.rowLabel}>{t("mode.documents")}</span>
-        </button>
+        </Link>
       )}
       {isDev && (
-        <button
+        <Link href="/admin/logs"
           className={`${styles.row} ${isActive("/admin/logs") ? styles.rowActive : ""}`}
-          onClick={() => router.push("/admin/logs")}
         >
           <BulbOutlined className={styles.rowIcon} />
           <span className={styles.rowLabel}>{t("mode.logs")}</span>
-        </button>
+        </Link>
       )}
       <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />

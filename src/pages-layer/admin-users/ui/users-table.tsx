@@ -34,6 +34,7 @@ export const UsersTable = () => {
   const createMutation = useCreatePlayer();
   const editMutation = useEditUser();
   const deleteMutation = useDeleteUser();
+  const [pageSize, setPageSize] = useState(10);
 
   const openEdit = async (user: IUserListItem) => {
     setEditUser(user);
@@ -162,7 +163,7 @@ export const UsersTable = () => {
         <Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>
       </div>
       <Table dataSource={users} columns={columns} rowKey="id" loading={isLoading}
-        pagination={{ size: "small", pageSize: 10, hideOnSinglePage: true }} size="middle" scroll={{ x: "max-content" }}
+        pagination={{ size: "small", pageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: (_page, size) => setPageSize(size) }} size="middle" scroll={{ x: "max-content" }}
         locale={{ emptyText: t("admin.noUsers") }}
         onRow={(record) => ({ style: record.inCurrentGame ? undefined : { opacity: 0.45 } })} />
       <Modal title={t("admin.createPlayer")} open={createOpen} onCancel={() => setCreateOpen(false)}

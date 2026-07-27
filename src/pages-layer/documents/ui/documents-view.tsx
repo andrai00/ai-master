@@ -23,6 +23,7 @@ export const DocumentsView = () => {
   const [previewDoc, setPreviewDoc] = useState<IDocumentItem | null>(null);
   const [navStack, setNavStack] = useState<IDocumentItem[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data: docs = [], isLoading } = useDocuments();
 
@@ -128,7 +129,7 @@ export const DocumentsView = () => {
                 onClick: () => handleOpenDoc(record),
                 style: { cursor: "pointer" },
               })}
-              pagination={{ pageSize: 20, hideOnSinglePage: true }}
+              pagination={{ pageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: (_page, size) => setPageSize(size) }}
               locale={{ emptyText: <Empty description={t("documents.empty")} /> }}
             />
             </div>

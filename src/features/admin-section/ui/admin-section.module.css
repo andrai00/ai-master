@@ -28,6 +28,7 @@
   font-size: 12px;
   width: 100%;
   text-align: left;
+  text-decoration: none;
   transition: background 0.1s, color 0.1s;
 }
 

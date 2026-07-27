@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zodSchema } from "@ai-sdk/provider-utils";
+import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";

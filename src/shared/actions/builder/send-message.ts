@@ -9,7 +9,8 @@ import { enqueueBuilderJob } from "@/src/shared/lib/queue";
 export async function sendBuilderMessageAction(
   sessionId: string,
   content: string,
-  fileIds: string[] = []
+  fileIds: string[] = [],
+  fileNames: string[] = []
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
@@ -24,7 +25,11 @@ export async function sendBuilderMessageAction(
 
   const prisma = getPrisma();
 
-  // Save admin message
+  const attachedFiles = fileIds.map((id, i) => ({
+    fileId: id,
+    filename: fileNames[i] ?? id,
+  }));
+
   await prisma.message.create({
     data: {
       sessionId,
@@ -32,13 +37,12 @@ export async function sendBuilderMessageAction(
       role: "admin",
       content: content.trim(),
       hasFiles: fileIds.length > 0,
+      attachedFiles: JSON.stringify(attachedFiles),
     },
   });
 
-  // Enqueue: controlled concurrency via better-queue + persisted in BuilderJob table
   enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
     console.error("[builder] Failed to enqueue:", err);
-    // Fallback: process directly if queue fails
     runBuilderAgent(sessionId, content.trim(), fileIds).catch((e) => {
       console.error("[builder] Background processing crashed:", e);
     });

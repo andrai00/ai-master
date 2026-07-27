@@ -9,7 +9,7 @@ import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
-import { getCachedFile, removeCachedFiles } from "./file-cache";
+import { removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopping, emitStopped, clearSession,
@@ -214,7 +214,12 @@ export async function runBuilderAgent(
 
     let fileHint = "";
     if (fileIds.length > 0) {
-      const names = fileIds.map((id) => getCachedFile(id)?.filename ?? id).join(", ");
+      const prisma = getPrisma();
+      const files = await prisma.uploadedFile.findMany({
+        where: { id: { in: fileIds } },
+        select: { filename: true },
+      });
+      const names = files.map((f) => f.filename).join(", ");
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
     }
 

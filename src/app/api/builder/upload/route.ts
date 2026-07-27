@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { parseFile } from "@/src/shared/lib/agents/file-parser";
 import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache";
+import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const maxDuration = 120;
 
@@ -61,8 +63,27 @@ export async function POST(request: NextRequest) {
   console.log(`[upload] Buffer: ${buffer.length} bytes, starting background parse`);
 
   parseFile(buffer, file.name)
-    .then((parsed) => {
+    .then(async (parsed) => {
       cacheFile(fileId, parsed.text, parsed.size, file.name);
+
+      try {
+        const prisma = getPrisma();
+        const activeGame = await getActiveGame();
+        if (activeGame?.currentMasterId) {
+          await prisma.uploadedFile.create({
+            data: {
+              id: fileId,
+              masterId: activeGame.currentMasterId,
+              filename: file.name,
+              text: parsed.text,
+              size: parsed.size,
+            },
+          });
+        }
+      } catch (dbErr) {
+        console.error(`[upload] Failed to save to DB: ${dbErr}`);
+      }
+
       statusMap.set(fileId, { status: "done" });
       console.log(`[upload] Background parse done: ${parsed.size} chars, fileId=${fileId}`);
     })

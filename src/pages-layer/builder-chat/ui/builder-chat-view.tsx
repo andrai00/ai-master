@@ -3,16 +3,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, Segmented, Tooltip } from "antd";
-import { SettingOutlined, DatabaseOutlined } from "@ant-design/icons";
+import { SettingOutlined, DatabaseOutlined, PaperClipOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChatPanel } from "@/src/features/chat-panel";
-import { FileOutlined } from "@ant-design/icons";
+import { ChatPanel, FileProgressModal, type IFileProgress } from "@/src/features/chat-panel";
 import { useBuilderSession } from "@/src/shared/api/builder/useBuilderSession";
 import { useBuilderMessages } from "@/src/shared/api/builder/useBuilderMessages";
 import { useSendBuilderMessage } from "@/src/shared/api/builder/useSendMessage";
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/useDeleteMessage";
 import { useClearBuilderChat } from "@/src/shared/api/builder/useClearChat";
 import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
+import { useFileProgress, useRemoveUploadedFile } from "@/src/shared/api/builder/use-file-progress";
+import { useContinueBuilder } from "@/src/shared/api/builder/use-continue-builder";
 import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
@@ -22,7 +23,7 @@ import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-async function uploadFile(file: File): Promise<string> {
+async function uploadFile(file: File): Promise<{ fileId: string; filename: string }> {
   const form = new FormData();
   form.append("file", file);
   const res = await fetch("/api/builder/upload", { method: "POST", body: form });
@@ -31,7 +32,7 @@ async function uploadFile(file: File): Promise<string> {
     throw new Error(err.error ?? "Upload failed");
   }
   const data = await res.json();
-  return data.fileId as string;
+  return { fileId: data.fileId, filename: data.filename };
 }
 
 export const BuilderChatView = () => {
@@ -50,6 +51,7 @@ export const BuilderChatView = () => {
   const [typing, setTyping] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [fileModalOpen, setFileModalOpen] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const prevSessionId = useRef<string | undefined>(undefined);
@@ -141,6 +143,9 @@ export const BuilderChatView = () => {
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
+  const { data: progressData } = useFileProgress();
+  const removeFileMutation = useRemoveUploadedFile();
+  const continueMutation = useContinueBuilder();
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
@@ -148,9 +153,13 @@ export const BuilderChatView = () => {
     role: m.role,
     text: m.content,
     summarized: m.summarized,
-    prefix: m.hasFiles
-      ? <span style={{ fontSize: 11, opacity: 0.5 }}><FileOutlined /></span>
-      : undefined,
+    attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
+    prefix: m.attachedFiles?.length ? (
+      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+        <PaperClipOutlined style={{ fontSize: 10, marginRight: 4 }} />
+        {m.attachedFiles.map((f) => truncateName(f.filename)).join(", ")}
+      </div>
+    ) : undefined,
   });
 
   const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];
@@ -162,21 +171,24 @@ export const BuilderChatView = () => {
 
       // Upload files first
       let fileIds: string[] = [];
+      let fileNames: string[] = [];
       if (files.length > 0) {
         setUploading(true);
         try {
-          fileIds = await Promise.all(files.map(uploadFile));
+          const results = await Promise.all(files.map(uploadFile));
+          fileIds = results.map((r) => r.fileId);
+          fileNames = results.map((r) => r.filename);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : t("errors.uploadFailed");
           notification.error({ title: msg });
           setUploading(false);
-          return; // keep input + files, let user retry
+          return;
         }
         setUploading(false);
       }
 
       // Save message (fire-and-forget, AI runs in background)
-      await sendMutation.mutateAsync({ sessionId, content, fileIds });
+      await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
       // Don't set typing — SSE does it when processing starts
     },
     [sessionId, sendMutation]
@@ -204,6 +216,19 @@ export const BuilderChatView = () => {
   const handleClear = useCallback(() => {
     if (sessionId) clearMutation.mutate(sessionId);
   }, [sessionId, clearMutation]);
+
+  // --- File progress ---
+  const fileProgress: IFileProgress[] = (progressData ?? []).map((f) => ({
+    ...f,
+    onRemove: typing ? undefined : () => {
+      removeFileMutation.mutate(f.fileId);
+    },
+  }));
+
+  const handleContinue = useCallback(() => {
+    if (!sessionId) return;
+    continueMutation.mutate(sessionId);
+  }, [sessionId, continueMutation]);
 
   // --- History ---
   const openHistory = async () => {
@@ -265,9 +290,12 @@ export const BuilderChatView = () => {
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId ?? undefined}
-        onStepsStart={() => { setTyping(true); setStopping(false); }}
+        onStepsStart={() => { setTyping(true); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        fileProgress={fileProgress}
+        onContinueFiles={handleContinue}
+        onOpenFileDetails={() => setFileModalOpen(true)}
       />
       <Modal
         title={t("chat.historyTitle")}
@@ -282,6 +310,22 @@ export const BuilderChatView = () => {
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>
+      <FileProgressModal
+        open={fileModalOpen}
+        files={fileProgress}
+        processing={typing}
+        onClose={() => setFileModalOpen(false)}
+        onContinue={handleContinue}
+      />
     </>
   );
 };
+
+function truncateName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return name.length > 24 ? name.slice(0, 22) + "\u2026" : name;
+  const ext = name.slice(dot);
+  const base = name.slice(0, dot);
+  if (name.length <= 28) return name;
+  return base.slice(0, 20) + "\u2026" + ext;
+}

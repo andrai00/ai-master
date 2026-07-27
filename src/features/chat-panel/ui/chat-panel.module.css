@@ -365,6 +365,249 @@
   flex-shrink: 0;
 }
 
+/* ---- file progress bar (above input) ---- */
+
+.fileProgressBar {
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  justify-content: center;
+}
+
+.progressBarInner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px 10px;
+  max-width: var(--content-width);
+  width: 100%;
+}
+
+.progressSummary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 20px;
+  font-family: inherit;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.progressSummary:hover {
+  background: var(--bg-hover);
+}
+
+.progressNum {
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  text-align: center;
+}
+
+.progressSep {
+  width: 1px;
+  height: 10px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+.progressDetailBtn {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 0 6px;
+  height: 22px;
+}
+
+.progressActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.progressActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.progressActionBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* ---- file progress modal ---- */
+
+.fileModal :global(.ant-modal-body) {
+  padding: 12px 16px 16px;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modalFile {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.modalFileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.modalFileInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.modalFileName {
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modalFileChunks {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.modalFileRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.modalFileStatus {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.statusDone {
+  color: var(--success, #52c41a);
+  background: color-mix(in srgb, var(--success, #52c41a) 12%, transparent);
+}
+
+.statusProcessing {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.statusWaiting {
+  color: var(--text-muted);
+}
+
+.modalRemoveBtn {
+  color: var(--text-dim) !important;
+  padding: 0 !important;
+  min-width: 18px !important;
+  height: 18px !important;
+}
+
+.modalProgressTrack {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.modalProgressFill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--text-dim);
+  transition: width 0.3s ease;
+}
+
+.progressDone {
+  background: var(--success, #52c41a);
+}
+
+.modalContinueBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.modalContinueBtn:hover {
+  background: var(--bg-active);
+  border-color: var(--text-dim);
+}
+
+@media (max-width: 767px) {
+  .progressBarInner {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .progressSummary {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .progressActionBtn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .fileModal {
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px;
+  }
+
+  .modalFile {
+    padding: 6px 8px;
+  }
+}
+
 /* ---- Drop zone overlay ---- */
 
 .panel {

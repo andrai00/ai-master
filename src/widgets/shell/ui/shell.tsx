@@ -38,10 +38,12 @@ export const Shell = ({ user, children }: IShellProps) => {
   useEffect(() => {
     const eventSource = new EventSource("/api/game-events");
     eventSource.onmessage = (e) => {
-      let type = e.data;
+      let type: string = e.data;
+      let payload: { sessionId?: string } | undefined;
       try {
         const parsed = JSON.parse(e.data);
         type = parsed.type ?? e.data;
+        payload = parsed.payload;
       } catch { /* legacy format — data is the event type string */ }
 
       if (type === "kick") {
@@ -61,6 +63,11 @@ export const Shell = ({ user, children }: IShellProps) => {
       if (type === "game_switched") {
         queryClient.invalidateQueries();
         router.refresh();
+      }
+      if (type === "builder_message_deleted") {
+        if (payload?.sessionId) {
+          queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
+        }
       }
     };
     eventSource.onerror = () => {

@@ -44,7 +44,6 @@ next-env.d.ts
 data/ai-master.db
 data/avatars/
 
-# Kilo
-.kilo/
+# Kilo — agent config tracked via .kilo/.gitignore (agent-manager.json, worktrees/, node_modules/ excluded)
 
 /src/generated/prisma

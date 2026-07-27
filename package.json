@@ -45,5 +45,13 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

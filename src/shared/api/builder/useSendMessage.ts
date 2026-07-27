@@ -8,11 +8,15 @@ export function useSendBuilderMessage() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, content, fileIds }: { sessionId: string; content: string; fileIds?: string[] }) =>
-      sendBuilderMessageAction(sessionId, content, fileIds ?? []),
-    onMutate: async ({ sessionId, content, fileIds }) => {
+    mutationFn: ({ sessionId, content, fileIds, fileNames }: { sessionId: string; content: string; fileIds?: string[]; fileNames?: string[] }) =>
+      sendBuilderMessageAction(sessionId, content, fileIds ?? [], fileNames ?? []),
+    onMutate: async ({ sessionId, content, fileIds, fileNames }) => {
       await qc.cancelQueries({ queryKey: ["builder", "messages", sessionId] });
       const prev = qc.getQueryData<IBuilderMessagesResult>(["builder", "messages", sessionId, 1]);
+
+      const attachedFiles = (fileIds?.length && fileNames?.length)
+        ? fileIds.map((id, i) => ({ fileId: id, filename: fileNames[i] ?? id }))
+        : [];
 
       const optimisticMsg: IBuilderMessage = {
         id: "optimistic-" + Date.now(),
@@ -21,6 +25,7 @@ export function useSendBuilderMessage() {
         senderId: "",
         summarized: false,
         hasFiles: (fileIds?.length ?? 0) > 0,
+        attachedFiles,
         createdAt: new Date(),
       };
 

@@ -10,6 +10,7 @@ export interface IBuilderMessage {
   senderId: string;
   summarized: boolean;
   hasFiles: boolean;
+  attachedFiles: { fileId: string; filename: string }[];
   createdAt: Date;
 }
 
@@ -43,11 +44,16 @@ export async function getBuilderMessagesAction(
         senderId: true,
         summarized: true,
         hasFiles: true,
+        attachedFiles: true,
         createdAt: true,
       },
     }),
     prisma.message.count({ where: { sessionId } }),
   ]);
 
-  return { messages, total, page, pageSize };
+  return { messages: messages.map((m) => {
+    let attachedFiles: { fileId: string; filename: string }[] = [];
+    try { attachedFiles = JSON.parse(m.attachedFiles); } catch { /* keep default */ }
+    return { ...m, attachedFiles };
+  }), total, page, pageSize };
 }

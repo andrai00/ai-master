@@ -9,7 +9,8 @@ import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
-import { getCachedFile, removeCachedFiles } from "./file-cache";
+import { updateFileSummaryTool } from "./tools/update-file-summary.tool";
+import { removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopping, emitStopped, clearSession,
@@ -111,6 +112,7 @@ function getTools() {
   return {
     read_parsed_file: readParsedFileTool,
     list_uploaded_files: listUploadedFilesTool,
+    update_file_summary: updateFileSummaryTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
     read_document: readDocumentTool,
@@ -177,19 +179,6 @@ async function buildContext(sessionId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Logging
-// ---------------------------------------------------------------------------
-
-async function writeThoughtLog(masterId: string, agent: string, content: string) {
-  try {
-    const prisma = getPrisma();
-    await prisma.thoughtLog.create({ data: { masterId, agent, content } });
-  } catch {
-    // non-critical
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Background runner — no return value, drives SSE events
 // ---------------------------------------------------------------------------
 
@@ -214,7 +203,12 @@ export async function runBuilderAgent(
 
     let fileHint = "";
     if (fileIds.length > 0) {
-      const names = fileIds.map((id) => getCachedFile(id)?.filename ?? id).join(", ");
+      const prisma = getPrisma();
+      const files = await prisma.uploadedFile.findMany({
+        where: { id: { in: fileIds } },
+        select: { filename: true },
+      });
+      const names = files.map((f) => f.filename).join(", ");
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
     }
 
@@ -222,10 +216,6 @@ export async function runBuilderAgent(
       ...ctx.messages,
       { role: "user", content: userMessage + fileHint },
     ];
-
-    // Log request
-    const requestLog = `=== REQUEST ===\n${ctx.system}\n\n=== CONVERSATION ===\n${messages.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n\n")}`;
-    if (masterId) await writeThoughtLog(masterId, "builder", requestLog);
 
     const model = await createProvider();
     throwIfCancelled();
@@ -352,9 +342,6 @@ export async function runBuilderAgent(
                   }
                 }
                 emitStep(sessionId, toolName, detail);
-                const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
-                const outputStr = r?.output !== undefined ? JSON.stringify(r.output, null, 2).slice(0, 1000) : "(no output)";
-                if (masterId) await writeThoughtLog(masterId, "builder", `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`);
               }
             }
           },
@@ -398,10 +385,6 @@ export async function runBuilderAgent(
         content: builderText,
       },
     });
-
-    if (masterId) {
-      await writeThoughtLog(masterId, "builder", `=== RESPONSE ===\n${builderText}`);
-    }
 
     // Auto-summarize if 20+ unsummarized with text content
     const allUnsummarized = await prisma.message.findMany({

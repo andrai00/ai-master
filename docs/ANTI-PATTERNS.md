@@ -138,6 +138,38 @@
 ### Why: клиент не получит прогресс шагов и ответ.
 ### Good: SSE подключается при заходе на страницу, не только при отправке
 
+### Bad: сохранять чанки файла в отдельные записи БД
+### Why: множественная запись чанков = SQLite single-writer lock на каждую запись → блокирует все остальные запросы (страницы, server actions, SSE). Плюс сложная логика восстановления позиции.
+### Good: `UploadedFile.text` — полный текст одной записью. Чанки через `text.slice(offset, limit)` на чтении. Прогресс — `lastReadOffset`.
+
+### Bad: 10+ параллельных `generateText()` без контроля concurrency
+### Why: забивает event loop, память, SQLite. Next.js начинает лагать на обычных запросах.
+### Good: `better-queue` с `concurrent: 3`. Персистентная очередь через `BuilderJob` table, восстановление при рестарте.
+
+### Bad: полагаться что React Query сам синхронизирует мутации между клиентами
+### Why: React Query cache — per-browser. `invalidateQueries` на админе A не влияет на админа B.
+### Good: SSE-push через `broadcastGameEvent` + `shell.tsx` обработчик. Пример: `builder_message_deleted` → `invalidateQueries` у всех подключённых.
+
+---
+
+## UI / Страницы
+
+### Bad: каждая страница со своим inline-стилем заголовка (`<h2 style={{ fontSize: 16 }}>`)
+### Why: дизайн расходится (разные font-size, padding, border). Мобильная кнопка меню дублируется или отсутствует. Изменение требует правок во всех страницах.
+### Good: `<PageHeader title="..." actions={...} />` из `src/shared/ui/page-header.tsx`. Единый компонент с мобильной кнопкой меню.
+
+### Bad: мобильная кнопка меню отдельным рядом над контентом (`mobileTopBar`)
+### Why: кнопка и заголовок на разных строках — лишний visual weight, трата вертикального места.
+### Good: кнопка внутри `PageHeader` на одной строке с заголовком через `MobileMenuProvider` контекст.
+
+### Bad: antd Tabs с overflow-кнопкой «...» на мобилке
+### Why: кнопка занимает место справа, создаёт эффект «не доскроллить до конца», визуальный баг.
+### Good: `ant-tabs-nav-operations { display: none }`, `ant-tabs-nav-list { overflow-x: auto; transform: none }` — нативный скролл табов.
+
+### Bad: дублировать один и тот же навигационный пункт в разных секциях сайдбара
+### Why: путаница, два пути на одну страницу.
+### Good: один пункт в правильной секции. AI Settings — только в AdminSection, не в ChatNav.
+
 ---
 
 ## Git

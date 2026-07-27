@@ -1,7 +1,7 @@
 "use client";
 
 import { Tooltip } from "antd";
-import { CommentOutlined, MessageOutlined, SettingOutlined } from "@ant-design/icons";
+import { CommentOutlined, MessageOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,6 @@ export interface IChatNavItem {
 const allItems: IChatNavItem[] = [
   { key: "common", icon: <CommentOutlined />, labelKey: "sidebar.chatGame", route: "/" },
   { key: "personal", icon: <MessageOutlined />, labelKey: "sidebar.chatMaster", route: "/chat/personal" },
-  { key: "aiSettings", icon: <SettingOutlined />, labelKey: "sidebar.aiMasterSettings", route: "/admin/ai-settings" },
 ];
 
 interface IChatNavProps {

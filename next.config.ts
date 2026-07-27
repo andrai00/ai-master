@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["better-queue", "better-queue-memory"],
   turbopack: {
     root: __dirname,
   },

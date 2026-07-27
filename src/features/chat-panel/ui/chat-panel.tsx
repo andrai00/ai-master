@@ -22,7 +22,10 @@ import {
   CommentOutlined,
   PaperClipOutlined,
   CloseOutlined,
+  CaretRightOutlined,
   FileOutlined,
+  MenuOutlined,
+  SettingOutlined,
   StopOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
@@ -33,6 +36,7 @@ import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link"
 import { WikiLink } from "@/src/features/md-viewer/ui/wiki-link";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
+import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages — plain text, no navigation */
@@ -56,8 +60,16 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
-  /** Optional prefix rendered before the markdown text (e.g. file attachment icon) */
+  attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
+}
+
+export interface IFileProgress {
+  fileId: string;
+  filename: string;
+  totalSize: number;
+  readOffset: number;
+  onRemove?: () => void;
 }
 
 interface IChatPanelProps {
@@ -94,6 +106,12 @@ interface IChatPanelProps {
   stopping?: boolean;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
+  /** File reading progress to show above the input */
+  fileProgress?: IFileProgress[];
+  /** Called when user clicks "Continue" to resume file processing */
+  onContinueFiles?: () => void;
+  /** Called when user clicks "Details" to open file progress modal */
+  onOpenFileDetails?: () => void;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -152,6 +170,8 @@ function getStepIcon(tool: string): ReactNode {
       return <ReadOutlined style={iconStyle} />;
     case "search_documents":
       return <SearchOutlined style={iconStyle} />;
+    case "update_file_summary":
+      return <CommentOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:
@@ -177,9 +197,10 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
-  inputPrefix,
+  inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
+  const { isMobile, toggle } = useMobileMenu();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -380,7 +401,7 @@ export const ChatPanel = ({
                 </button>
               </Tooltip>
             )}
-            {onDelete && !msg.summarized && (
+            {onDelete && !msg.summarized && !typing && (
               <Tooltip
                 title={confirmDelete === msg.id ? t("chat.deleteConfirm") : t("chat.delete")}
                 placement="top"
@@ -430,9 +451,12 @@ export const ChatPanel = ({
         </div>
       )}
 
-      {(title || onHistoryClick) && (
+      {(title || onHistoryClick || isMobile) && (
         <div className={styles.header}>
-          <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>
+          {isMobile && (
+            <Button type="text" size="small" icon={<MenuOutlined />} onClick={toggle} className={styles.mobileMenuHeaderBtn} />
+          )}
+          {(title || onHistoryClick) && <span className={styles.headerTitle}>{title || t("chat.gameChat")}</span>}
           <div className={styles.headerActions}>
             {onClearChat && (
               <Popconfirm
@@ -522,6 +546,55 @@ export const ChatPanel = ({
           <div className={styles.devBanner}>{disabledText}</div>
         )}
 
+        {fileProgress && fileProgress.length > 0 && (() => {
+          const filesDone = fileProgress.filter((f) => f.readOffset >= f.totalSize && f.totalSize > 0).length;
+          const filesTotal = fileProgress.length;
+          const chunkSize = 5000;
+          const chunksTotal = fileProgress.reduce((s, f) => s + Math.ceil(f.totalSize / chunkSize), 0);
+          const chunksRead = fileProgress.reduce((s, f) => s + Math.min(Math.ceil(f.readOffset / chunkSize), Math.ceil(f.totalSize / chunkSize)), 0);
+          const allDone = filesTotal > 0 && filesDone === filesTotal;
+
+          return (
+            <div className={styles.fileProgressBar}>
+              <div className={styles.progressBarInner}>
+                <div className={styles.progressActions}>
+                  <button className={styles.progressSummary} onClick={onOpenFileDetails}>
+                    <FileOutlined style={{ fontSize: 12, color: "var(--text-dim)" }} />
+                    <span className={styles.progressNum}>{filesDone}/{filesTotal}</span>
+                    <span className={styles.progressSep} />
+                    <FileTextOutlined style={{ fontSize: 11, color: "var(--text-dim)" }} />
+                    <span className={styles.progressNum}>{chunksRead}/{chunksTotal}</span>
+                  </button>
+                  {onOpenFileDetails && (
+                    <Tooltip title={t("chat.fileDetails")}>
+                      <button className={styles.progressActionBtn} onClick={onOpenFileDetails}>
+                        <SettingOutlined style={{ fontSize: 14 }} />
+                      </button>
+                    </Tooltip>
+                  )}
+                  {typing ? (
+                    onStop && (
+                      <Tooltip title={t("chat.stop")}>
+                        <button className={styles.progressActionBtn} onClick={onStop}>
+                          <StopOutlined style={{ fontSize: 14 }} />
+                        </button>
+                      </Tooltip>
+                    )
+                  ) : (
+                    onContinueFiles && !allDone && (
+                      <Tooltip title={t("chat.continueReading")}>
+                        <button className={styles.progressActionBtn} onClick={onContinueFiles}>
+                          <CaretRightOutlined style={{ fontSize: 14 }} />
+                        </button>
+                      </Tooltip>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* attached file chips */}
         {allowFiles && attachedFiles.length > 0 && (
           <div className={styles.fileChips}>
@@ -563,7 +636,7 @@ export const ChatPanel = ({
                   size="small"
                   icon={<PaperClipOutlined />}
                   className={styles.attachBtn}
-                  disabled={sending || attachedFiles.length >= maxFiles}
+                  disabled={sending || typing || attachedFiles.length >= maxFiles}
                   onClick={handleAttachClick}
                 />
               </Tooltip>

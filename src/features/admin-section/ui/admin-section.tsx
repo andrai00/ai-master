@@ -1,7 +1,7 @@
 "use client";
 
 import { App } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined, MessageOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, SettingOutlined, MessageOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
@@ -96,14 +96,6 @@ export const AdminSection = () => {
         >
           <FileTextOutlined className={styles.rowIcon} />
           <span className={styles.rowLabel}>{t("mode.documents")}</span>
-        </Link>
-      )}
-      {isDev && (
-        <Link href="/admin/logs"
-          className={`${styles.row} ${isActive("/admin/logs") ? styles.rowActive : ""}`}
-        >
-          <BulbOutlined className={styles.rowIcon} />
-          <span className={styles.rowLabel}>{t("mode.logs")}</span>
         </Link>
       )}
       <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />

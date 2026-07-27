@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function deleteBuilderMessageAction(
   messageId: string
@@ -10,11 +11,17 @@ export async function deleteBuilderMessageAction(
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
 
   const prisma = getPrisma();
-  const msg = await prisma.message.findUnique({ where: { id: messageId } });
+  const msg = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { id: true, sessionId: true, summarized: true },
+  });
 
   if (!msg) return { success: false, error: "errors.messageNotFound" };
   if (msg.summarized) return { success: false, error: "errors.cannotDeleteSummarized" };
 
   await prisma.message.delete({ where: { id: messageId } });
+
+  broadcastGameEvent("builder_message_deleted", { sessionId: msg.sessionId });
+
   return { success: true };
 }

@@ -101,6 +101,14 @@
     "sendError": "Send error",
     "stop": "Stop",
     "send": "Send",
+    "continueReading": "Continue studying",
+    "fileProcessingTitle": "File processing",
+    "fileStatusDone": "Done",
+    "fileStatusProcessing": "Processing",
+    "fileStatusWaiting": "Waiting",
+    "removeFile": "Remove file",
+    "fileDetails": "File details",
+    "details": "Details",
     "builderLabel": "Builder",
     "stopping": "Stopping..."
   },
@@ -176,7 +184,7 @@
     "switched": "Game switched",
     "deleted": "Game deleted",
     "deleteConfirm": "Delete game permanently?",
-    "deleteWarn": "The following will be permanently deleted: all sessions (player chats, personal chats, builder chats), all messages within them, all documents (glossary, memos, rules), agent thought logs, and player access rights to this game.",
+    "deleteWarn": "The following will be permanently deleted: all sessions (player chats, personal chats, builder chats), all messages within them, all documents (glossary, memos, rules), and player access rights to this game.",
     "deleteOk": "Delete permanently",
     "deleteError": "Failed to get deletion info",
     "sessionsLabel": "Sessions (chats):",
@@ -192,7 +200,6 @@
     "importMaster": "Import Master",
     "exportMaster": "Export Master",
     "documents": "Documents",
-    "logs": "Logs",
     "aiSettings": "AI Settings",
     "importTitle": "Import Master",
     "importDesc": "Upload a previously exported master dump. A new game with the same rule structure will be created.",
@@ -230,6 +237,7 @@
       "update_document": ["Updating entry", "Refining data", "Editing document"],
       "read_document": ["Checking database", "Reviewing notes"],
       "search_documents": ["Searching database", "Looking up reference"],
+      "update_file_summary": ["Making notes", "Recording progress", "Updating file notes"],
       "retry": ["Retrying"],
       "final": "Writing response"
     },
@@ -256,13 +264,6 @@
     "brain": "Brain",
     "gameHidden": "Hidden",
     "gameVisible": "Player Data"
-  },
-  "logs": {
-    "title": "Thought Logs",
-    "empty": "No logs yet",
-    "loading": "Loading...",
-    "agentBuilder": "Builder",
-    "agentGameMaster": "Game Master"
   },
   "aiSettings": {
     "title": "AI Settings",

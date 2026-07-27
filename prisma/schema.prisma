@@ -33,8 +33,8 @@ model Master {
   access      GameAccess[]
   activeGame  ActiveGame[]
   sessions    Session[]
-  documents   Document[]
-  thoughtLogs ThoughtLog[]
+  documents     Document[]
+  uploadedFiles UploadedFile[]
 }
 
 model GameAccess {
@@ -87,26 +87,32 @@ model Session {
 }
 
 model Message {
-  id         String   @id @default(uuid())
-  sessionId  String
-  senderId   String
-  role       String   // "admin" | "player" | "master" | "builder"
-  content    String
-  shared     Boolean  @default(false)
-  summarized Boolean  @default(false)
-  hasFiles   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sender     User     @relation(fields: [senderId], references: [id])
+  id            String   @id @default(uuid())
+  sessionId     String
+  senderId      String
+  role          String   // "admin" | "player" | "master" | "builder"
+  content       String
+  shared        Boolean  @default(false)
+  summarized    Boolean  @default(false)
+  hasFiles      Boolean  @default(false)
+  attachedFiles String   @default("[]")  // JSON: [{fileId: string, filename: string}]
+  createdAt     DateTime @default(now())
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender        User     @relation(fields: [senderId], references: [id])
 }
 
-model ThoughtLog {
-  id        String   @id @default(uuid())
-  masterId  String
-  agent     String   // "builder" | "master"
-  content   String
-  createdAt DateTime @default(now())
-  master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+model UploadedFile {
+  id              String    @id @default(uuid())
+  masterId        String
+  filename        String
+  text            String
+  size            Int
+  lastReadOffset  Int       @default(0)
+  lastReadAt      DateTime?
+  summary         String    @default("")
+  glossarySummary String    @default("")
+  createdAt       DateTime  @default(now())
+  master          Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
 }
 
 model AppConfig {
@@ -117,4 +123,17 @@ model AppConfig {
   model        String  @default("")            // selected model ID
   contextLimit Int     @default(0)             // max context tokens (0 = auto-detect)
   extra        String  @default("")            // JSON: additional models list
+}
+
+model BuilderJob {
+  id         String   @id @default(uuid())
+  sessionId  String
+  status     String   @default("pending")  // pending | processing | done | failed
+  input      String                        // JSON: { content, fileIds }
+  error      String?                       // error message if failed
+  retries    Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@index([status, createdAt])
 }

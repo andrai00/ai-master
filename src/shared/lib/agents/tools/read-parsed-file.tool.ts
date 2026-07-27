@@ -25,7 +25,7 @@ export const readParsedFileTool = {
     const prisma = getPrisma();
     let file = await prisma.uploadedFile.findUnique({
       where: { id: fileId },
-      select: { filename: true, text: true },
+      select: { filename: true, text: true, summary: true, glossarySummary: true },
     });
 
     if (!file) {
@@ -34,7 +34,7 @@ export const readParsedFileTool = {
         await new Promise((r) => setTimeout(r, 100));
         file = await prisma.uploadedFile.findUnique({
           where: { id: fileId },
-          select: { filename: true, text: true },
+          select: { filename: true, text: true, summary: true, glossarySummary: true },
         });
         if (file) break;
       }
@@ -60,6 +60,8 @@ export const readParsedFileTool = {
       length: chunk.length,
       totalSize: file.text.length,
       hasMore,
+      summary: file.summary,
+      glossarySummary: file.glossarySummary,
     };
   },
 };

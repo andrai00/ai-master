@@ -238,6 +238,7 @@
       "update_document": ["Updating entry", "Refining data", "Editing document"],
       "read_document": ["Checking database", "Reviewing notes"],
       "search_documents": ["Searching database", "Looking up reference"],
+      "update_file_summary": ["Making notes", "Recording progress", "Updating file notes"],
       "retry": ["Retrying"],
       "final": "Writing response"
     },

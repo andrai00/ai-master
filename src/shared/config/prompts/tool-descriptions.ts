@@ -22,4 +22,7 @@ export const TOOL_DESCRIPTIONS = {
 
   search_documents:
     "Full-text search across glossary and brain documents. Searches title, summary, and content. Returns up to 20 matches.",
+
+  update_file_summary:
+    "Save notes about file processing progress for a specific uploaded file. Use summary to record what was read, key chapters found, where text breaks mid-sentence. Use glossarySummary to record what glossary documents were created/updated from this file and which topics are already covered — helps avoid re-processing the same content.",
 } as const;

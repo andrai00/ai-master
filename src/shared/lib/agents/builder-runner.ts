@@ -9,6 +9,7 @@ import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
+import { updateFileSummaryTool } from "./tools/update-file-summary.tool";
 import { removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
@@ -111,6 +112,7 @@ function getTools() {
   return {
     read_parsed_file: readParsedFileTool,
     list_uploaded_files: listUploadedFilesTool,
+    update_file_summary: updateFileSummaryTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
     read_document: readDocumentTool,

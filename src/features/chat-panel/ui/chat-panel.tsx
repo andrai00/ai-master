@@ -168,6 +168,8 @@ function getStepIcon(tool: string): ReactNode {
       return <ReadOutlined style={iconStyle} />;
     case "search_documents":
       return <SearchOutlined style={iconStyle} />;
+    case "update_file_summary":
+      return <CommentOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zodSchema } from "@ai-sdk/provider-utils";
+import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";

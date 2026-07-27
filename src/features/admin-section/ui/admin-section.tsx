@@ -1,7 +1,7 @@
 "use client";
 
 import { App } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from "@ant-design/icons";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, CodeOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, BulbOutlined, MessageOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
@@ -61,7 +61,7 @@ export const AdminSection = () => {
         href="/admin/ai-settings"
         className={`${styles.row} ${isActive("/admin/ai-settings") ? styles.rowActive : ""}`}
       >
-        <SettingOutlined className={styles.rowIcon} />
+        <MessageOutlined className={styles.rowIcon} />
         <span className={styles.rowLabel}>{t("mode.aiSettings")}</span>
       </Link>
 

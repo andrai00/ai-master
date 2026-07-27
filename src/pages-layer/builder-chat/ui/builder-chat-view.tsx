@@ -20,7 +20,7 @@ import type { IMessage } from "@/src/features/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
 
-const PAGE_SIZE = 30;
+const DEFAULT_PAGE_SIZE = 30;
 
 async function uploadFile(file: File): Promise<string> {
   const form = new FormData();
@@ -44,6 +44,7 @@ export const BuilderChatView = () => {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // UI state — driven by SSE, not by mutation
   const [typing, setTyping] = useState(false);
@@ -212,11 +213,13 @@ export const BuilderChatView = () => {
     await loadHistory(1);
   };
 
-  const loadHistory = async (p: number) => {
+  const loadHistory = async (p: number, ps?: number) => {
     if (!sessionId) return;
+    const size = ps ?? historyPageSize;
     setHistoryLoading(true);
     setHistoryPage(p);
-    const result = await getBuilderMessagesAction(sessionId, p, PAGE_SIZE);
+    setHistoryPageSize(size);
+    const result = await getBuilderMessagesAction(sessionId, p, size);
     if ("messages" in result) {
       setHistoryData(result.messages);
       setHistoryTotal(result.total);
@@ -274,7 +277,7 @@ export const BuilderChatView = () => {
       >
         <Table dataSource={historyData} columns={historyColumns} rowKey="id" size="small"
           loading={historyLoading}
-          pagination={{ current: historyPage, total: historyTotal, pageSize: PAGE_SIZE, showSizeChanger: false, hideOnSinglePage: true, onChange: loadHistory }}
+          pagination={{ current: historyPage, total: historyTotal, pageSize: historyPageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: loadHistory }}
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>

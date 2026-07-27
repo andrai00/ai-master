@@ -91,7 +91,7 @@ export async function deleteGameAction(
 
   const wasCurrentGame = activeGame ? activeGame.currentMasterId === id : false;
 
-  // Prisma cascades: GameAccess, ActiveGame, Session→Message, Document, ThoughtLog — all deleted automatically
+  // Prisma cascades: GameAccess, ActiveGame, Session→Message, Document, UploadedFile, BuilderJob — all deleted automatically
   await prisma.master.delete({ where: { id } });
 
   if (wasCurrentGame) {

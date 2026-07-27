@@ -193,13 +193,6 @@ Read 25 file chunks. Created 12 documents. Updated 3 documents. Searched 5 times
 
 4. Модель получает ~4 сообщения вместо 50+. Текущий tool-шаг не сжимается.
 
-### Логирование
-
-Каждый вызов AI логируется в `ThoughtLog`:
-- **REQUEST** — полный system prompt + сообщения
-- **STEP** — каждый tool call: входные параметры + результат
-- **RESPONSE** — итоговый ответ + все шаги
-
 ### Файлы
 
 | Файл | Назначение |

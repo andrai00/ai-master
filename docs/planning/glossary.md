@@ -38,4 +38,4 @@
 
 ## Схема БД
 
-См. `03-architecture.md` — Prisma schema с таблицами User, Master, GameAccess, ActiveGame, Document, Session, Message, ThoughtLog, AppConfig.
+См. `03-architecture.md` — Prisma schema с таблицами User, Master, GameAccess, ActiveGame, Document, Session, Message, AppConfig.

@@ -230,3 +230,13 @@ const { data: games } = useListGames();
 **Почему:** React Query cache — per-browser. Invalidate на админе A не триггерит refetch на админе B. Только SSE гарантирует синхронизацию.
 
 **Нарушение:** мутация чата без `broadcastGameEvent`.
+
+---
+
+## G25 — Все страницы используют единый `<PageHeader>` компонент
+
+**Суть:** каждая страница приложения рендерит `<PageHeader title="..." actions={...} />`. Запрещены inline-стили для заголовков, отдельные `h2`, самописные header-div'ы. Компонент находится в `src/shared/ui/page-header.tsx`.
+
+**Почему:** без единого компонента дизайн шапок расходится (разные font-size, padding, border). Мобильная кнопка меню дублируется или отсутствует. Любое изменение шапки требует правок во всех страницах.
+
+**Нарушение:** `<h2 style={{ fontSize: 16 }}>` или `<div className="pageHeader">` вместо `<PageHeader>`.

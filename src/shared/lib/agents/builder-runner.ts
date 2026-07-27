@@ -179,19 +179,6 @@ async function buildContext(sessionId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Logging
-// ---------------------------------------------------------------------------
-
-async function writeThoughtLog(masterId: string, agent: string, content: string) {
-  try {
-    const prisma = getPrisma();
-    await prisma.thoughtLog.create({ data: { masterId, agent, content } });
-  } catch {
-    // non-critical
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Background runner — no return value, drives SSE events
 // ---------------------------------------------------------------------------
 
@@ -229,10 +216,6 @@ export async function runBuilderAgent(
       ...ctx.messages,
       { role: "user", content: userMessage + fileHint },
     ];
-
-    // Log request
-    const requestLog = `=== REQUEST ===\n${ctx.system}\n\n=== CONVERSATION ===\n${messages.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join("\n\n")}`;
-    if (masterId) await writeThoughtLog(masterId, "builder", requestLog);
 
     const model = await createProvider();
     throwIfCancelled();
@@ -359,9 +342,6 @@ export async function runBuilderAgent(
                   }
                 }
                 emitStep(sessionId, toolName, detail);
-                const inputStr = JSON.stringify(call.input, null, 2).slice(0, 1000);
-                const outputStr = r?.output !== undefined ? JSON.stringify(r.output, null, 2).slice(0, 1000) : "(no output)";
-                if (masterId) await writeThoughtLog(masterId, "builder", `Tool: ${toolName}\nInput:\n${inputStr}\nOutput:\n${outputStr}`);
               }
             }
           },
@@ -405,10 +385,6 @@ export async function runBuilderAgent(
         content: builderText,
       },
     });
-
-    if (masterId) {
-      await writeThoughtLog(masterId, "builder", `=== RESPONSE ===\n${builderText}`);
-    }
 
     // Auto-summarize if 20+ unsummarized with text content
     const allUnsummarized = await prisma.message.findMany({

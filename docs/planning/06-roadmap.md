@@ -10,7 +10,7 @@
 ## Этап 1: Prisma + БД ✓ (готово)
 ## Этап 1.5: Builder-режимы и улучшения чата (текущий)
 
-- Схема: User, Master (+mode), ActiveGame, GameAccess, Document (+category, +playerId), Session, Message, ThoughtLog, AppConfig ✓
+- Схема: User, Master (+mode), ActiveGame, GameAccess, Document (+category, +playerId), Session, Message, AppConfig ✓
 - Миграция с sql.js на Prisma ✓
 - Управление пользователями (таблица, создание, редактирование, удаление) ✓
 - CRUD игр (создание, переключение, назначение доступов) ✓
@@ -24,7 +24,6 @@
 - Builder Chat — ping-pong с автосаммари, историей, очисткой ✓
 - AI Settings: конфигурация провайдера (OpenRouter, OpenAI, Anthropic, Groq, Ollama, custom) ✓
 - Документы: просмотр по категориям с Markdown-рендерингом ✓
-- Логи мысли (thought logs) с timeline-отображением ✓
 - SSE-push `mode_switch` всем клиентам при смене режима мастера ✓
 - Инварианты: в game-режиме `glossary`/`brain` read-only на уровне Server Actions ✓
 - Изоляция данных по играм + категориям ✓

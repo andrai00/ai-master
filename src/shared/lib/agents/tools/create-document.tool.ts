@@ -14,7 +14,7 @@ export const createDocumentTool = {
       title: z.string().describe("Document title"),
       content: z.string().describe("Document body in Markdown"),
       category: z.enum(["glossary", "brain"]).describe("Document category"),
-      type: z.string().describe("Document type (e.g. rule, template, _index, char_creation, mechanics, routing)"),
+      type: z.string().describe("Document type (e.g. rule, template, _index, char_creation, mechanics, routing, char_tracking, game_state, doc_org)"),
       tags: z.array(z.string()).optional().describe("Tags for searchability"),
       summary: z.string().optional().describe("1-2 sentence summary for quick preview"),
     })

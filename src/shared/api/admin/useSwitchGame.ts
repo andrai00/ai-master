@@ -11,6 +11,8 @@ export function useSwitchGame() {
       qc.invalidateQueries({ queryKey: ["admin", "games"] });
       qc.invalidateQueries({ queryKey: ["admin", "currentGame"] });
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["builder", "session"] });
+      qc.invalidateQueries({ queryKey: ["builder", "messages"] });
     },
   });
 }

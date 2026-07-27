@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { invalidateActiveGameCache } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function switchGameAction(
   masterId: string
@@ -21,6 +22,7 @@ export async function switchGameAction(
   });
 
   invalidateActiveGameCache();
+  broadcastGameEvent("game_switched");
 
   return { success: true };
 }

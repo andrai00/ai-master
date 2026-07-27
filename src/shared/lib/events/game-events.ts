@@ -1,7 +1,7 @@
 import "server-only";
 import { EventEmitter } from "events";
 
-export type TGameEvent = "mode_switch" | "kick" | "builder_mode_change" | "game_deleted";
+export type TGameEvent = "mode_switch" | "kick" | "builder_mode_change" | "game_deleted" | "game_switched";
 
 interface IGameEvent {
   type: TGameEvent;

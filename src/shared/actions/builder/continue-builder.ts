@@ -39,17 +39,6 @@ export async function continueBuilderAction(
     content += "\n\nUse read_parsed_file() with the offsets above to continue from where you left off.";
   }
 
-  await prisma.message.create({
-    data: {
-      sessionId,
-      senderId: session.userId,
-      role: "admin",
-      content,
-      hasFiles: true,
-      attachedFiles: JSON.stringify(files.map((f) => ({ fileId: f.id, filename: f.filename }))),
-    },
-  });
-
   enqueueBuilderJob(sessionId, content, fileIds).catch((err) => {
     console.error("[builder] Failed to enqueue continue:", err);
     runBuilderAgent(sessionId, content, fileIds).catch((e) => {

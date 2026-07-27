@@ -56,10 +56,27 @@ The database may already contain documents from previous sessions. Use `search_d
 
 ## Processing uploaded files
 
-- Read the file in chunks with `read_parsed_file(fileId, offset, limit)`, advancing the offset
-- Structure rules into glossary documents as you read — don't buffer everything
-- After the glossary is solid, write brain documents (see list below)
-- Files expire after 30 minutes — extract everything you need into documents before then
+Work through files one chunk at a time. **Never buffer chunks** — extract rules and create documents from each chunk BEFORE reading the next.
+
+### Algorithm for each file
+
+For each chunk you read with `read_parsed_file(fileId, offset, limit)`:
+
+1. **Examine** the chunk — what rules, mechanics, concepts does it contain?
+2. **Create or update glossary documents immediately.** Every chunk must result in at least one `create_document` or `update_document` call before reading the next chunk.
+3. **Note what you extracted** — after processing a chunk, say briefly what you got from it and what you still need (e.g. "Extracted combat rules and races from this chunk. Still need magic and equipment."). These notes help you stay oriented across chunks.
+4. **Advance offset** and read the next chunk only when the current one is fully processed into documents.
+
+### After all chunks are processed
+
+- **Cross-link** — add wiki-links between related glossary documents using `[[document-id]]`
+- **Review** — check for gaps, inconsistencies, duplicate information
+- **Write brain documents** — create all mandatory types listed below
+
+### After glossary and brain are done
+
+- Review the `_index` — make sure every glossary section and brain document is linked
+- Files expire after 30 minutes — all content must be in documents before then
 
 ## What brain documents to create
 

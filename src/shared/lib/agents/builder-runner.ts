@@ -253,21 +253,7 @@ export async function runBuilderAgent(
           tools,
           stopWhen: isStepCount(80),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
-            const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-            const estimated = totalChars / 4;
-            if (estimated < compressThreshold) return {};
-
-            // Compress: keep system + last admin message + pin last tool step.
-            // Summarize everything in between into one message.
-            const systemMsg = allMsgs.find(m => m.role === "system");
-            const adminMsgs = allMsgs.filter(m => m.role === "user");
-            const lastAdmin = adminMsgs[adminMsgs.length - 1];
-
-            // Pin last step (current processing — never compress)
-            const lastToolIdx = allMsgs.length - 1;
-            const lastTool = allMsgs[lastToolIdx];
-
-            // Build summary from all completed steps
+            // Count tool calls for summary (used by both compression paths)
             let reads = 0, created = 0, updated = 0, searched = 0, listed = 0;
             for (const s of allSteps ?? []) {
               for (const c of (s.toolCalls ?? [])) {
@@ -280,6 +266,56 @@ export async function runBuilderAgent(
                 }
               }
             }
+
+            // --- FILE-CHUNK COMPRESSION ---
+            // When 3+ chunks have been read, old raw chunk text is no longer needed —
+            // rules should already be extracted into glossary documents.
+            // Keep: system + admin + summary + last 2 chunks in full + LLM notes between them.
+            if (reads > 2) {
+              const systemMsg = allMsgs.find(m => m.role === "system");
+              const adminMsgs = allMsgs.filter(m => m.role === "user");
+              const lastAdmin = adminMsgs[adminMsgs.length - 1];
+
+              const summary = [
+                "[Compressed — processed earlier file chunks]",
+                `Read ${reads} chunks total.`,
+                created ? `Created ${created} documents.` : "",
+                updated ? `Updated ${updated} documents.` : "",
+                "Extracted rules are in glossary — use search_documents to reference them.",
+                "Continue from the last chunk. The LLM notes between chunks tell you what was extracted and what remains.",
+              ].filter(Boolean).join(" ");
+
+              // Keep last 10 messages — preserves ~2 recent chunks + processing + LLM self-notes
+              const TAIL = 10;
+              const recentMsgs = allMsgs.slice(-TAIL);
+
+              const compressed: ModelMessage[] = [];
+              if (systemMsg) compressed.push(systemMsg);
+              if (lastAdmin) compressed.push(lastAdmin);
+              compressed.push({ role: "assistant", content: summary });
+              for (const m of recentMsgs) {
+                if (m.role !== "system" && m.role !== "user") {
+                  compressed.push(m);
+                }
+              }
+
+              console.log(`[builder] File-chunk compression: ${allMsgs.length}→${compressed.length} msgs, ${reads} chunks read, ${created} docs created`);
+              return { messages: compressed };
+            }
+
+            // --- THRESHOLD-BASED COMPRESSION: original logic for non-file or early-file scenarios ---
+            const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+            const estimated = totalChars / 4;
+            if (estimated < compressThreshold) return {};
+
+            // Compress: keep system + last admin message + pin last tool step.
+            // Summarize everything in between into one message.
+            const systemMsg = allMsgs.find(m => m.role === "system");
+            const adminMsgs = allMsgs.filter(m => m.role === "user");
+            const lastAdmin = adminMsgs[adminMsgs.length - 1];
+
+            // Pin last step (current processing — never compress)
+            const lastTool = allMsgs[allMsgs.length - 1];
 
             const summary = [
               "[Compressed — previous steps]",

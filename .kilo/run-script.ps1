@@ -28,13 +28,5 @@ if (-not (Test-Path "node_modules\.prisma")) {
     if ($LASTEXITCODE -ne 0) { throw "prisma generate failed" }
 }
 
-# --- Derive unique port from worktree name ---
-$name = Split-Path -Leaf $env:WORKTREE_PATH
-$hash = 0
-foreach ($c in $name.ToCharArray()) {
-    $hash = ($hash * 31 + [int]$c) % 9973
-}
-$port = 3001 + ($hash % 99)
-
-Write-Host "Starting Next.js on port $port (worktree: $name)"
-pnpm next dev -p $port
+Write-Host "Starting Next.js on port 3000"
+pnpm next dev -p 3000

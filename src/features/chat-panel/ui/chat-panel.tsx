@@ -398,7 +398,7 @@ export const ChatPanel = ({
                 </button>
               </Tooltip>
             )}
-            {onDelete && !msg.summarized && (
+            {onDelete && !msg.summarized && !typing && (
               <Tooltip
                 title={confirmDelete === msg.id ? t("chat.deleteConfirm") : t("chat.delete")}
                 placement="top"
@@ -630,7 +630,7 @@ export const ChatPanel = ({
                   size="small"
                   icon={<PaperClipOutlined />}
                   className={styles.attachBtn}
-                  disabled={sending || attachedFiles.length >= maxFiles}
+                  disabled={sending || typing || attachedFiles.length >= maxFiles}
                   onClick={handleAttachClick}
                 />
               </Tooltip>

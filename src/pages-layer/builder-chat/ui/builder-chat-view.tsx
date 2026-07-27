@@ -51,6 +51,8 @@ export const BuilderChatView = () => {
   const [uploading, setUploading] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
+  const prevSessionId = useRef<string | undefined>(undefined);
+
   const sessionId = sessionData?.id;
   const { mode, setMode } = useBuilderMode(sessionId ?? null);
   const { modal } = App.useApp();
@@ -101,9 +103,16 @@ export const BuilderChatView = () => {
     setSwitchingMode(false);
   }, [mode, switchingMode, setMode, modal, t]);
 
-  // On mount: check if processing is already active (e.g. after page reload)
+  // On mount or sessionId change: check if processing is already active, reset UI on switch
   useEffect(() => {
     if (!sessionId) return;
+    if (prevSessionId.current && prevSessionId.current !== sessionId) {
+      // Session changed (game switched) — reset all builder UI state
+      setTyping(false);
+      setStopping(false);
+    }
+    prevSessionId.current = sessionId;
+
     import("@/src/shared/actions/builder/check-processing").then(({ checkProcessingAction }) => {
       checkProcessingAction(sessionId).then((r) => {
         if (r.processing) setTyping(true);

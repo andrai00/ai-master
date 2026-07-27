@@ -58,6 +58,10 @@ export const Shell = ({ user, children }: IShellProps) => {
         queryClient.invalidateQueries();
         router.refresh();
       }
+      if (type === "game_switched") {
+        queryClient.invalidateQueries();
+        router.refresh();
+      }
     };
     eventSource.onerror = () => {
       eventSource.close();

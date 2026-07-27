@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
 import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
+import { enqueueBuilderJob } from "@/src/shared/lib/queue";
 
 export async function sendBuilderMessageAction(
   sessionId: string,
@@ -34,9 +35,13 @@ export async function sendBuilderMessageAction(
     },
   });
 
-  // Fire-and-forget: process in background, don't await
-  runBuilderAgent(sessionId, content.trim(), fileIds).catch((err) => {
-    console.error("[builder] Background processing crashed:", err);
+  // Enqueue: controlled concurrency via better-queue + persisted in BuilderJob table
+  enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
+    console.error("[builder] Failed to enqueue:", err);
+    // Fallback: process directly if queue fails
+    runBuilderAgent(sessionId, content.trim(), fileIds).catch((e) => {
+      console.error("[builder] Background processing crashed:", e);
+    });
   });
 
   return { success: true };

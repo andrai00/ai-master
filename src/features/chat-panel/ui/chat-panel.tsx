@@ -444,7 +444,7 @@ export const ChatPanel = ({
                 placement="bottomRight"
               >
                 <Tooltip title={t("chat.clearChat")} placement="bottom">
-                  <Button type="text" size="small" icon={<ClearOutlined />} className={styles.headerBtn} />
+                  <Button type="text" size="small" icon={<ClearOutlined />} className={styles.headerBtn} disabled={typing || stopping} />
                 </Tooltip>
               </Popconfirm>
             )}

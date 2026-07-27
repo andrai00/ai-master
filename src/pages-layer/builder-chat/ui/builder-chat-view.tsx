@@ -244,11 +244,12 @@ export const BuilderChatView = () => {
         allowFiles
         acceptFiles=".pdf,.txt,.md,.docx"
         inputPrefix={
-          <Segmented
-            size="small"
-            className={styles.modeSwitcher}
-            value={mode}
-            onChange={(v) => handleModeChange(v as TBuilderMode)}
+            <Segmented
+              size="small"
+              className={styles.modeSwitcher}
+              value={mode}
+              disabled={typing || stopping}
+              onChange={(v) => handleModeChange(v as TBuilderMode)}
             options={[
               { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
               { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },

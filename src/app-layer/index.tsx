@@ -3,7 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, theme, App } from "antd";
 import ruRU from "antd/locale/ru_RU";
-import { FC, ReactNode, Suspense, useState, useMemo } from "react";
+import { FC, ReactNode, Suspense, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { queryClient } from "./providers/query-provider";
 import { ThemeContext, getInitialTheme, saveTheme, type TThemeMode } from "@/src/shared/lib/theme";
@@ -62,12 +62,25 @@ const baseComponents = {
 
 const Providers: FC<{ children: ReactNode }> = ({ children }) => {
   const [mode, setMode] = useState<TThemeMode>(() => {
-    const theme = getInitialTheme();
     if (typeof document !== "undefined") {
+      const theme = getInitialTheme();
       document.documentElement.setAttribute("data-theme", theme);
+      return theme;
     }
-    return theme;
+    return "dark";
   });
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (!ready) {
+      const theme = getInitialTheme();
+      /* eslint-disable react-hooks/set-state-in-effect -- SSR hydration gate */
+      if (mode !== theme) setMode(theme);
+      document.documentElement.setAttribute("data-theme", theme);
+      setReady(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+  }, [ready, mode]);
 
   const handleSetMode = (newMode: TThemeMode) => {
     setMode(newMode);
@@ -121,9 +134,11 @@ const Providers: FC<{ children: ReactNode }> = ({ children }) => {
       <ConfigProvider locale={ruRU} theme={themeConfig}>
         <App>
           <Suspense fallback={<LoadingFallback />}>
+            {ready && (
             <ThemeContext.Provider value={{ mode, setMode: handleSetMode }}>
               {children}
             </ThemeContext.Provider>
+            )}
           </Suspense>
         </App>
       </ConfigProvider>

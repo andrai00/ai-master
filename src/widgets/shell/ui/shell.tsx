@@ -64,7 +64,7 @@ export const Shell = ({ user, children }: IShellProps) => {
         queryClient.invalidateQueries();
         router.refresh();
       }
-      if (type === "builder_message_deleted") {
+      if (type === "builder_message_deleted" || type === "builder_message_sent") {
         if (payload?.sessionId) {
           queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
         }

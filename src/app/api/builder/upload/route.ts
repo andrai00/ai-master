@@ -4,6 +4,7 @@ import { parseFile } from "@/src/shared/lib/agents/file-parser";
 import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const maxDuration = 120;
 
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
         console.error(`[upload] Failed to save to DB: ${dbErr}`);
       }
 
+      broadcastGameEvent("file_uploaded", { fileId });
       statusMap.set(fileId, { status: "done" });
       console.log(`[upload] Background parse done: ${parsed.size} chars, fileId=${fileId}`);
     })

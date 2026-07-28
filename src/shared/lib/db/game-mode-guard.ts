@@ -1,5 +1,4 @@
 import "server-only";
-import { getPrisma } from "./prisma";
 import { getActiveGame } from "./active-game";
 
 /**

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Quick PDF parsing test — run: node scripts/test-parse.cjs
 const PDFParser = require("pdf2json");
 const fs = require("fs");

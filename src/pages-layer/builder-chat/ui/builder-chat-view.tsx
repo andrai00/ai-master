@@ -39,6 +39,7 @@ export const BuilderChatView = () => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [page, setPage] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState<IBuilderMessage[]>([]);
@@ -134,11 +135,6 @@ export const BuilderChatView = () => {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [sessionId, queryClient]);
 
-  // Reset stopping when typing ends
-  useEffect(() => {
-    if (!typing) setStopping(false);
-  }, [typing]);
-
   const { data: msgData } = useBuilderMessages(sessionId, page);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
@@ -191,7 +187,7 @@ export const BuilderChatView = () => {
       await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
       // Don't set typing — SSE does it when processing starts
     },
-    [sessionId, sendMutation]
+    [sessionId, sendMutation, notification, t]
   );
 
   // --- Stop ---
@@ -209,7 +205,7 @@ export const BuilderChatView = () => {
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
     },
-    [deleteMutation]
+    [deleteMutation, t, notification]
   );
 
   // --- Clear ---

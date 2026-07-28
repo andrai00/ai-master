@@ -25,15 +25,15 @@ export const Shell = ({ user, children }: IShellProps) => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    const check = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+      if (!mobile) setMobileOpen(false);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
-
-  useEffect(() => {
-    if (!isMobile) setMobileOpen(false);
-  }, [isMobile]);
 
   useEffect(() => {
     const eventSource = new EventSource("/api/game-events");
@@ -77,6 +77,7 @@ export const Shell = ({ user, children }: IShellProps) => {
       eventSource.close();
     };
     return () => eventSource.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const toggleSidebar = useCallback(() => {

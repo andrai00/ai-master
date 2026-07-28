@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, Input, Button, App, Upload, Popconfirm, Avatar, Tooltip } from "antd";
+import { Modal, Input, Button, App, Upload, Popconfirm, Avatar } from "antd";
 import { CameraOutlined, DeleteOutlined, CrownOutlined, UserOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";

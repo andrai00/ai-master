@@ -394,6 +394,9 @@ export async function runBuilderAgent(
     });
     const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
     if (withText.length >= 20) {
+      emitStep(sessionId, "summarize");
+      throwIfCancelled();
+
       const toSummarize = withText.slice(0, 20);
       const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
 

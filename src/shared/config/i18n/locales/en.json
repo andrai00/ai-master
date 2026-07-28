@@ -239,7 +239,8 @@
       "search_documents": ["Searching database", "Looking up reference"],
       "update_file_summary": ["Making notes", "Recording progress", "Updating file notes"],
       "retry": ["Retrying"],
-      "final": "Writing response"
+      "final": "Writing response",
+      "summarize": "Summarizing history"
     },
     "modeBrain": "Brain",
     "modeBrainHint": "Configuring rules and AI Master instructions",

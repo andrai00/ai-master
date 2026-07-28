@@ -21,7 +21,6 @@ import {
   SearchOutlined,
   CommentOutlined,
   PaperClipOutlined,
-  CloseOutlined,
   CaretRightOutlined,
   FileOutlined,
   MenuOutlined,
@@ -209,18 +208,24 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [stepLabel, setStepLabel] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLabelRef = useRef<Map<string, string>>(new Map());
 
+  useEffect(() => {
+    if (!liveStep) return;
+    const exclude = lastLabelRef.current.get(liveStep.tool);
+    const label = getStepLabel(liveStep.tool, t, exclude);
+    lastLabelRef.current.set(liveStep.tool, label);
+    setStepLabel(label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveStep]);
+
   // Subscribe to SSE for real-time step tracking (always connected on builder page)
   useEffect(() => {
-    if (!stepsSessionId) {
-      setLiveStep(null);
-      return;
-    }
+    if (!stepsSessionId) return;
 
-    setLiveStep(null);
     let started = false;
     const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
 
@@ -259,6 +264,7 @@ export const ChatPanel = ({
     };
 
     return () => es.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
 
   useEffect(() => {
@@ -518,12 +524,7 @@ export const ChatPanel = ({
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}
                       <span>
-                        {(() => {
-                          const exclude = lastLabelRef.current.get(liveStep.tool);
-                          const label = getStepLabel(liveStep.tool, t, exclude);
-                          lastLabelRef.current.set(liveStep.tool, label);
-                          return label;
-                        })()}{liveStep.detail ? ` (${liveStep.detail})` : ""}
+                        {stepLabel}{liveStep.detail ? ` (${liveStep.detail})` : ""}
                       </span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />

@@ -19,7 +19,6 @@ export const GameSelector = ({ isAdmin, onGameChange }: IGameSelectorProps) => {
   const [modalOpen, setModalOpen] = useState(false);
 
   const name = current?.name || t("gameSelector.noGame");
-  const firstLetter = name.charAt(0).toUpperCase();
 
   if (!isAdmin) {
     return (

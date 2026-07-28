@@ -1,6 +1,6 @@
 "use client";
 
-import { Select, Input, Button, App, Tooltip } from "antd";
+import { Select, Input, Button, App } from "antd";
 import {
   CloudOutlined,
   RobotOutlined,
@@ -8,10 +8,8 @@ import {
   SettingOutlined,
   SaveOutlined,
   ApiOutlined,
-  ReloadOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
 import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/useAiConfig";
 import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
 import { useModelList } from "@/src/shared/api/admin/useModelList";
@@ -81,9 +79,8 @@ function getProvider(v: string) {
 export const AiSettingsView = () => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
-  const qc = useQueryClient();
 
-  const { data: config, isLoading } = useAiConfig();
+  const { data: config } = useAiConfig();
 
   const [provider, setProvider] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -97,10 +94,12 @@ export const AiSettingsView = () => {
 
   useEffect(() => {
     if (config) {
+      /* eslint-disable react-hooks/set-state-in-effect -- form pre-fill from async query */
       setProvider(config.provider);
       setBaseUrl(config.baseUrl);
       setApiKey(config.apiKey);
       setModel(config.model);
+      /* eslint-enable react-hooks/set-state-in-effect */
       setContextLimit(config.contextLimit > 0 ? String(config.contextLimit) : "");
     }
   }, [config]);

@@ -44,7 +44,8 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || user?.login || t("sidebar.guest"));
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- tracks client-side mount for avatar
+  useEffect(() => { setMounted(true); }, []);
 
   const handleLogout = () => {
     modal.confirm({
@@ -87,7 +88,8 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   ];
 
   const isAdmin = user?.role === "admin";
-  const { data: modeData } = isAdmin ? useActiveMode() : { data: null };
+  const modeQuery = useActiveMode();
+  const { data: modeData } = isAdmin ? modeQuery : { data: null };
   const isDev = modeData?.mode === "development";
   const { data: avatarUri } = useUserAvatar(user?.userId);
   const name = displayName;

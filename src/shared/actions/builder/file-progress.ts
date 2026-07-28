@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export interface IFileProgressItem {
   fileId: string;
@@ -39,5 +40,6 @@ export async function removeUploadedFileAction(fileId: string): Promise<boolean>
 
   const prisma = getPrisma();
   await prisma.uploadedFile.delete({ where: { id: fileId } }).catch(() => {});
+  broadcastGameEvent("file_removed", { fileId });
   return true;
 }

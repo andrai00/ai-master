@@ -1,7 +1,7 @@
 "use client";
 
-import { Table, Button, Modal, Input, App, Avatar, Popconfirm, Select, Checkbox, Tooltip, Popover } from "antd";
-import { UserAddOutlined, UserOutlined, CrownOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Button, Modal, Input, App, Popconfirm, Select, Checkbox, Tooltip, Popover } from "antd";
+import { UserAddOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useListUsers } from "@/src/shared/api/admin/useListUsers";

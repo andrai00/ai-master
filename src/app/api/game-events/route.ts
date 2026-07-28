@@ -18,7 +18,7 @@ export async function GET() {
       controller.enqueue(encoder.encode(": connected\n\n"));
 
       // Subscribe to broadcast events (mode_switch, builder_mode_change, etc.)
-      const unsubscribe = onGameEvent((event) => {
+      onGameEvent((event) => {
         if (closed) return;
         const data = JSON.stringify({ type: event.type, payload: event.payload });
         controller.enqueue(encoder.encode(`data: ${data}\n\n`));

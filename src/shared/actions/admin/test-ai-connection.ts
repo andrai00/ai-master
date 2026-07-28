@@ -39,16 +39,17 @@ export async function testAiConnectionAction(
     let models: string[] = [];
 
     if (Array.isArray(data.data)) {
-      models = data.data.map((m: any) => m.id).filter(Boolean);
+      models = (data.data as Array<{ id?: string }>).map((m) => m.id).filter((id): id is string => !!id);
     } else if (Array.isArray(data.models)) {
-      models = data.models.map((m: any) => m.name || m.model || m.id).filter(Boolean);
+      models = (data.models as Array<{ name?: string; model?: string; id?: string }>).map((m) => m.name || m.model || m.id).filter((id): id is string => !!id);
     } else if (Array.isArray(data)) {
-      models = data.map((m: any) => m.id || m.name || m.model).filter(Boolean);
+      models = (data as Array<{ id?: string; name?: string; model?: string }>).map((m) => m.id || m.name || m.model).filter((id): id is string => !!id);
     }
 
     return { success: true, message: `Found: ${models.length}`, models };
-  } catch (e: any) {
-    return { success: false, message: e.message || "errors.unknownError" };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "errors.unknownError";
+    return { success: false, message: msg };
   }
 }
 

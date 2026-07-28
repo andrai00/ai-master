@@ -5,6 +5,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
 import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
 import { enqueueBuilderJob } from "@/src/shared/lib/queue";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function sendBuilderMessageAction(
   sessionId: string,
@@ -40,6 +41,8 @@ export async function sendBuilderMessageAction(
       attachedFiles: JSON.stringify(attachedFiles),
     },
   });
+
+  broadcastGameEvent("builder_message_sent", { sessionId });
 
   enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
     console.error("[builder] Failed to enqueue:", err);

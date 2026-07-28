@@ -61,15 +61,26 @@ const baseComponents = {
 };
 
 const Providers: FC<{ children: ReactNode }> = ({ children }) => {
-  const [mode, setMode] = useState<TThemeMode>("dark");
+  const [mode, setMode] = useState<TThemeMode>(() => {
+    if (typeof document !== "undefined") {
+      const theme = getInitialTheme();
+      document.documentElement.setAttribute("data-theme", theme);
+      return theme;
+    }
+    return "dark";
+  });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const theme = getInitialTheme();
-    setMode(theme);
-    document.documentElement.setAttribute("data-theme", theme);
-    setReady(true);
-  }, []);
+    if (!ready) {
+      const theme = getInitialTheme();
+      /* eslint-disable react-hooks/set-state-in-effect -- SSR hydration gate */
+      if (mode !== theme) setMode(theme);
+      document.documentElement.setAttribute("data-theme", theme);
+      setReady(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+  }, [ready, mode]);
 
   const handleSetMode = (newMode: TThemeMode) => {
     setMode(newMode);
@@ -124,9 +135,9 @@ const Providers: FC<{ children: ReactNode }> = ({ children }) => {
         <App>
           <Suspense fallback={<LoadingFallback />}>
             {ready && (
-              <ThemeContext.Provider value={{ mode, setMode: handleSetMode }}>
-                {children}
-              </ThemeContext.Provider>
+            <ThemeContext.Provider value={{ mode, setMode: handleSetMode }}>
+              {children}
+            </ThemeContext.Provider>
             )}
           </Suspense>
         </App>

@@ -25,6 +25,17 @@ export async function GET(request: NextRequest) {
     start(controller) {
       controller.enqueue(encoder.encode(": connected\n\n"));
 
+      unsubscribe = onStep(sessionId, (ev: IStepEvent) => {
+        if (closed) return;
+        if (ev.seq > lastSeq) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
+          lastSeq = ev.seq;
+        }
+        if (ev.type === "done" || ev.type === "stopped") {
+          lastSeq = 0;
+        }
+      });
+
       const existing = getEvents(sessionId);
       if (existing) {
         for (const ev of existing.events) {
@@ -34,14 +45,6 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-
-      unsubscribe = onStep(sessionId, (ev: IStepEvent) => {
-        if (closed) return;
-        if (ev.seq > lastSeq) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
-          lastSeq = ev.seq;
-        }
-      });
 
       const keepAlive = () => {
         if (closed) return;

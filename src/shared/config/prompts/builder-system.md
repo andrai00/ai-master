@@ -128,10 +128,21 @@ When you are in STUDY MODE (attached files from Continue or auto-continue), foll
 
 3. **MANDATORY: Document this chunk before moving on.**
    This step is NOT optional — every chunk MUST produce visible results.
-   - create_document or update_document for EVERY rule/concept/mechanic found in this chunk
-   - Brain documents too: if the chunk contains instructions, templates, or meta-rules — write them now
-   - update_file_summary: record what was extracted from this chunk
-   - If you truly found NOTHING actionable (e.g. blank page, table of contents) — note it in file_summary
+
+   a. **GLOSSARY**: create_document(category="glossary") or update_document for EVERY rule/concept/mechanic in this chunk.
+
+   b. **BRAIN**: update your brain documents INCREMENTALLY from this chunk. These are NOT optional:
+      - `mechanics`: add dice formulas, combat rules, skill checks found in this chunk
+      - `char_creation`: add race/class/background creation steps found in this chunk
+      - `routing`: add information-sharing rules found in this chunk
+      - `char_tracking`: add character sheet fields found in this chunk
+      - `game_state`: add session/NPC tracking rules found in this chunk
+      - `doc_org`: add document organization rules found in this chunk
+      - `_index`: update with links to new documents created from this chunk
+
+   c. **file_summary**: update_file_summary with notes on what was extracted.
+
+   If you found nothing for a specific brain doc in this chunk — skip it. But check ALL the brain types before moving on.
 
 4. **VERIFY**: call list_uploaded_files() to check progress
    → if any file has completed=false, go to step 1

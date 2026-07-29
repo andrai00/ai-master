@@ -181,3 +181,23 @@
 ### Bad: добавлять правила в документацию без подтверждения
 ### Why: правила проекта определяет пользователь. Агент может предложить, но не вносить.
 ### Good: предложить в чате → дождаться подтверждения → добавить
+
+---
+
+## Real-time / SSE
+
+### Bad: `setTimeout(poll, 300)` для опроса буфера в SSE-роуте
+### Why: создаёт задержку 0-300ms между записью события и доставкой клиенту. Отправитель и получатели видят события в разное время — десинхронизация. Event loop может быть занят (загрузка файла) и poll откладывается ещё дальше.
+### Good: EventEmitter + подписка (`onStep`/`onGameEvent`). Источник пушит событие → подписчики получают мгновенно в той же итерации event loop. См. `step-tracker.ts` (EventEmitter) и `steps/route.ts` (подписка через `onStep`).
+
+### Bad: `eventSource.close()` в `onerror` обработчике
+### Why: EventSource рассчитан на авто-реконнект. Закрытие в onerror убивает реконнект → клиент теряет все будущие события до перезагрузки страницы.
+### Good: оставить `onerror` пустым — EventSource сам переподключится.
+
+### Bad: `refetchInterval: 3000` в React Query как замена SSE
+### Why: создаёт лишние запросы к серверу (4 запроса каждые 3 секунды на двух клиентах). SSE должен быть единственным механизмом real-time обновлений.
+### Good: только SSE + `invalidateQueries`. При начальной загрузке — mount refetch. См. `useBuilderMessages.ts`, `useFileProgress.ts`.
+
+### Bad: `throwIfCancelled()` с `DOMException("AbortError")` внутри tool.execute
+### Why: AI SDK ловит ошибки тулзов как tool results и отдаёт LLM, а не пробрасывает в `generateText()`. AbortError внутри тулза никогда не прерывает генерацию — LLM видит ошибку и ретраит тулз.
+### Good: `if (isCancelled()) throw new Error("errors.cancelled")` — обычная ошибка, AI SDK отдаёт LLM. Между шагами `abortSignal` проверяется и корректно прерывает `generateText()`.

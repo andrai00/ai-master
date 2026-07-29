@@ -10,6 +10,7 @@ export interface IFileProgressItem {
   filename: string;
   totalSize: number;
   readOffset: number;
+  status: "parsing" | "done" | "error";
 }
 
 export async function getFileProgressAction(): Promise<IFileProgressItem[]> {
@@ -22,7 +23,7 @@ export async function getFileProgressAction(): Promise<IFileProgressItem[]> {
   const prisma = getPrisma();
   const files = await prisma.uploadedFile.findMany({
     where: { masterId: activeGame.currentMasterId },
-    select: { id: true, filename: true, size: true, lastReadOffset: true },
+    select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -31,6 +32,7 @@ export async function getFileProgressAction(): Promise<IFileProgressItem[]> {
     filename: f.filename,
     totalSize: f.size,
     readOffset: f.lastReadOffset,
+    status: (f.status as IFileProgressItem["status"]) ?? "parsing",
   }));
 }
 

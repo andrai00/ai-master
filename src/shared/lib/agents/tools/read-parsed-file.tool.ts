@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { zodSchema } from "ai";
-import { getFileParseError } from "@/src/shared/lib/agents/file-cache";
-import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
@@ -19,34 +18,44 @@ export const readParsedFileTool = {
     const offset = args.offset ?? 0;
     const limit = args.limit ?? 5000;
 
-    const parseError = getFileParseError(fileId);
-    if (parseError) throw new Error("errors.fileParseError");
-
     const prisma = getPrisma();
-    let file = await prisma.uploadedFile.findUnique({
+    const file = await prisma.uploadedFile.findUnique({
       where: { id: fileId },
-      select: { filename: true, text: true, summary: true, glossarySummary: true },
+      select: { filename: true, text: true, size: true, status: true, summary: true, glossarySummary: true },
     });
 
-    if (!file) {
-      for (let i = 0; i < 6000; i++) {
-        throwIfCancelled();
-        await new Promise((r) => setTimeout(r, 100));
-        file = await prisma.uploadedFile.findUnique({
-          where: { id: fileId },
-          select: { filename: true, text: true, summary: true, glossarySummary: true },
-        });
-        if (file) break;
-      }
-      if (!file) throw new Error("errors.fileParseTimeout");
+    if (!file) throw new Error("errors.fileParseError");
+
+    if (isCancelled()) throw new Error("errors.cancelled");
+
+    // Trust DB status over in-memory cache — DB is the source of truth.
+    // A stale parse error in the cache does not override a successful parse in DB.
+    if (file.status === "error") {
+      throw new Error("errors.fileParseError");
     }
 
-    throwIfCancelled();
+    if (file.status === "parsing") {
+      return {
+        fileId,
+        filename: file.filename,
+        status: "parsing",
+        text: "",
+        offset: 0,
+        length: 0,
+        totalSize: 0,
+        hasMore: false,
+        summary: file.summary,
+        glossarySummary: file.glossarySummary,
+        note: "File is still being parsed. Use list_uploaded_files() to check status and try again later.",
+      };
+    }
 
-    const chunk = file.text.slice(offset, offset + limit);
-    const hasMore = offset + limit < file.text.length;
+    const textLength = file.text.length;
+    const safeOffset = Math.min(offset, textLength);
+    const chunk = file.text.slice(safeOffset, safeOffset + limit);
+    const hasMore = safeOffset + limit < textLength;
 
-    const readEnd = offset + chunk.length;
+    const readEnd = safeOffset + chunk.length;
     prisma.uploadedFile.update({
       where: { id: fileId },
       data: { lastReadOffset: readEnd, lastReadAt: new Date() },
@@ -55,10 +64,11 @@ export const readParsedFileTool = {
     return {
       fileId,
       filename: file.filename,
+      status: "done",
       text: chunk,
-      offset,
+      offset: safeOffset,
       length: chunk.length,
-      totalSize: file.text.length,
+      totalSize: textLength,
       hasMore,
       summary: file.summary,
       glossarySummary: file.glossarySummary,

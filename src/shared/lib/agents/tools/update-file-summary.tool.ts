@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { zodSchema } from "ai";
-import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 
@@ -14,7 +14,7 @@ export const updateFileSummaryTool = {
     })
   ),
   execute: async (args: { fileId: string; summary?: string; glossarySummary?: string }) => {
-    throwIfCancelled();
+    if (isCancelled()) throw new Error("errors.cancelled");
 
     const data: Record<string, string> = {};
     if (args.summary !== undefined) data.summary = args.summary;

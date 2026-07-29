@@ -20,8 +20,10 @@ export function resetCancellation(): void { globalCancelled.cancelled = false; }
 export function isCancelled(): boolean { return globalCancelled.cancelled === true; }
 
 /**
- * Throw if cancelled. Use in tools and runner to abort immediately.
- * Uses DOMException AbortError — the AI SDK recognizes this and stops the loop.
+ * Throw if cancelled. Use OUTSIDE tool execute functions (e.g., in builder-runner.ts).
+ * In tools, use `isCancelled()` + `throw new Error("errors.cancelled")` instead —
+ * AbortError thrown inside a tool's execute is caught by the AI SDK as a tool result
+ * and does NOT propagate to abort generateText.
  */
 export function throwIfCancelled(): void {
   if (globalCancelled.cancelled) {

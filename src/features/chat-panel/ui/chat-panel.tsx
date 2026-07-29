@@ -26,6 +26,7 @@ import {
   MenuOutlined,
   SettingOutlined,
   StopOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -68,6 +69,7 @@ export interface IFileProgress {
   filename: string;
   totalSize: number;
   readOffset: number;
+  status: "parsing" | "done" | "error";
   onRemove?: () => void;
 }
 
@@ -171,6 +173,8 @@ function getStepIcon(tool: string): ReactNode {
       return <SearchOutlined style={iconStyle} />;
     case "update_file_summary":
       return <CommentOutlined style={iconStyle} />;
+    case "file_parsing":
+      return <LoadingOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:
@@ -245,9 +249,11 @@ export const ChatPanel = ({
             setLiveStep(null);
             break;
           case "done":
+            started = false;
             onStepsDone?.();
             break;
           case "stopped":
+            started = false;
             onStepsDone?.();
             break;
           case "error":
@@ -260,7 +266,7 @@ export const ChatPanel = ({
     };
 
     es.onerror = () => {
-      es.close();
+      // EventSource auto-reconnects on its own — don't close it
     };
 
     return () => es.close();

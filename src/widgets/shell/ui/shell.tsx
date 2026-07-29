@@ -70,11 +70,11 @@ export const Shell = ({ user, children }: IShellProps) => {
         }
       }
       if (type === "file_uploaded" || type === "file_removed") {
-        queryClient.invalidateQueries({ queryKey: ["builder", "fileProgress"] });
+        queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
       }
     };
     eventSource.onerror = () => {
-      eventSource.close();
+      // EventSource auto-reconnects on its own — don't close it
     };
     return () => eventSource.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps

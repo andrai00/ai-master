@@ -106,6 +106,8 @@
     "fileStatusDone": "Готово",
     "fileStatusProcessing": "Читается",
     "fileStatusWaiting": "Ожидает",
+    "fileStatusParsing": "Распознаётся",
+    "fileStatusError": "Ошибка",
     "removeFile": "Убрать файл",
     "fileDetails": "Детали файлов",
     "details": "Подробнее",
@@ -240,7 +242,8 @@
       "update_file_summary": ["Делает заметки", "Записывает прогресс", "Обновляет пометки файла"],
       "retry": ["Повторная попытка"],
       "final": "Формирует ответ",
-      "summarize": "Суммирует историю"
+      "summarize": "Суммирует историю",
+      "file_parsing": ["Распознаёт файлы", "Обрабатывает документ", "Парсит текст"]
     },
     "modeBrain": "Мозг",
     "modeBrainHint": "Настройка правил и инструкций ИИ-мастера",

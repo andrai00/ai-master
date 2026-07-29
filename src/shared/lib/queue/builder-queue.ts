@@ -53,6 +53,15 @@ async function recoverStaleJobs(): Promise<void> {
   });
 
   for (const job of stale) {
+    if (job.status === "processing") {
+      await prisma.builderJob.update({
+        where: { id: job.id },
+        data: { status: "failed", error: "Interrupted by server restart" },
+      });
+      console.log(`[queue] Marked stale processing job ${job.id} as failed`);
+      continue;
+    }
+
     const input = JSON.parse(job.input) as { content: string; fileIds: string[] };
     getQueue().push({
       id: job.id,
@@ -63,7 +72,7 @@ async function recoverStaleJobs(): Promise<void> {
   }
 
   if (stale.length > 0) {
-    console.log(`[queue] Recovered ${stale.length} stale jobs on startup`);
+    console.log(`[queue] Recovered ${stale.filter(j => j.status === "pending").length} pending jobs, marked ${stale.filter(j => j.status === "processing").length} processing as failed on startup`);
   }
 }
 

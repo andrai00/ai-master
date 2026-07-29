@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
-import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { getReadableCategories } from "./builder-mode-guard";
 
@@ -18,7 +18,7 @@ export const searchDocumentsTool = {
     })
   ),
   execute: async (args: { query: string; category?: "glossary" | "brain" }) => {
-    throwIfCancelled();
+    if (isCancelled()) throw new Error("errors.cancelled");
     const activeGame = await getActiveGame();
     if (!activeGame) return [];
 

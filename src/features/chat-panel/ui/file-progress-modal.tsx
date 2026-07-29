@@ -10,6 +10,7 @@ export interface IFileProgress {
   filename: string;
   totalSize: number;
   readOffset: number;
+  status: "parsing" | "done" | "error";
   onRemove?: () => void;
 }
 
@@ -35,10 +36,13 @@ function truncateName(name: string): string {
 }
 
 function getStatus(
+  status: IFileProgress["status"],
   readOffset: number,
   totalSize: number,
   t: (key: string) => string
 ): { label: string; className: string } {
+  if (status === "error") return { label: t("chat.fileStatusError"), className: styles.statusError };
+  if (status === "parsing") return { label: t("chat.fileStatusParsing"), className: styles.statusParsing };
   if (totalSize <= 0) return { label: t("chat.fileStatusWaiting"), className: styles.statusWaiting };
   if (readOffset >= totalSize) return { label: t("chat.fileStatusDone"), className: styles.statusDone };
   if (readOffset > 0) return { label: t("chat.fileStatusProcessing"), className: styles.statusProcessing };
@@ -61,10 +65,12 @@ export const FileProgressModal = ({ open, files, processing, onClose, onContinue
     >
       <div className={styles.modalContent}>
         {files.map((f) => {
+          const isParsing = f.status === "parsing";
+          const isError = f.status === "error";
           const totalChunks = getChunks(f.totalSize);
           const readChunks = f.readOffset > 0 ? Math.min(getChunks(f.readOffset), totalChunks) : 0;
           const pct = f.totalSize > 0 ? Math.min(Math.round((f.readOffset / f.totalSize) * 100), 100) : 0;
-          const status = getStatus(f.readOffset, f.totalSize, t);
+          const status = getStatus(f.status, f.readOffset, f.totalSize, t);
 
           return (
             <div key={f.fileId} className={styles.modalFile}>
@@ -72,10 +78,12 @@ export const FileProgressModal = ({ open, files, processing, onClose, onContinue
                 <div className={styles.modalFileInfo}>
                   <FileOutlined style={{ fontSize: 12, color: "var(--text-dim)", flexShrink: 0 }} />
                   <span className={styles.modalFileName}>{truncateName(f.filename)}</span>
-                  <span className={styles.modalFileChunks}>
-                    <FileTextOutlined style={{ fontSize: 11 }} />
-                    {readChunks}/{totalChunks}
-                  </span>
+                  {!isParsing && !isError && f.totalSize > 0 && (
+                    <span className={styles.modalFileChunks}>
+                      <FileTextOutlined style={{ fontSize: 11 }} />
+                      {readChunks}/{totalChunks}
+                    </span>
+                  )}
                 </div>
                 <div className={styles.modalFileRight}>
                   <span className={`${styles.modalFileStatus} ${status.className}`}>{status.label}</span>
@@ -92,12 +100,14 @@ export const FileProgressModal = ({ open, files, processing, onClose, onContinue
                   )}
                 </div>
               </div>
-              <div className={styles.modalProgressTrack}>
-                <span
-                  className={`${styles.modalProgressFill} ${pct >= 100 ? styles.progressDone : ""}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              {!isParsing && !isError && (
+                <div className={styles.modalProgressTrack}>
+                  <span
+                    className={`${styles.modalProgressFill} ${pct >= 100 ? styles.progressDone : ""}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              )}
             </div>
           );
         })}

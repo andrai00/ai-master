@@ -5,6 +5,7 @@ import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { ensureSession, emitStep, emitDone } from "@/src/shared/lib/agents/step-tracker";
 
 export const maxDuration = 120;
 
@@ -54,23 +55,40 @@ export async function POST(request: NextRequest) {
 
   console.log(`[upload] File received: ${file.name} (${file.size} bytes)`);
 
-  // Generate fileId immediately, return it to client
   const fileId = crypto.randomUUID();
   const statusMap = getStatusMap();
   statusMap.set(fileId, { status: "parsing" });
 
-  // Parse in background — don't block the response
+  const prisma = getPrisma();
+  const activeGame = await getActiveGame();
+
+  // Get builder session for SSE step tracking (shows parsing bubble in chat)
+  let sessionId: string | undefined;
+  if (activeGame?.currentMasterId) {
+    const s = await prisma.session.findFirst({
+      where: { masterId: activeGame.currentMasterId, type: "builder" },
+      select: { id: true },
+    });
+    sessionId = s?.id;
+  }
+  if (sessionId) {
+    ensureSession(sessionId);
+    emitStep(sessionId, "file_parsing", `${file.name}: parsing`);
+  }
+
+  // Parse in background via worker — main thread stays responsive
   const buffer = Buffer.from(await file.arrayBuffer());
   console.log(`[upload] Buffer: ${buffer.length} bytes, starting background parse`);
 
-  parseFile(buffer, file.name)
+  parseFile(buffer, file.name, sessionId ? (elapsed) => {
+    emitStep(sessionId!, "file_parsing", `${file.name}: ${elapsed}s`);
+  } : undefined)
     .then(async (parsed) => {
       cacheFile(fileId, parsed.text, parsed.size, file.name);
 
-      try {
-        const prisma = getPrisma();
-        const activeGame = await getActiveGame();
-        if (activeGame?.currentMasterId) {
+      // Create DB record only after successful parse — files without text don't appear in lists
+      if (activeGame?.currentMasterId) {
+        try {
           await prisma.uploadedFile.create({
             data: {
               id: fileId,
@@ -78,22 +96,35 @@ export async function POST(request: NextRequest) {
               filename: file.name,
               text: parsed.text,
               size: parsed.size,
+              status: "done",
             },
           });
+          broadcastGameEvent("file_uploaded", { fileId });
+        } catch (dbErr) {
+          console.error(`[upload] Failed to save parsed file to DB: ${dbErr}`);
         }
-      } catch (dbErr) {
-        console.error(`[upload] Failed to save to DB: ${dbErr}`);
       }
 
-      broadcastGameEvent("file_uploaded", { fileId });
       statusMap.set(fileId, { status: "done" });
       console.log(`[upload] Background parse done: ${parsed.size} chars, fileId=${fileId}`);
+
+      if (sessionId) {
+        emitStep(sessionId, "file_parsing", `${file.name}: ${Math.round(parsed.size / 1024)}K chars`);
+        const stillParsing = Array.from(statusMap.values()).some((s) => s.status === "parsing");
+        if (!stillParsing) emitDone(sessionId);
+      }
     })
-    .catch((err) => {
+    .catch(async (err) => {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error(`[upload] Background parse failed: ${msg}`);
       setFileParseError(fileId, msg);
       statusMap.set(fileId, { status: "error", error: msg });
+
+      if (sessionId) {
+        emitStep(sessionId, "file_parsing", `${file.name}: error`);
+        const stillParsing = Array.from(statusMap.values()).some((s) => s.status === "parsing");
+        if (!stillParsing) emitDone(sessionId);
+      }
     });
 
   return NextResponse.json({ fileId, filename: file.name, size: file.size, status: "parsing" });

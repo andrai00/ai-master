@@ -7,7 +7,7 @@ export function useFileProgress() {
   return useQuery({
     queryKey: ["builder", "file-progress"],
     queryFn: getFileProgressAction,
-    refetchInterval: 3000,
+    staleTime: 0,
   });
 }
 

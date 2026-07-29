@@ -25,16 +25,19 @@ export async function autoContinueBuilder(sessionId: string): Promise<void> {
 
   if (activeFiles.length === 0) return;
 
-  const progress = activeFiles
-    .map((f) => {
+  const fileList = activeFiles
+    .map((f, i) => {
       const pct = Math.round((f.lastReadOffset / f.size) * 100);
-      return `${f.filename}: read up to offset ${f.lastReadOffset} of ${f.size} (${pct}%)`;
+      return `${i + 1}. ${f.filename}: offset ${f.lastReadOffset}/${f.size} (${pct}%)`;
     })
-    .join("\n- ");
+    .join("\n");
 
-  let content = "Continue processing the files.";
-  content += `\n\nProgress so far:\n- ${progress}`;
-  content += "\n\nUse read_parsed_file() with the offsets above to continue from where you left off.";
+  const content =
+    "Continue processing files IN ORDER — finish each completely before moving to the next.\n\n" +
+    `Files to process:\n${fileList}\n\n` +
+    "IMPORTANT: Process ALL files. Do NOT write a response or stop until every file is fully read. " +
+    "After finishing a file, call list_uploaded_files() to check for remaining files. " +
+    "Only respond when ALL files are done or if you encounter an error.";
 
   enqueueBuilderJob(sessionId, content, fileIds).catch((err) => {
     console.error("[builder] Failed to enqueue auto-continue:", err);

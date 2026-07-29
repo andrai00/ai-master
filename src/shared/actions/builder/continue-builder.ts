@@ -15,6 +15,7 @@ export async function autoContinueBuilder(sessionId: string): Promise<void> {
   const files = await prisma.uploadedFile.findMany({
     where: { masterId: activeGame.currentMasterId },
     select: { id: true, filename: true, size: true, lastReadOffset: true },
+    orderBy: { createdAt: "asc" },
   });
 
   if (files.length === 0) return;
@@ -57,6 +58,7 @@ export async function continueBuilderAction(
   const files = await prisma.uploadedFile.findMany({
     where: { masterId: activeGame.currentMasterId },
     select: { id: true, filename: true, size: true, lastReadOffset: true },
+    orderBy: { createdAt: "asc" },
   });
 
   if (files.length === 0) return { success: false, error: "errors.noFilesToContinue" };

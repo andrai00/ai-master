@@ -18,7 +18,7 @@ export const listUploadedFilesTool = {
     return prisma.uploadedFile.findMany({
       where: { masterId },
       select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
   },
 };

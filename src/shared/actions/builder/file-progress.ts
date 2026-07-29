@@ -24,7 +24,7 @@ export async function getFileProgressAction(): Promise<IFileProgressItem[]> {
   const files = await prisma.uploadedFile.findMany({
     where: { masterId: activeGame.currentMasterId },
     select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
   });
 
   return files.map((f) => ({

@@ -208,6 +208,7 @@ export async function runBuilderAgent(
       const files = await prisma.uploadedFile.findMany({
         where: { id: { in: fileIds } },
         select: { filename: true },
+        orderBy: { createdAt: "asc" },
       });
       const names = files.map((f) => f.filename).join(", ");
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;

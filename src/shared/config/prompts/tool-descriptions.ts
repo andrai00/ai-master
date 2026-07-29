@@ -21,7 +21,7 @@ export const TOOL_DESCRIPTIONS = {
     "Read a document from the database by ID. Returns title, category, type, summary, and full content.",
 
   search_documents:
-    "Full-text search across glossary and brain documents. Searches title, summary, and content. Returns up to 20 matches.",
+    "Full-text search across glossary and brain documents. If query is empty or omitted, returns all readable documents (up to 20). With a query, searches title, summary, and content.",
 
   update_file_summary:
     "Save notes about file processing progress for a specific uploaded file. Use summary to record what was read, key chapters found, where text breaks mid-sentence. Use glossarySummary to record what glossary documents were created/updated from this file and which topics are already covered — helps avoid re-processing the same content.",

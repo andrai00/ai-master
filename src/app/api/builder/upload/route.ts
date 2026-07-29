@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { parseFile } from "@/src/shared/lib/agents/file-parser";
+import { autoContinueBuilder } from "@/src/shared/actions/builder/continue-builder";
 import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -111,7 +112,12 @@ export async function POST(request: NextRequest) {
       if (sessionId) {
         emitStep(sessionId, "file_parsing", `${file.name}: ${Math.round(parsed.size / 1024)}K chars`);
         const stillParsing = Array.from(statusMap.values()).some((s) => s.status === "parsing");
-        if (!stillParsing) emitDone(sessionId);
+        if (!stillParsing) {
+          emitDone(sessionId);
+          autoContinueBuilder(sessionId).catch((e) =>
+            console.error("[upload] Auto-continue failed:", e)
+          );
+        }
       }
     })
     .catch(async (err) => {

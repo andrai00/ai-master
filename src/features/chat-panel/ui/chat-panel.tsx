@@ -30,6 +30,7 @@ import {
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
@@ -203,6 +204,7 @@ export const ChatPanel = ({
   inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { isMobile, toggle } = useMobileMenu();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -244,6 +246,7 @@ export const ChatPanel = ({
           case "step":
             if (!started) { started = true; onStepsStart?.(); }
             setLiveStep({ tool: data.tool, detail: data.detail });
+            queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
             break;
           case "stopping":
             setLiveStep(null);

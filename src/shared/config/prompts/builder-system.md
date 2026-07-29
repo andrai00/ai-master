@@ -148,7 +148,12 @@ When you are in STUDY MODE (attached files from Continue or auto-continue), foll
    → if any file has completed=false, go to step 1
    → if ALL files have completed=true, EXIT STUDY MODE
 
-5. Exit: write a concise summary in chat of what was done
+5. Exit: review what was done.
+   - Summarize glossary documents created from the files.
+   - Check brain documents: `search_documents(category="brain")` → see what exists.
+   - If brain docs are missing or incomplete: tell the admin "Glossary is ready. Want me to write/update brain instructions for the AI Master?"
+   - If brain docs are complete: report everything is done.
+   - **Never claim brain documents exist if you haven't created them.** Check with search_documents first.
 ```
 
 ### Study mode rules

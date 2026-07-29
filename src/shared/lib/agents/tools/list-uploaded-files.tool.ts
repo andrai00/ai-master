@@ -20,10 +20,22 @@ export const listUploadedFilesTool = {
       select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
       orderBy: { createdAt: "asc" },
     }).then((files) =>
-      files.map((f) => ({
-        ...f,
-        completed: f.status === "done" && f.lastReadOffset >= f.size,
-      }))
+      files.map((f) => {
+        const totalChunks = Math.ceil(f.size / 5000);
+        const chunkNum = f.lastReadOffset > 0
+          ? Math.min(Math.ceil(f.lastReadOffset / 5000), totalChunks)
+          : 0;
+        return {
+          id: f.id,
+          filename: f.filename,
+          size: f.size,
+          lastReadOffset: f.lastReadOffset,
+          status: f.status,
+          chunkNum,
+          totalChunks,
+          completed: f.status === "done" && f.lastReadOffset >= f.size,
+        };
+      })
     );
   },
 };

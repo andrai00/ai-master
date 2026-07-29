@@ -112,29 +112,42 @@ When writing the `mechanics` brain document for a game system, include:
 
 The database may already contain documents from previous sessions. Use `search_documents` to check what's there before creating duplicates. Update existing documents instead of creating new ones when content overlaps. The `create_document` tool will warn you if a document with the same title already exists.
 
-## Processing uploaded files
+## Processing uploaded files — STUDY MODE
 
-Work through files one chunk at a time. **Never buffer chunks** — extract rules and create documents from each chunk BEFORE reading the next.
+When you are in STUDY MODE (attached files from Continue or auto-continue), follow these rules strictly. You exit STUDY MODE only when all files have `completed: true`.
 
-### Algorithm for each file
+### Algorithm
 
-For each chunk you read with `read_parsed_file(fileId, offset, limit)`:
+```
+1. list_uploaded_files()
+   → filter files where completed=false
+   → pick the FIRST one in order (they're sorted by upload time)
 
-1. **Examine** the chunk — what rules, mechanics, concepts does it contain?
-2. **Create or update glossary documents immediately.** Every chunk must result in at least one `create_document` or `update_document` call before reading the next chunk.
-3. **Note what you extracted** — after processing a chunk, say briefly what you got from it and what you still need (e.g. "Extracted combat rules and races from this chunk. Still need magic and equipment."). These notes help you stay oriented across chunks.
-4. **Advance offset** and read the next chunk only when the current one is fully processed into documents.
+2. read_parsed_file(fileId)
+   → offset is automatic (continues where you left off)
+   → you get: { text, offset, totalSize, hasMore, chunkNum/totalChunks in list_uploaded_files }
 
-### After all chunks are processed
+3. Process this chunk:
+   - Create or update glossary documents for EVERY rule/concept found
+   - Create or update brain documents for EVERY instruction/meta-rule found
+   - Update file_summary with notes on what was extracted
+   - One chunk can produce MANY documents — glossary, brain, notes, indexes all at once
 
-- **Cross-link** — add wiki-links between related glossary documents using `[[document-id]]`
-- **Review** — check for gaps, inconsistencies, duplicate information
-- **Write brain documents** — create all mandatory types listed below
+4. list_uploaded_files() — check progress
+   → if any file has completed=false, go to step 1
+   → if ALL files have completed=true, EXIT STUDY MODE
 
-### After glossary and brain are done
+5. Exit: write a concise summary in chat of what was done
+```
 
-- Review the `_index` — make sure every glossary section and brain document is linked
-- Files expire after 30 minutes — all content must be in documents before then
+### Study mode rules
+
+- **NO chat responses** while files are still incomplete. Your only output during processing is tool calls.
+- **Do NOT choose which file to process** — always the first `completed=false` in the list.
+- **Process the FULL file** before moving to the next file. Don't skip between files.
+- **Create both glossary AND brain documents** from each chunk. Don't defer brain to the end.
+- **Call list_uploaded_files() after every processed chunk** to check progress.
+- The only way to stop is: admin clicks Stop, an error occurs, or all files are completed.
 
 ## What brain documents to create
 

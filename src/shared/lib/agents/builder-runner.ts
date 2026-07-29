@@ -201,6 +201,8 @@ export async function runBuilderAgent(
 
     if (fileIds.length === 0) {
       ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Do not use list_uploaded_files or read_parsed_file unless the user explicitly asks you to process files. Answer the user's question as a normal assistant.";
+    } else {
+      ctx.system += "\n\n## Current Mode: STUDY\nYou are processing uploaded files. Read the STUDY MODE section below for rules.";
     }
 
     const activeGame = await getActiveGame();

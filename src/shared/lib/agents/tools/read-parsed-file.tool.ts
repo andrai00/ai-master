@@ -61,6 +61,10 @@ export const readParsedFileTool = {
       data: { lastReadOffset: readEnd, lastReadAt: new Date() },
     }).catch(() => { /* non-critical */ });
 
+    import("@/src/shared/lib/events/game-events").then(({ broadcastGameEvent }) => {
+      broadcastGameEvent("file_progress_updated", { fileId });
+    });
+
     return {
       fileId,
       filename: file.filename,

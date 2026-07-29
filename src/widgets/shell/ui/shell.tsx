@@ -69,7 +69,7 @@ export const Shell = ({ user, children }: IShellProps) => {
           queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
         }
       }
-      if (type === "file_uploaded" || type === "file_removed") {
+      if (type === "file_uploaded" || type === "file_removed" || type === "file_progress_updated") {
         queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
       }
     };

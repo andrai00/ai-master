@@ -56,14 +56,10 @@ export const readParsedFileTool = {
     const hasMore = safeOffset + limit < textLength;
 
     const readEnd = safeOffset + chunk.length;
-    prisma.uploadedFile.update({
+    await prisma.uploadedFile.update({
       where: { id: fileId },
       data: { lastReadOffset: readEnd, lastReadAt: new Date() },
     }).catch(() => { /* non-critical */ });
-
-    import("@/src/shared/lib/events/game-events").then(({ broadcastGameEvent }) => {
-      broadcastGameEvent("file_progress_updated", { fileId });
-    });
 
     return {
       fileId,

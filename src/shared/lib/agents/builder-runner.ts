@@ -16,6 +16,7 @@ import {
   emitStopping, emitStopped, clearSession,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -337,6 +338,9 @@ export async function runBuilderAgent(
                 let detail: string | undefined;
                 if (toolName === "read_parsed_file" && r?.output) {
                   const out = r.output as Record<string, unknown>;
+                  if (typeof out.fileId === "string") {
+                    broadcastGameEvent("file_progress_updated", { fileId: out.fileId });
+                  }
                   if (typeof out.offset === "number" && typeof out.totalSize === "number") {
                     detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
                   }

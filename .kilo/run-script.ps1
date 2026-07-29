@@ -28,5 +28,5 @@ if (-not (Test-Path "node_modules\.prisma")) {
     if ($LASTEXITCODE -ne 0) { throw "prisma generate failed" }
 }
 
-Write-Host "Starting Next.js on port 3000"
-pnpm next dev -p 3000
+Write-Host "Starting Next.js on port 3015"
+pnpm next dev -p 3015

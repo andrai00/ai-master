@@ -42,17 +42,14 @@ export const searchDocumentsTool = {
       ];
     }
 
+    const select = args.query
+      ? { id: true, title: true, category: true, type: true, summary: true, content: true }
+      : { id: true, title: true, category: true, type: true, summary: true }; // no content for list-all
+
     const docs = await prisma.document.findMany({
       where,
-      select: {
-        id: true,
-        title: true,
-        category: true,
-        type: true,
-        summary: true,
-        content: true,
-      },
-      take: 20,
+      select,
+      take: 50,
     });
     return docs;
   },

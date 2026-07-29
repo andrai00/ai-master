@@ -181,3 +181,43 @@
 ### Bad: добавлять правила в документацию без подтверждения
 ### Why: правила проекта определяет пользователь. Агент может предложить, но не вносить.
 ### Good: предложить в чате → дождаться подтверждения → добавить
+
+---
+
+## Real-time / SSE
+
+### Bad: `setTimeout(poll, 300)` для опроса буфера в SSE-роуте
+### Why: создаёт задержку 0-300ms между записью события и доставкой клиенту. Отправитель и получатели видят события в разное время — десинхронизация. Event loop может быть занят (загрузка файла) и poll откладывается ещё дальше.
+### Good: EventEmitter + подписка (`onStep`/`onGameEvent`). Источник пушит событие → подписчики получают мгновенно в той же итерации event loop. См. `step-tracker.ts` (EventEmitter) и `steps/route.ts` (подписка через `onStep`).
+
+### Bad: `eventSource.close()` в `onerror` обработчике
+### Why: EventSource рассчитан на авто-реконнект. Закрытие в onerror убивает реконнект → клиент теряет все будущие события до перезагрузки страницы.
+### Good: оставить `onerror` пустым — EventSource сам переподключится.
+
+### Bad: `refetchInterval: 3000` в React Query как замена SSE
+### Why: создаёт лишние запросы к серверу (4 запроса каждые 3 секунды на двух клиентах). SSE должен быть единственным механизмом real-time обновлений.
+### Good: только SSE + `invalidateQueries`. При начальной загрузке — mount refetch. См. `useBuilderMessages.ts`, `useFileProgress.ts`.
+
+### Bad: `throwIfCancelled()` с `DOMException("AbortError")` внутри tool.execute
+### Why: AI SDK ловит ошибки тулзов как tool results и отдаёт LLM, а не пробрасывает в `generateText()`. AbortError внутри тулза никогда не прерывает генерацию — LLM видит ошибку и ретраит тулз.
+### Good: `if (isCancelled()) throw new Error("errors.cancelled")` — обычная ошибка, AI SDK отдаёт LLM. Между шагами `abortSignal` проверяется и корректно прерывает `generateText()`.
+
+---
+
+## LLM / Prompts
+
+### Bad: агент утверждает что создал документы без проверки через тулз
+### Why: LLM галлюцинирует выполненную работу. Без `search_documents()` проверки факта создания — агент пишет "сделал 7 brain-документов" когда их 0 в БД.
+### Good: после выхода из STUDY MODE обязательный `search_documents(category="brain")` перед отчётом. Никогда не утверждать что документы созданы без проверки тулзом. См. `builder-system.md:Study Mode:Step 5`.
+
+### Bad: промпт говорит "Create brain documents IF the chunk contains instructions"
+### Why: LLM интерпретирует "if" буквально — чанк с правилами не "instructions" → пропускает мозги. За весь файл ни одного brain-документа.
+### Good: перечислить конкретные brain-типы как обязательный чеклист на каждом чанке: `mechanics`, `char_creation`, `routing`, и т.д. См. `builder-system.md:Study Mode:Step 3b`.
+
+### Bad: `prisma.x.update().catch()` без `await` + `broadcastGameEvent` следом
+### Why: DB-update ещё не завершён, а broadcast уже ушёл. Клиент рефетчит и видит старые данные. Бабл показывает прогресс, а нижняя панель — нет.
+### Good: `await prisma.x.update(...).catch(() => {})` перед broadcast. См. G27.
+
+### Bad: `prompt += "Create or update documents for EVERY rule"` — рекомендательный тон
+### Why: LLM воспринимает как совет, не требование. Пропускает чанки без документирования.
+### Good: `MANDATORY: Document this chunk before moving on. BLOCKING RULE: Never advance without create_document/update_document.` См. `builder-system.md`.

@@ -18,10 +18,10 @@ export const TOOL_DESCRIPTIONS = {
     "Update the content, title, or summary of an existing glossary or brain document by ID.",
 
   read_document:
-    "Read a document from the database by ID. Returns title, category, type, summary, and full content.",
+    "Read a document from the database by ID. Returns title, category, type, summary, and full content. Use offset/limit to read in chunks for large documents.",
 
   search_documents:
-    "Full-text search across glossary and brain documents. Searches title, summary, and content. Returns up to 20 matches.",
+    "Search across glossary and brain documents. Without query — lists all readable docs. With query — full-text search on title, summary, content. Returns id, title, category, type, summary only — NEVER returns content. Use read_document(id) to read a specific document's full text.",
 
   update_file_summary:
     "Save notes about file processing progress for a specific uploaded file. Use summary to record what was read, key chapters found, where text breaks mid-sentence. Use glossarySummary to record what glossary documents were created/updated from this file and which topics are already covered — helps avoid re-processing the same content.",

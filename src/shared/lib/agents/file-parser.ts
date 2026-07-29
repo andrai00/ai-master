@@ -1,5 +1,6 @@
 import "server-only";
-import PDFParser from "pdf2json";
+import { Worker } from "worker_threads";
+import { join } from "path";
 import mammoth from "mammoth";
 
 export interface IParsedFile {
@@ -19,65 +20,42 @@ function isAllowed(ext: string): boolean {
   return [".pdf", ".txt", ".md", ".docx"].includes(ext);
 }
 
-async function parsePdf(buffer: Buffer): Promise<string> {
+function getWorkerPath(): string {
+  return join(process.cwd(), "src", "shared", "lib", "agents", "file-parser.worker.js");
+}
+
+async function parsePdfViaWorker(buffer: Buffer, onProgress?: (elapsed: number) => void): Promise<string> {
   return new Promise((resolve, reject) => {
-    const parser = new PDFParser();
-    const startTime = Date.now();
+    const worker = new Worker(getWorkerPath(), {
+      workerData: { buffer: buffer.toString("base64") },
+    });
 
-    // Progress indicator
-    const progress = setInterval(() => {
-      const elapsed = Math.round((Date.now() - startTime) / 1000);
-      console.log(`[file-parser] Still parsing PDF... ${elapsed}s elapsed`);
-    }, 5000);
-
-    const cleanup = () => {
-      clearInterval(progress);
-    };
-
-    // No timeout — wait indefinitely for large PDFs. Progress is shown via interval.
-    // User can abort via Stop button which calls stopProcessing.
-
-    parser.on("pdfParser_dataReady", (data: { Pages: Array<{ Texts: Array<{ R: Array<{ T: string }> }> }> }) => {
-      try {
-        cleanup();
-        const elapsed = Math.round((Date.now() - startTime) / 1000);
-        console.log(`[file-parser] PDF parse done: ${data.Pages?.length ?? 0} pages, ${elapsed}s`);
-      const lines: string[] = [];
-      for (const page of data?.Pages ?? []) {
-        for (const text of page?.Texts ?? []) {
-          const decoded = (() => {
-            try {
-              return decodeURIComponent(text.R.map((r) => r.T).join(""));
-            } catch {
-              return text.R.map((r) => r.T).join("");
-            }
-          })();
-          lines.push(decoded);
-        }
-        lines.push("");
-      }
-        resolve(lines.join("\n"));
-      } catch (err: unknown) {
-        cleanup();
-        reject(err instanceof Error ? err : new Error("errors.pdfProcessingFailed"));
+    worker.on("message", (msg: { type: string; text?: string; elapsed?: number; message?: string }) => {
+      if (msg.type === "progress") {
+        onProgress?.(msg.elapsed ?? 0);
+      } else if (msg.type === "done") {
+        resolve(msg.text ?? "");
+        void worker.terminate();
+      } else if (msg.type === "error") {
+        reject(new Error(msg.message ?? "errors.pdfParseFailed"));
+        void worker.terminate();
       }
     });
 
-    parser.on("pdfParser_dataError", (err: unknown) => {
-      cleanup();
-      reject(err instanceof Error ? err : new Error("errors.pdfParseFailed"));
+    worker.on("error", (err) => {
+      reject(new Error(`errors.pdfParseFailed: ${err.message}`));
+      void worker.terminate();
     });
 
-    try {
-      parser.parseBuffer(buffer);
-    } catch (err: unknown) {
-      cleanup();
-      reject(err instanceof Error ? err : new Error("errors.pdfParseFailed"));
-    }
+    worker.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`errors.pdfParseFailed: worker exited with code ${code}`));
+      }
+    });
   });
 }
 
-export async function parseFile(buffer: Buffer, filename: string): Promise<IParsedFile> {
+export async function parseFile(buffer: Buffer, filename: string, onProgress?: (elapsed: number) => void): Promise<IParsedFile> {
   const ext = getExtension(filename);
   if (!isAllowed(ext)) {
     throw new Error("errors.unsupportedFileType");
@@ -86,8 +64,8 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<IPars
   let text: string;
 
   if (ext === ".pdf") {
-    console.log(`[file-parser] Starting PDF parse: ${filename} (${buffer.length} bytes)`);
-    text = await parsePdf(buffer);
+    console.log(`[file-parser] Starting PDF parse via worker: ${filename} (${buffer.length} bytes)`);
+    text = await parsePdfViaWorker(buffer, onProgress);
     console.log(`[file-parser] PDF parse done: ${text.length} chars`);
   } else if (ext === ".docx") {
     const result = await mammoth.extractRawText({ buffer });

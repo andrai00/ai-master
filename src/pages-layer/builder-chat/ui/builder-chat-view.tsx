@@ -51,6 +51,7 @@ export const BuilderChatView = () => {
   // UI state — driven by SSE, not by mutation
   const [typing, setTyping] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const stoppingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fileModalOpen, setFileModalOpen] = useState(false);
 
@@ -194,6 +195,8 @@ export const BuilderChatView = () => {
   const handleStop = useCallback(async () => {
     if (!sessionId) return;
     setStopping(true);
+    if (stoppingTimeoutRef.current) clearTimeout(stoppingTimeoutRef.current);
+    stoppingTimeoutRef.current = setTimeout(() => setStopping(false), 10_000);
     await stopBuilderAction(sessionId);
   }, [sessionId]);
 
@@ -297,9 +300,9 @@ export const BuilderChatView = () => {
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId ?? undefined}
-        onStepsStart={() => { setTyping(true); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         fileProgress={fileProgress}
         onContinueFiles={handleContinue}
         onOpenFileDetails={() => setFileModalOpen(true)}

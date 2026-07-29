@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
-import { getEvents } from "@/src/shared/lib/agents/step-tracker";
+import { getEvents, onStep } from "@/src/shared/lib/agents/step-tracker";
+import type { IStepEvent } from "@/src/shared/lib/agents/step-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -18,49 +19,43 @@ export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
   let closed = false;
   let lastSeq = 0;
-  let lastSession: ReturnType<typeof getEvents> = undefined;
+  let unsubscribe: (() => void) | null = null;
 
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(": connected\n\n"));
 
-      const poll = () => {
+      unsubscribe = onStep(sessionId, (ev: IStepEvent) => {
         if (closed) return;
-        const data = getEvents(sessionId);
-        
-        // Reset seq when session recreated (new processing started)
-        if (data && data !== lastSession) {
+        if (ev.seq > lastSeq) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
+          lastSeq = ev.seq;
+        }
+        if (ev.type === "done" || ev.type === "stopped") {
           lastSeq = 0;
-          lastSession = data;
         }
-        if (!data) {
-          lastSession = undefined;
-        }
+      });
 
-        if (!data) {
-          setTimeout(poll, 500);
-          return;
-        }
-
-        // Send new events since last seq
-        for (const ev of data.events) {
+      const existing = getEvents(sessionId);
+      if (existing) {
+        for (const ev of existing.events) {
           if (ev.seq > lastSeq) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(ev)}\n\n`)
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
             lastSeq = ev.seq;
           }
         }
+      }
 
-        // Keep polling — don't close on terminal events.
-        // A new initSession() will produce new events that reuse the connection.
-        setTimeout(poll, 300);
+      const keepAlive = () => {
+        if (closed) return;
+        controller.enqueue(encoder.encode(": keepalive\n\n"));
+        setTimeout(keepAlive, 30000);
       };
-
-      setTimeout(poll, 100);
+      setTimeout(keepAlive, 30000);
     },
     cancel() {
       closed = true;
+      unsubscribe?.();
     },
   });
 

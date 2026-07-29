@@ -106,6 +106,8 @@
     "fileStatusDone": "Done",
     "fileStatusProcessing": "Processing",
     "fileStatusWaiting": "Waiting",
+    "fileStatusParsing": "Parsing",
+    "fileStatusError": "Error",
     "removeFile": "Remove file",
     "fileDetails": "File details",
     "details": "Details",
@@ -240,7 +242,8 @@
       "update_file_summary": ["Making notes", "Recording progress", "Updating file notes"],
       "retry": ["Retrying"],
       "final": "Writing response",
-      "summarize": "Summarizing history"
+      "summarize": "Summarizing history",
+      "file_parsing": ["Parsing files", "Processing document", "Reading contents"]
     },
     "modeBrain": "Brain",
     "modeBrainHint": "Configuring rules and AI Master instructions",

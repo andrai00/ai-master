@@ -1,4 +1,5 @@
 import "server-only";
+import { EventEmitter } from "events";
 
 export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped";
 
@@ -17,6 +18,7 @@ interface ISessionState {
 
 const globalState = globalThis as unknown as {
   sessions: Map<string, ISessionState> | undefined;
+  emitter: EventEmitter | undefined;
 };
 
 function getMap(): Map<string, ISessionState> {
@@ -24,16 +26,31 @@ function getMap(): Map<string, ISessionState> {
   return globalState.sessions;
 }
 
+function getEmitter(): EventEmitter {
+  if (!globalState.emitter) {
+    globalState.emitter = new EventEmitter();
+    globalState.emitter.setMaxListeners(100);
+  }
+  return globalState.emitter;
+}
+
 export function initSession(sessionId: string): void {
   getMap().set(sessionId, { events: [], seq: 0 });
 }
 
+export function ensureSession(sessionId: string): void {
+  if (!getMap().has(sessionId)) {
+    getMap().set(sessionId, { events: [], seq: 0 });
+  }
+}
+
 function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
   const s = getMap().get(sessionId);
-  if (s) {
-    s.seq++;
-    s.events.push({ ...event, seq: s.seq });
-  }
+  if (!s) return;
+  s.seq++;
+  const full: IStepEvent = { ...event, seq: s.seq };
+  s.events.push(full);
+  getEmitter().emit("step", sessionId, full);
 }
 
 export function emitStarted(sessionId: string): void {
@@ -66,4 +83,19 @@ export function getEvents(sessionId: string): ISessionState | undefined {
 
 export function clearSession(sessionId: string): void {
   getMap().delete(sessionId);
+}
+
+/** Subscribe to step events for real-time push. Returns unsubscribe function. */
+export function onStep(
+  sessionId: string,
+  handler: (event: IStepEvent) => void,
+): () => void {
+  const emitter = getEmitter();
+  const wrapped = (sid: string, event: IStepEvent) => {
+    if (sid === sessionId) handler(event);
+  };
+  emitter.on("step", wrapped);
+  return () => {
+    emitter.off("step", wrapped);
+  };
 }

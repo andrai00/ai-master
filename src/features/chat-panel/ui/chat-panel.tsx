@@ -26,9 +26,11 @@ import {
   MenuOutlined,
   SettingOutlined,
   StopOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
@@ -68,6 +70,7 @@ export interface IFileProgress {
   filename: string;
   totalSize: number;
   readOffset: number;
+  status: "parsing" | "done" | "error";
   onRemove?: () => void;
 }
 
@@ -171,6 +174,8 @@ function getStepIcon(tool: string): ReactNode {
       return <SearchOutlined style={iconStyle} />;
     case "update_file_summary":
       return <CommentOutlined style={iconStyle} />;
+    case "file_parsing":
+      return <LoadingOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:
@@ -199,6 +204,7 @@ export const ChatPanel = ({
   inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { isMobile, toggle } = useMobileMenu();
   const { notification } = App.useApp();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -240,14 +246,17 @@ export const ChatPanel = ({
           case "step":
             if (!started) { started = true; onStepsStart?.(); }
             setLiveStep({ tool: data.tool, detail: data.detail });
+            queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
             break;
           case "stopping":
             setLiveStep(null);
             break;
           case "done":
+            started = false;
             onStepsDone?.();
             break;
           case "stopped":
+            started = false;
             onStepsDone?.();
             break;
           case "error":
@@ -260,7 +269,7 @@ export const ChatPanel = ({
     };
 
     es.onerror = () => {
-      es.close();
+      // EventSource auto-reconnects on its own — don't close it
     };
 
     return () => es.close();

@@ -16,6 +16,7 @@ import {
   emitStopping, emitStopped, clearSession,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -198,6 +199,12 @@ export async function runBuilderAgent(
     const ctx = await buildContext(sessionId);
     throwIfCancelled();
 
+    if (fileIds.length === 0) {
+      ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Do not use list_uploaded_files or read_parsed_file unless the user explicitly asks you to process files. Answer the user's question as a normal assistant.";
+    } else {
+      ctx.system += "\n\n## Current Mode: STUDY\nYou are processing uploaded files. Read the STUDY MODE section below for rules.";
+    }
+
     const activeGame = await getActiveGame();
     const masterId = activeGame?.currentMasterId ?? "";
 
@@ -207,6 +214,7 @@ export async function runBuilderAgent(
       const files = await prisma.uploadedFile.findMany({
         where: { id: { in: fileIds } },
         select: { filename: true },
+        orderBy: { createdAt: "asc" },
       });
       const names = files.map((f) => f.filename).join(", ");
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
@@ -337,6 +345,9 @@ export async function runBuilderAgent(
                 let detail: string | undefined;
                 if (toolName === "read_parsed_file" && r?.output) {
                   const out = r.output as Record<string, unknown>;
+                  if (typeof out.fileId === "string") {
+                    broadcastGameEvent("file_progress_updated", { fileId: out.fileId });
+                  }
                   if (typeof out.offset === "number" && typeof out.totalSize === "number") {
                     detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
                   }

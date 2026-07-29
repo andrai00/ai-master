@@ -44,12 +44,16 @@ export async function sendBuilderMessageAction(
 
   broadcastGameEvent("builder_message_sent", { sessionId });
 
-  enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
-    console.error("[builder] Failed to enqueue:", err);
-    runBuilderAgent(sessionId, content.trim(), fileIds).catch((e) => {
-      console.error("[builder] Background processing crashed:", e);
+  // File processing is separate from chat messages. Only run the agent when
+  // the user sent a text message without files.
+  if (fileIds.length === 0 && content.trim().length > 0) {
+    enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
+      console.error("[builder] Failed to enqueue:", err);
+      runBuilderAgent(sessionId, content.trim(), fileIds).catch((e) => {
+        console.error("[builder] Background processing crashed:", e);
+      });
     });
-  });
+  }
 
   return { success: true };
 }

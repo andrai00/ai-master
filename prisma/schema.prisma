@@ -107,11 +107,13 @@ model UploadedFile {
   filename        String
   text            String
   size            Int
+  status          String    @default("parsing") // parsing | done | error
   lastReadOffset  Int       @default(0)
   lastReadAt      DateTime?
   summary         String    @default("")
   glossarySummary String    @default("")
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
   master          Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
 }
 

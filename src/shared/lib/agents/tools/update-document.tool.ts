@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
-import { throwIfCancelled } from "@/src/shared/lib/agents/parse-cancel";
+import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanWrite } from "./builder-mode-guard";
 
@@ -17,7 +17,7 @@ export const updateDocumentTool = {
     })
   ),
   execute: async (args: { id: string; content: string; title?: string; summary?: string }) => {
-    throwIfCancelled();
+    if (isCancelled()) throw new Error("errors.cancelled");
     await assertNotGameMode();
     const prisma = getPrisma();
 

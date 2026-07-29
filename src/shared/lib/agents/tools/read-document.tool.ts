@@ -10,9 +10,11 @@ export const readDocumentTool = {
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID to read"),
+      offset: z.number().optional().describe("Character offset for chunked reading (default 0 = full document)"),
+      limit: z.number().optional().describe("Max characters for chunked reading (omit for full document)"),
     })
   ),
-  execute: async (args: { id: string }) => {
+  execute: async (args: { id: string; offset?: number; limit?: number }) => {
     if (isCancelled()) throw new Error("errors.cancelled");
     const prisma = getPrisma();
 
@@ -30,6 +32,28 @@ export const readDocumentTool = {
     });
     if (!doc) throw new Error("errors.documentNotFound");
     await assertCanRead(doc.category);
+
+    if (args.offset !== undefined || args.limit !== undefined) {
+      const offset = args.offset ?? 0;
+      const limit = args.limit ?? 5000;
+      const totalSize = doc.content.length;
+      const safeOffset = Math.min(offset, totalSize);
+      const chunk = doc.content.slice(safeOffset, safeOffset + limit);
+      const hasMore = safeOffset + limit < totalSize;
+      return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        type: doc.type,
+        summary: doc.summary,
+        text: chunk,
+        offset: safeOffset,
+        length: chunk.length,
+        totalSize,
+        hasMore,
+      };
+    }
+
     return doc;
   },
 };

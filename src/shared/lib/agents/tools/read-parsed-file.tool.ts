@@ -15,13 +15,12 @@ export const readParsedFileTool = {
   ),
   execute: async (args: { fileId: string; offset?: number; limit?: number }) => {
     const { fileId } = args;
-    const offset = args.offset ?? 0;
     const limit = args.limit ?? 5000;
 
     const prisma = getPrisma();
     const file = await prisma.uploadedFile.findUnique({
       where: { id: fileId },
-      select: { filename: true, text: true, size: true, status: true, summary: true, glossarySummary: true },
+      select: { filename: true, text: true, size: true, status: true, lastReadOffset: true, summary: true, glossarySummary: true },
     });
 
     if (!file) throw new Error("errors.fileParseError");
@@ -49,6 +48,10 @@ export const readParsedFileTool = {
         note: "File is still being parsed. Use list_uploaded_files() to check status and try again later.",
       };
     }
+
+    // Default offset to lastReadOffset so the agent continues where it left off.
+    // Pass offset=0 explicitly to re-read from the beginning.
+    const offset = args.offset ?? file.lastReadOffset;
 
     const textLength = file.text.length;
     const safeOffset = Math.min(offset, textLength);

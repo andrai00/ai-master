@@ -19,6 +19,11 @@ export const listUploadedFilesTool = {
       where: { masterId },
       select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
       orderBy: { createdAt: "asc" },
-    });
+    }).then((files) =>
+      files.map((f) => ({
+        ...f,
+        completed: f.status === "done" && f.lastReadOffset >= f.size,
+      }))
+    );
   },
 };

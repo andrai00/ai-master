@@ -54,16 +54,15 @@ export const readParsedFileTool = {
     const offset = args.offset ?? file.lastReadOffset;
 
     const textLength = file.text.length;
-    const safeOffset = Math.min(offset, textLength);
-    const chunk = file.text.slice(safeOffset, safeOffset + limit);
-    const hasMore = safeOffset + limit < textLength;
 
-    if (!chunk && safeOffset >= textLength) {
+    // FILE FULLY READ — block all further access. Extracted content lives in
+    // glossary/brain documents. Use search_documents() instead.
+    if (file.lastReadOffset >= textLength) {
       return {
         fileId,
         filename: file.filename,
         status: "done",
-        text: "[END OF FILE — all content has been read and processed. Call list_uploaded_files() to confirm completion.]",
+        text: "[FILE COMPLETE — all content has been read and processed. Do NOT re-read this file. Use search_documents() to find extracted rules and information in the glossary.]",
         offset: textLength,
         length: 0,
         totalSize: textLength,
@@ -72,6 +71,9 @@ export const readParsedFileTool = {
         glossarySummary: file.glossarySummary,
       };
     }
+    const safeOffset = Math.min(offset, textLength);
+    const chunk = file.text.slice(safeOffset, safeOffset + limit);
+    const hasMore = safeOffset + limit < textLength;
 
     const readEnd = safeOffset + chunk.length;
     if (readEnd > file.lastReadOffset) {

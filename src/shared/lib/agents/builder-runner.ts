@@ -277,6 +277,8 @@ export async function runBuilderAgent(
 
     // --- Emit started: all clients see the bubble now ---
     emitStarted(sessionId);
+    const isStudy = fileIds.length > 0;
+    console.log(`[builder] generateText start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
 
     const tools = getTools();
 
@@ -294,6 +296,12 @@ export async function runBuilderAgent(
           tools,
           stopWhen: fileIds.length > 0 ? undefined : isStepCount(80),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
+            // Check abort before doing anything
+            if (ac.signal.aborted) {
+              console.log(`[builder] ABORT SIGNAL TRIGGERED in prepareStep — session=${sessionId}`);
+              return {};
+            }
+
             // Count tool calls for summary (used by both compression paths)
             let reads = 0, created = 0, updated = 0, searched = 0, listed = 0;
             for (const s of allSteps ?? []) {
@@ -306,6 +314,14 @@ export async function runBuilderAgent(
                   case "list_uploaded_files": listed++; break;
                 }
               }
+            }
+
+            // Periodic status log every 10 steps or every step in STUDY mode
+            const stepIdx = (allSteps ?? []).length;
+            if (isStudy || stepIdx % 10 === 0) {
+              const totalMsgs = allMsgs.length;
+              const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} reads=${reads} created=${created} updated=${updated} mode=${isStudy ? "STUDY" : "CHAT"}`);
             }
 
             // --- FILE-CHUNK COMPRESSION ---
@@ -347,7 +363,10 @@ export async function runBuilderAgent(
             // --- THRESHOLD-BASED COMPRESSION: original logic for non-file or early-file scenarios ---
             const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
             const estimated = totalChars / 4;
-            if (estimated < compressThreshold) return {};
+            if (estimated < compressThreshold) {
+              if (isStudy) console.log(`[builder] prepareStep no-compress — step=${stepIdx} totalMsgs=${allMsgs.length} estimated=${Math.round(estimated)} tokens`);
+              return {};
+            }
 
             // Compress: keep system + last admin message + pin last tool step.
             // Summarize everything in between into one message.
@@ -378,31 +397,38 @@ export async function runBuilderAgent(
           },
           abortSignal: ac.signal,
           onStepFinish: async (event: StepResult<typeof tools>) => {
-            const calls = event.toolCalls ?? [];
-            const res = event.toolResults ?? [];
-            if (calls.length > 0) {
+            console.log(`[builder] RAW onStepFinish — ${JSON.stringify({ hasToolCalls: "toolCalls" in event, hasToolResults: "toolResults" in event, keys: Object.keys(event), stepNumber: (event as Record<string,unknown>).stepNumber, finishReason: (event as Record<string,unknown>).finishReason, text: (event as Record<string,unknown>).text })}`);
+            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+            const res = (event as Record<string,unknown>).toolResults as Array<{ output?: unknown }> | undefined;
+            if (calls?.length) {
               for (let i = 0; i < calls.length; i++) {
-                const call = calls[i];
-                const r = res[i];
-                const toolName = call.toolName as string;
-                let detail: string | undefined;
-                if (toolName === "read_parsed_file" && r?.output) {
-                  const out = r.output as Record<string, unknown>;
-                  if (typeof out.fileId === "string") {
-                    broadcastGameEvent("file_progress_updated", { fileId: out.fileId });
+                try {
+                  const call = calls[i];
+                  const r = res?.[i];
+                  const toolName = call.toolName as string;
+                  let detail: string | undefined;
+                  if (toolName === "read_parsed_file" && r?.output) {
+                    const out = r.output as Record<string, unknown>;
+                    if (typeof out.fileId === "string") {
+                      broadcastGameEvent("file_progress_updated", { fileId: out.fileId });
+                    }
+                    if (typeof out.offset === "number" && typeof out.totalSize === "number") {
+                      detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
+                    }
                   }
-                  if (typeof out.offset === "number" && typeof out.totalSize === "number") {
-                    detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
-                  }
+                  emitStep(sessionId, toolName, detail);
+                } catch (e) {
+                  console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${calls[i]?.toolName} error=${e instanceof Error ? e.message : String(e)}`);
                 }
-                emitStep(sessionId, toolName, detail);
               }
             }
           },
         });
+        console.log(`[builder] generateText raw result — ${JSON.stringify({ text: result.text?.slice(0, 200), finishReason: (result as unknown as Record<string,unknown>).finishReason, steps: (result as unknown as {steps?: unknown[]}).steps?.length, usage: (result as unknown as Record<string,unknown>).usage })}`);
         break; // success — exit retry loop
       } catch (err: unknown) {
         lastError = err;
+        console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`);
 
         // Never retry user stop
         if (err instanceof Error && err.name === "AbortError") throw err;
@@ -428,17 +454,22 @@ export async function runBuilderAgent(
     if (!result) throw lastError; // should never happen
 
     // --- Success: save builder message + log response ---
-    const builderText = result.text;
+    const builderText = result.text?.trim();
+    const finishReason = (result as unknown as Record<string, unknown>)?.finishReason ?? "unknown";
+    const stepArr = (result as unknown as { steps?: Array<unknown> })?.steps;
+    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0} textPreview=${JSON.stringify(builderText?.slice(0, 200))}`);
     const prisma = getPrisma();
 
-    await prisma.message.create({
-      data: {
-        sessionId,
-        senderId: (await getSession())?.userId ?? "",
-        role: "builder",
-        content: builderText,
-      },
-    });
+    if (builderText) {
+      await prisma.message.create({
+        data: {
+          sessionId,
+          senderId: (await getSession())?.userId ?? "",
+          role: "builder",
+          content: builderText,
+        },
+      });
+    }
 
     // Auto-summarize if 20+ unsummarized with text content
     const allUnsummarized = await prisma.message.findMany({
@@ -475,19 +506,21 @@ export async function runBuilderAgent(
   } catch (err: unknown) {
     // Check if aborted
     if (err instanceof Error && err.name === "AbortError") {
+      console.log(`[builder] ABORTED — session=${sessionId} name=${err.name} message=${err.message}`);
       emitStopped(sessionId);
       return;
     }
 
     // Check if cancelled by our flag
     if (err instanceof DOMException && err.name === "AbortError") {
+      console.log(`[builder] DOM ABORTED — session=${sessionId}`);
       emitStopped(sessionId);
       return;
     }
 
     // Real error — notify clients
     const message = classifyError(err);
-    console.error("[builder] Error:", err instanceof Error ? err.message : String(err));
+    console.error(`[builder] ERROR — session=${sessionId} rawMessage=${err instanceof Error ? err.message : String(err)} classified=${message}`);
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);

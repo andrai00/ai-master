@@ -1,9 +1,36 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "login" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'player',
+    "displayName" TEXT NOT NULL DEFAULT '',
+    "avatar" TEXT NOT NULL DEFAULT '',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-  - You are about to drop the column `isCurrent` on the `Master` table. All the data in the column will be lost.
+-- CreateTable
+CREATE TABLE "Master" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "ownerId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "mode" TEXT NOT NULL DEFAULT 'development',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Master_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
 
-*/
+-- CreateTable
+CREATE TABLE "GameAccess" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "masterId" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GameAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "GameAccess_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 -- CreateTable
 CREATE TABLE "ActiveGame" (
     "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'singleton',
@@ -54,19 +81,27 @@ CREATE TABLE "Message" (
     "shared" BOOLEAN NOT NULL DEFAULT false,
     "summarized" BOOLEAN NOT NULL DEFAULT false,
     "hasFiles" BOOLEAN NOT NULL DEFAULT false,
+    "attachedFiles" TEXT NOT NULL DEFAULT '[]',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Message_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
-CREATE TABLE "ThoughtLog" (
+CREATE TABLE "UploadedFile" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "masterId" TEXT NOT NULL,
-    "agent" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
+    "filename" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "size" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'parsing',
+    "lastReadOffset" INTEGER NOT NULL DEFAULT 0,
+    "lastReadAt" DATETIME,
+    "summary" TEXT NOT NULL DEFAULT '',
+    "glossarySummary" TEXT NOT NULL DEFAULT '',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "ThoughtLog_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UploadedFile_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -80,46 +115,23 @@ CREATE TABLE "AppConfig" (
     "extra" TEXT NOT NULL DEFAULT ''
 );
 
--- RedefineTables
-PRAGMA defer_foreign_keys=ON;
-PRAGMA foreign_keys=OFF;
-CREATE TABLE "new_GameAccess" (
+-- CreateTable
+CREATE TABLE "BuilderJob" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "masterId" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "GameAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "GameAccess_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-INSERT INTO "new_GameAccess" ("createdAt", "id", "masterId", "userId") SELECT "createdAt", "id", "masterId", "userId" FROM "GameAccess";
-DROP TABLE "GameAccess";
-ALTER TABLE "new_GameAccess" RENAME TO "GameAccess";
-CREATE UNIQUE INDEX "GameAccess_userId_masterId_key" ON "GameAccess"("userId", "masterId");
-CREATE TABLE "new_Master" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "ownerId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "mode" TEXT NOT NULL DEFAULT 'development',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Master_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-);
-INSERT INTO "new_Master" ("createdAt", "description", "id", "name", "ownerId") SELECT "createdAt", "description", "id", "name", "ownerId" FROM "Master";
-DROP TABLE "Master";
-ALTER TABLE "new_Master" RENAME TO "Master";
-CREATE TABLE "new_User" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "login" TEXT NOT NULL,
-    "passwordHash" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'player',
-    "displayName" TEXT NOT NULL DEFAULT '',
-    "avatar" TEXT NOT NULL DEFAULT '',
+    "sessionId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "input" TEXT NOT NULL,
+    "error" TEXT,
+    "retries" INTEGER NOT NULL DEFAULT 0,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO "new_User" ("avatar", "createdAt", "displayName", "id", "login", "passwordHash", "role") SELECT "avatar", "createdAt", "displayName", "id", "login", "passwordHash", "role" FROM "User";
-DROP TABLE "User";
-ALTER TABLE "new_User" RENAME TO "User";
+
+-- CreateIndex
 CREATE UNIQUE INDEX "User_login_key" ON "User"("login");
-PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=OFF;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "GameAccess_userId_masterId_key" ON "GameAccess"("userId", "masterId");
+
+-- CreateIndex
+CREATE INDEX "BuilderJob_status_createdAt_idx" ON "BuilderJob"("status", "createdAt");

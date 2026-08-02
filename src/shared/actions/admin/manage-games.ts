@@ -72,6 +72,7 @@ export async function createGameAction(
   const game = await prisma.master.create({
     data: { ownerId: session.userId, name: name.trim(), description: description || null },
   });
+  broadcastGameEvent("game_created", { id: game.id, name: game.name });
   return { success: true, id: game.id };
 }
 
@@ -94,9 +95,10 @@ export async function deleteGameAction(
   // Prisma cascades: GameAccess, ActiveGame, Session→Message, Document, UploadedFile, BuilderJob — all deleted automatically
   await prisma.master.delete({ where: { id } });
 
+  broadcastGameEvent("game_deleted", { masterId: id });
+
   if (wasCurrentGame) {
     invalidateActiveGameCache();
-    broadcastGameEvent("game_deleted", { masterId: id });
   }
 
   return { success: true };
@@ -112,6 +114,7 @@ export async function updateGameAction(
 
   const prisma = getPrisma();
   await prisma.master.update({ where: { id }, data: { name: name.trim() } });
+  broadcastGameEvent("game_updated", { id, name: name.trim() });
   return { success: true };
 }
 

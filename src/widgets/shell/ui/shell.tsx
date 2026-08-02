@@ -64,13 +64,23 @@ export const Shell = ({ user, children }: IShellProps) => {
         queryClient.invalidateQueries();
         router.refresh();
       }
-      if (type === "builder_message_deleted" || type === "builder_message_sent") {
+      if (type === "builder_message_deleted" || type === "builder_message_sent" || type === "builder_chat_cleared") {
         if (payload?.sessionId) {
           queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
         }
       }
       if (type === "file_uploaded" || type === "file_removed" || type === "file_progress_updated") {
         queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
+      }
+      if (type === "game_created" || type === "game_updated" || type === "game_deleted") {
+        queryClient.invalidateQueries({ queryKey: ["admin", "games"] });
+        queryClient.invalidateQueries({ queryKey: ["admin", "currentGame"] });
+      }
+      if (type === "user_created" || type === "user_updated" || type === "user_deleted") {
+        queryClient.invalidateQueries({ queryKey: ["admin", "players"] });
+      }
+      if (type === "ai_config_updated") {
+        queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
       }
     };
     eventSource.onerror = () => {

@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { hashPassword } from "@/src/shared/lib/auth/password";
+import { broadcastGameEvent, broadcastToUser } from "@/src/shared/lib/events/game-events";
 
 export async function editUserAction(
   userId: string,
@@ -23,6 +24,11 @@ export async function editUserAction(
   if (Object.keys(update).length > 0) {
     await prisma.user.update({ where: { id: userId }, data: update as never });
   }
+
+  if (data.role && data.role !== user.role) {
+    broadcastToUser(userId, "kick", { reason: "role_changed" });
+  }
+  broadcastGameEvent("user_updated", { userId });
 
   return { success: true };
 }

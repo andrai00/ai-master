@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { hashPassword } from "@/src/shared/lib/auth/password";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 function generateId(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -27,5 +28,6 @@ export async function createPlayerAction(
     data: { id, login, passwordHash: hash, role: "player", displayName: login },
   });
 
+  broadcastGameEvent("user_created", { userId: id, login });
   return { success: true };
 }

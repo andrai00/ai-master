@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { broadcastGameEvent, broadcastToUser } from "@/src/shared/lib/events/game-events";
 
 export async function deleteUserAction(
   userId: string
@@ -11,5 +12,7 @@ export async function deleteUserAction(
   if (user.role === "admin") return { success: false, error: "errors.cannotDeleteAdmin" };
 
   await prisma.user.delete({ where: { id: userId } });
+  broadcastToUser(userId, "kick", { reason: "deleted" });
+  broadcastGameEvent("user_deleted", { userId });
   return { success: true };
 }

@@ -183,6 +183,49 @@ async function buildContext(sessionId: string) {
 // Background runner — no return value, drives SSE events
 // ---------------------------------------------------------------------------
 
+function classifyError(err: unknown): string {
+  if (!(err instanceof Error)) return "errors.unknownError";
+  const msg = err.message;
+  const full = `${msg} ${err.stack || ""}`.toLowerCase();
+
+  if (msg.startsWith("errors.")) return msg;
+
+  if (
+    full.includes("connection") ||
+    full.includes("econnrefused") ||
+    full.includes("fetch failed") ||
+    full.includes("timeout") ||
+    full.includes("timed out") ||
+    full.includes("network") ||
+    full.includes("enotfound") ||
+    full.includes("dns") ||
+    full.includes("not responding")
+  ) {
+    return "errors.modelNotResponding";
+  }
+
+  if (
+    full.includes("401") ||
+    full.includes("403") ||
+    full.includes("unauthorized") ||
+    full.includes("invalid key") ||
+    full.includes("authentication") ||
+    full.includes("incorrect api key")
+  ) {
+    return "errors.aiInvalidKey";
+  }
+
+  if (full.includes("429") || full.includes("rate limit") || full.includes("too many requests")) {
+    return "errors.aiRateLimited";
+  }
+
+  if (msg.includes("Failed to process successful response")) {
+    return "errors.aiResponseFormat";
+  }
+
+  return "errors.unknownError";
+}
+
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
@@ -443,12 +486,8 @@ export async function runBuilderAgent(
     }
 
     // Real error — notify clients
-    const raw = err instanceof Error ? err.message : "errors.processingFailed";
-    let message = raw;
-    if (raw.includes("Failed to process successful response")) {
-      message = "errors.aiResponseFormat";
-    }
-    console.error("[builder] Error:", raw);
+    const message = classifyError(err);
+    console.error("[builder] Error:", err instanceof Error ? err.message : String(err));
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);

@@ -344,6 +344,9 @@
     "pdfProcessingFailed": "PDF processing failed",
     "pdfParseFailed": "PDF parse failed",
     "aiNotConfigured": "AI provider is not configured.",
+    "aiInvalidKey": "Invalid API key or authentication issue. Check your API key in settings.",
+    "modelNotResponding": "Model is not responding. Check your network connection and AI server availability.",
+    "aiRateLimited": "Too many requests. Wait a moment and try again.",
     "processingFailed": "Processing failed",
     "aiResponseFormat": "AI provider error: the response format was not recognized. Try a different model or provider.",
     "noActiveGameTool": "No active game",
@@ -352,5 +355,18 @@
     "fileParseTimeout": "File parse timed out: {{fileId}}",
     "cancelled": "Cancelled.",
     "gameModeReadOnly": "Cannot modify glossary/brain in game mode"
+  },
+  "noGame": {
+    "builder": {
+      "title": "No game selected",
+      "description": "Select a game in the sidebar to access the builder and upload files"
+    },
+    "documents": {
+      "title": "No game selected",
+      "description": "Select a game in the sidebar to access documents"
+    },
+    "chat": {
+      "title": "No game selected — pick one in the sidebar"
+    }
   }
 }

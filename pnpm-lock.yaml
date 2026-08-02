@@ -59,6 +59,9 @@ importers:
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
+      mathjs:
+        specifier: ^15.2.0
+        version: 15.2.0
       mdast:
         specifier: ^3.0.0
         version: 3.0.0
@@ -2613,6 +2616,11 @@ packages:
 
   mathjs@14.9.1:
     resolution: {integrity: sha512-xhqv8Xjf+caWG3WlaPekg4v8QFOR3D5+8ycfcjMcPcnCNDgAONQLaLfyGgrggJrcHx2yUGCpACRpiD4GmXwX+Q==}
+    engines: {node: '>= 18'}
+    hasBin: true
+
+  mathjs@15.2.0:
+    resolution: {integrity: sha512-UAQzSVob9rNLdGpqcFMYmSu9dkuLYy7Lr2hBEQS5SHQdknA9VppJz3cy2KkpMzTODunad6V6cNv+5kOLsePLow==}
     engines: {node: '>= 18'}
     hasBin: true
 
@@ -6251,6 +6259,18 @@ snapshots:
   math-intrinsics@1.1.0: {}
 
   mathjs@14.9.1:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      complex.js: 2.4.3
+      decimal.js: 10.6.0
+      escape-latex: 1.2.0
+      fraction.js: 5.3.4
+      javascript-natural-sort: 0.7.1
+      seedrandom: 3.0.5
+      tiny-emitter: 2.1.0
+      typed-function: 4.2.2
+
+  mathjs@15.2.0:
     dependencies:
       '@babel/runtime': 7.29.7
       complex.js: 2.4.3

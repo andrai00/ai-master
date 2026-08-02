@@ -7,8 +7,11 @@ import rehypeSlug from "rehype-slug";
 import GithubSlug from "github-slugger";
 import { MenuOutlined } from "@ant-design/icons";
 import { remarkWikiLink } from "../model/remark-wiki-link";
+import { remarkFormulaRef } from "../model/remark-formula-ref";
 import { WikiLink } from "./wiki-link";
+import { FormulaBlock, FormulaInlineRef } from "./formula-block";
 import type { Components } from "react-markdown";
+import { parseFormulaBlocks, evaluateFormulas, type IFormulaResult } from "@/src/shared/lib/formula";
 import styles from "./md-viewer.module.css";
 
 interface ITocItem {
@@ -49,6 +52,12 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
   const [activeId, setActiveId] = useState<string>("");
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
+  const formulaResults = useMemo(() => {
+    const blocks = parseFormulaBlocks(content);
+    if (blocks.length === 0) return new Map<string, IFormulaResult>();
+    return evaluateFormulas(blocks).results;
+  }, [content]);
+
   const handleTocClick = useCallback((id: string) => {
     if (!id) return;
     const el = contentRef.current?.querySelector(`#${CSS.escape(id)}`);
@@ -56,7 +65,6 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       el.scrollIntoView({ behavior: "smooth", block: "start" });
       setActiveId(id);
     }
-    // On mobile, close TOC after selection
     setMobileTocOpen(false);
   }, []);
 
@@ -79,11 +87,11 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
     () => ({
       span(props) {
         const { node, children, ...rest } = props;
-        // Handle wikiLink nodes rendered by remarkWikiLink
-        const href = (node?.properties as Record<string, string> | undefined)?.["data-wiki-link"];
+        const properties = (node?.properties as Record<string, string> | undefined);
+        const href = properties?.["data-wiki-link"];
         if (href) {
           const [docId, anchor] = href.split("|");
-          const displayText = (node?.properties as Record<string, string> | undefined)?.["data-wiki-display"] || null;
+          const displayText = properties?.["data-wiki-display"] || null;
           return (
             <WikiLink
               docId={docId!}
@@ -93,10 +101,40 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
+        const formulaRef = properties?.["data-formula-ref"];
+        if (formulaRef) {
+          return (
+            <FormulaInlineRef
+              varName={formulaRef}
+              result={formulaResults.get(formulaRef)}
+            />
+          );
+        }
         return <span {...rest}>{children}</span>;
       },
+      code(props) {
+        const { children, className, ...rest } = props;
+        if (className === "language-formula") {
+          const body = String(children).replace(/\n$/, "");
+          const props_: Record<string, string> = {};
+          for (const line of body.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const idx = trimmed.indexOf(":");
+            if (idx > 0) {
+              props_[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+            }
+          }
+          const name = props_["name"];
+          if (name && formulaResults.has(name)) {
+            return <FormulaBlock result={formulaResults.get(name)!} />;
+          }
+          return <code className={className} {...rest}>{children}</code>;
+        }
+        return <code className={className} {...rest}>{children}</code>;
+      },
     }),
-    [onNavigate]
+    [onNavigate, formulaResults]
   );
 
   return (
@@ -132,7 +170,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       )}
       <div className={styles.content} ref={contentRef}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkWikiLink]}
+          remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef]}
           rehypePlugins={[rehypeSlug]}
           components={components}
         >

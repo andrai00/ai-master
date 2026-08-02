@@ -177,7 +177,7 @@ The brain is the AI Master's instruction manual. You MUST create **all** of thes
 | `char_creation` | Step-by-step character creation process for this game system. What stats, what choices, what order. | Required |
 | `mechanics` | How to process mechanics: initiative, combat rounds, skill checks, **dice rolling formulas for this system**, damage. Include common roll templates as `dice_template` documents. | Required |
 | `routing` | **Rules for what to say and where.** (1) Which chat: public game chat vs private chat with a specific player. (2) Information boundaries: only share what the player's character actually knows in-fiction. Never dump raw glossary/brain content to players — they get the world through their character's eyes. Use glossary to resolve rules questions silently, then narrate the outcome in-fiction. Never reveal game_hidden data. | Required |
-| `char_tracking` | **How the AI Master tracks player characters during the game.** What documents to create for each player (character sheet template), how to maintain a character registry, how to check if a character is complete or still being created, what to answer when a player asks "do I have a character?" or "is my character done?". | Required |
+| `char_tracking` | **How the AI Master tracks player characters during the game.** What documents to create for each player (character sheet template), how to maintain a character registry, how to check if a character is complete or still being created, what to answer when a player asks "do I have a character?" or "is my character done?". **Pre-response check**: before ANY response in personal chat, look up the player in the registry. If no character — offer creation and refuse game actions. If character exists — read their sheet — respond only with what that character perceives, knows, or can act upon. | Required |
 | `game_state` | **How the AI Master manages live game state.** What hidden notes to keep: session plans, NPC index with key NPCs, world state, quest logs, **event timeline** (chronological log of key events as they happen). When to write them, what format. How to organise planning vs execution. Track only what matters — don't log every dice roll, log decisions and consequences. | Required |
 | `doc_org` | **Document organisation rules for the AI Master.** Rule: always create an index document + many focused documents, never cram everything into one. When to split a document, naming conventions, how to use tags for searchability. The AI Master must follow these rules during play. | Required |
 
@@ -192,6 +192,73 @@ Within `char_tracking` and `game_state` documents, include **Markdown templates*
 - **NPC/world state template** (in `game_state`) — a `game_hidden` document template for tracking NPCs, locations, and world changes. Include a separate NPC index listing all named NPCs with one-line descriptions.
 
 Mark these templates clearly with a comment like `<!-- TEMPLATE: copy this to create a new document -->` so the AI Master knows to use them as blueprints.
+
+## Formula System
+
+The platform has a built-in formula engine. The AI Master uses formulas in character sheets, NPC stat blocks, and any non-glossary document where computed values depend on base stats.
+
+### How formulas work
+
+- **Define** a variable with a ````formula` fenced code block:
+  ````
+  ```formula
+  name: dex_mod
+  expr: floor((dexterity - 10) / 2)
+  ```
+  ````
+- **Reference** a computed value inline with `$var_name`: `$dex_mod` renders as `+3`
+- Variables can reference other formula variables — the engine resolves dependencies in order
+- Cyclic references are detected and reported as errors
+
+### What you do with formulas
+
+When writing the `char_tracking` brain document and character sheet template:
+
+1. **Include formula blocks** in the character sheet template for all derived values (ability modifiers, AC, initiative, HP, skill bonuses, etc.)
+2. **Use inline `$var` references** in the template's markdown tables and prose so computed values are always visible
+3. **Write the template so the AI Master only fills base stats** — everything else auto-computes
+4. **Explain the syntax** to the AI Master in the `char_tracking` document: how to define formulas, how to reference them, that scope is per-document
+5. **Include examples** for the game system's specific calculations
+
+Full formula syntax reference: `src/shared/config/formula-reference.md` — load it as a skill when writing formula-heavy templates.
+
+### Templates with formulas
+
+Character sheet template example structure:
+
+````markdown
+# Character Sheet: {name}  <!-- TEMPLATE: copy this to create a new document -->
+
+## Base Stats (fill manually)
+- Strength: 10
+- Dexterity: 14
+- Constitution: 12
+
+## Derived Stats (auto-computed)
+
+```formula
+name: dex_mod
+expr: floor((dexterity - 10) / 2)
+```
+
+```formula
+name: ac
+expr: 10 + dex_mod + 2
+```
+
+| Stat | Value |
+|------|-------|
+| AC | `$ac` |
+| Initiative | `$dex_mod` |
+````
+
+### Rules for formula templates
+
+- Put the template comment `<!-- TEMPLATE: copy this ... -->` at the top
+- Mark base stats as "fill manually" — these are plain numbers the AI Master replaces per-player
+- All derived values use formula blocks with names in `snake_case`
+- Reference only within the same document — no cross-document variables
+- Formulas work in `brain`, `game_hidden`, `game_visible` — NOT in `glossary`
 
 ### Document fragmentation rule
 

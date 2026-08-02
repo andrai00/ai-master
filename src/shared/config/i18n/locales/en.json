@@ -269,7 +269,8 @@
     "glossary": "Glossary",
     "brain": "Brain",
     "gameHidden": "Hidden",
-    "gameVisible": "Player Data"
+    "gameVisible": "Player Data",
+    "searchPlaceholder": "Search documents..."
   },
   "aiSettings": {
     "title": "AI Settings",

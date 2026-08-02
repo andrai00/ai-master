@@ -1,7 +1,7 @@
 "use client";
 
-import { Tabs, Table, Modal, Empty, Button, Space } from "antd";
-import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { Tabs, Table, Modal, Empty, Button, Space, Input } from "antd";
+import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
@@ -25,12 +25,23 @@ export const DocumentsView = () => {
   const [navStack, setNavStack] = useState<IDocumentItem[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
   const [pageSize, setPageSize] = useState(20);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: docs = [], isLoading } = useDocuments();
 
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
 
-  const getCategoryDocs = (cat: string) => docs.filter((d) => d.category === cat);
+  const filteredDocs = useMemo(() => {
+    if (!searchQuery.trim()) return docs;
+    const q = searchQuery.toLowerCase();
+    return docs.filter(
+      (d) =>
+        d.title.toLowerCase().includes(q) ||
+        (d.summary && d.summary.toLowerCase().includes(q))
+    );
+  }, [docs, searchQuery]);
+
+  const getCategoryDocs = (cat: string) => filteredDocs.filter((d) => d.category === cat);
 
   const handleOpenDoc = useCallback((doc: IDocumentItem) => {
     setScrollTo(undefined);
@@ -103,6 +114,14 @@ export const DocumentsView = () => {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <PageHeader title={t("documents.title_page")} />
       <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", width: "100%", overflow: "auto", flex: 1 }}>
+      <Input.Search
+        allowClear
+        placeholder={t("documents.searchPlaceholder")}
+        prefix={<SearchOutlined />}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
       <Tabs
         style={{ marginTop: 8 }}
         tabBarGutter={24}

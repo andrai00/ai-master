@@ -269,7 +269,8 @@
     "glossary": "Глоссарий",
     "brain": "Мозг",
     "gameHidden": "Скрытые",
-    "gameVisible": "Данные игроков"
+    "gameVisible": "Данные игроков",
+    "searchPlaceholder": "Поиск по документам..."
   },
   "aiSettings": {
     "title": "Настройки AI",

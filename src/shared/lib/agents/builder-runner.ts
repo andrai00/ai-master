@@ -1,4 +1,4 @@
-import { generateText, isStepCount, type StepResult, type ModelMessage } from "ai";
+import { generateText, isStepCount, isLoopFinished, type StepResult, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -294,7 +294,7 @@ export async function runBuilderAgent(
           system: ctx.system,
           messages,
           tools,
-          stopWhen: fileIds.length > 0 ? undefined : isStepCount(80),
+          stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(80),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
             // Check abort before doing anything
             if (ac.signal.aborted) {

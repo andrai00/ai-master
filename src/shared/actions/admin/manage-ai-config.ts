@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export interface IAiConfig {
   provider: string;
@@ -48,5 +49,6 @@ export async function saveAiConfigAction(
     update: data,
   });
 
+  broadcastGameEvent("ai_config_updated");
   return { success: true };
 }

@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function clearBuilderChatAction(
   sessionId: string
@@ -37,6 +38,8 @@ export async function clearBuilderChatAction(
       OR: [{ type: "builder_summary" }, { type: "note" }],
     },
   });
+
+  broadcastGameEvent("builder_chat_cleared", { sessionId });
 
   return { success: true };
 }

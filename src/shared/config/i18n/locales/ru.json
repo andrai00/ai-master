@@ -103,6 +103,8 @@
     "send": "Отправить",
     "continueReading": "Продолжить изучать",
     "fileProcessingTitle": "Обработка файлов",
+    "editOffset": "Изменить страницу",
+    "saveOffset": "Сохранить",
     "fileStatusDone": "Готово",
     "fileStatusProcessing": "Читается",
     "fileStatusWaiting": "Ожидает",

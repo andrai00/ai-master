@@ -103,6 +103,8 @@
     "send": "Send",
     "continueReading": "Continue studying",
     "fileProcessingTitle": "File processing",
+    "editOffset": "Change page",
+    "saveOffset": "Save",
     "fileStatusDone": "Done",
     "fileStatusProcessing": "Processing",
     "fileStatusWaiting": "Waiting",

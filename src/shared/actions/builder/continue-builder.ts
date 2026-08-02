@@ -79,6 +79,8 @@ export async function continueBuilderAction(
       .join("\n- ");
     content += `\n\nProgress so far:\n- ${progress}`;
     content += "\n\nUse read_parsed_file() with the offsets above to continue from where you left off.";
+  } else {
+    content += "\n\nAll files are fully read (100%). Write a final STUDY summary and stop — do NOT re-read any files.";
   }
 
   enqueueBuilderJob(sessionId, content, fileIds).catch((err) => {

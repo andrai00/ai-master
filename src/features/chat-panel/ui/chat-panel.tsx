@@ -72,6 +72,7 @@ export interface IFileProgress {
   readOffset: number;
   status: "parsing" | "done" | "error";
   onRemove?: () => void;
+  onSetOffset?: (chunkNumber: number) => void;
 }
 
 interface IChatPanelProps {

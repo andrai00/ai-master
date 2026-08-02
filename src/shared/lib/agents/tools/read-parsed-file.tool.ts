@@ -58,11 +58,28 @@ export const readParsedFileTool = {
     const chunk = file.text.slice(safeOffset, safeOffset + limit);
     const hasMore = safeOffset + limit < textLength;
 
+    if (!chunk && safeOffset >= textLength) {
+      return {
+        fileId,
+        filename: file.filename,
+        status: "done",
+        text: "[END OF FILE — all content has been read and processed. Call list_uploaded_files() to confirm completion.]",
+        offset: textLength,
+        length: 0,
+        totalSize: textLength,
+        hasMore: false,
+        summary: file.summary,
+        glossarySummary: file.glossarySummary,
+      };
+    }
+
     const readEnd = safeOffset + chunk.length;
-    await prisma.uploadedFile.update({
-      where: { id: fileId },
-      data: { lastReadOffset: readEnd, lastReadAt: new Date() },
-    }).catch(() => { /* non-critical */ });
+    if (readEnd > file.lastReadOffset) {
+      await prisma.uploadedFile.update({
+        where: { id: fileId },
+        data: { lastReadOffset: readEnd, lastReadAt: new Date() },
+      }).catch(() => { /* non-critical */ });
+    }
 
     return {
       fileId,

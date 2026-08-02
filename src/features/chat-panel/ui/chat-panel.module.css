@@ -514,6 +514,25 @@
   flex-shrink: 0;
 }
 
+.modalEditBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 0;
+  margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.modalFile:hover .modalEditBtn {
+  opacity: 1;
+}
+.modalEditBtn:hover {
+  color: var(--accent, #1677ff);
+}
+
 .modalFileRight {
   display: flex;
   align-items: center;

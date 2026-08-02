@@ -12,7 +12,7 @@ import { useSendBuilderMessage } from "@/src/shared/api/builder/useSendMessage";
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/useDeleteMessage";
 import { useClearBuilderChat } from "@/src/shared/api/builder/useClearChat";
 import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
-import { useFileProgress, useRemoveUploadedFile } from "@/src/shared/api/builder/use-file-progress";
+import { useFileProgress, useRemoveUploadedFile, useSetFileOffset } from "@/src/shared/api/builder/use-file-progress";
 import { useContinueBuilder } from "@/src/shared/api/builder/use-continue-builder";
 import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
@@ -142,6 +142,7 @@ export const BuilderChatView = () => {
   const clearMutation = useClearBuilderChat();
   const { data: progressData } = useFileProgress();
   const removeFileMutation = useRemoveUploadedFile();
+  const setOffsetMutation = useSetFileOffset();
   const continueMutation = useContinueBuilder();
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
@@ -221,6 +222,9 @@ export const BuilderChatView = () => {
     ...f,
     onRemove: typing ? undefined : () => {
       removeFileMutation.mutate(f.fileId);
+    },
+    onSetOffset: typing ? undefined : (chunkNumber: number) => {
+      setOffsetMutation.mutate({ fileId: f.fileId, chunkNumber });
     },
   }));
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { Modal, Button, Tooltip } from "antd";
-import { CloseOutlined, FileOutlined, FileTextOutlined, CaretRightOutlined } from "@ant-design/icons";
+import { useState } from "react";
+import { Modal, Button, Tooltip, Input } from "antd";
+import { CloseOutlined, FileOutlined, FileTextOutlined, CaretRightOutlined, EditOutlined, CheckOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import styles from "./chat-panel.module.css";
 
@@ -12,6 +13,7 @@ export interface IFileProgress {
   readOffset: number;
   status: "parsing" | "done" | "error";
   onRemove?: () => void;
+  onSetOffset?: (chunkNumber: number) => void;
 }
 
 interface IFileProgressModalProps {
@@ -52,6 +54,8 @@ function getStatus(
 export const FileProgressModal = ({ open, files, processing, onClose, onContinue }: IFileProgressModalProps) => {
   const { t } = useTranslation();
   const allDone = files.length > 0 && files.every((f) => f.readOffset >= f.totalSize && f.totalSize > 0);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   return (
     <Modal
@@ -79,10 +83,61 @@ export const FileProgressModal = ({ open, files, processing, onClose, onContinue
                   <FileOutlined style={{ fontSize: 12, color: "var(--text-dim)", flexShrink: 0 }} />
                   <span className={styles.modalFileName}>{truncateName(f.filename)}</span>
                   {!isParsing && !isError && f.totalSize > 0 && (
-                    <span className={styles.modalFileChunks}>
-                      <FileTextOutlined style={{ fontSize: 11 }} />
-                      {readChunks}/{totalChunks}
-                    </span>
+                    editingFileId === f.fileId ? (
+                      <span className={styles.modalFileChunks} style={{ gap: 4 }}>
+                        <FileTextOutlined style={{ fontSize: 11 }} />
+                        <Input
+                          size="small"
+                          style={{ width: 50, fontSize: 11, height: 20, padding: "0 4px" }}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value.replace(/\D/g, ""))}
+                          onPressEnter={() => {
+                            const n = parseInt(editValue, 10);
+                            if (n > 0 && n <= totalChunks && f.onSetOffset) {
+                              f.onSetOffset(n - 1);
+                              setEditingFileId(null);
+                            }
+                          }}
+                          placeholder={String(readChunks)}
+                          autoFocus
+                        />
+                        <span style={{ fontSize: 10, color: "var(--text-dim)" }}>/ {totalChunks}</span>
+                        <Tooltip title={t("chat.saveOffset")}>
+                          <Button
+                            type="text"
+                            size="small"
+                            style={{ padding: 0, minWidth: 16, height: 16 }}
+                            icon={<CheckOutlined style={{ fontSize: 10 }} />}
+                            onClick={() => {
+                              const n = parseInt(editValue, 10);
+                              if (n > 0 && n <= totalChunks && f.onSetOffset) {
+                                f.onSetOffset(n - 1);
+                                setEditingFileId(null);
+                              }
+                            }}
+                          />
+                        </Tooltip>
+                      </span>
+                    ) : (
+                      <span className={styles.modalFileChunks}>
+                        <FileTextOutlined style={{ fontSize: 11 }} />
+                        {readChunks}/{totalChunks}
+                        {!processing && (
+                          <Tooltip title={t("chat.editOffset")}>
+                            <button
+                              className={styles.modalEditBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFileId(f.fileId);
+                                setEditValue(String(readChunks));
+                              }}
+                            >
+                              <EditOutlined style={{ fontSize: 10 }} />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </span>
+                    )
                   )}
                 </div>
                 <div className={styles.modalFileRight}>

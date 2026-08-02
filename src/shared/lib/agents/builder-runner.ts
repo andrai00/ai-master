@@ -292,7 +292,7 @@ export async function runBuilderAgent(
           system: ctx.system,
           messages,
           tools,
-          stopWhen: isStepCount(80),
+          stopWhen: fileIds.length > 0 ? undefined : isStepCount(80),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
             // Count tool calls for summary (used by both compression paths)
             let reads = 0, created = 0, updated = 0, searched = 0, listed = 0;

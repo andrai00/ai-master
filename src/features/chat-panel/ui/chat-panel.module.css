@@ -530,7 +530,7 @@
   opacity: 1;
 }
 .modalEditBtn:hover {
-  color: var(--accent, #1677ff);
+  color: var(--link-color);
 }
 
 .modalFileRight {

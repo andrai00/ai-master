@@ -60,7 +60,7 @@ const wikiComponents: Components = {
           href={`/admin/documents?doc=${docId}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "var(--accent, #1677ff)", cursor: "pointer" }}
+          style={{ color: "var(--link-color)", cursor: "pointer" }}
         >
           {children}
         </a>

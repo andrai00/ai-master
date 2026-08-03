@@ -22,6 +22,7 @@
   --warning-bg: rgba(212, 164, 41, 0.08);
   --warning-border: rgba(212, 164, 41, 0.15);
   --text-on-accent: #fff;
+  --link-color: #6cb4ee;
 }
 
 [data-theme="light"] {
@@ -40,6 +41,7 @@
   --scrollbar-thumb-hover: #a0a0a0;
   --selection-bg: #c0c0c0;
   --selection-color: #1a1a1a;
+  --link-color: #1677ff;
 }
 
 html, body, #__next {

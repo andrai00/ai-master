@@ -63,7 +63,7 @@ export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWik
 
   const cached = resolvedCache.get(docId);
   const resolvedDisplay = displayText || cached?.title || docId;
-  const exists = displayText ? true : (cached?.exists ?? true); // assume exists until resolved
+  const exists = cached?.exists ?? true; // assume exists until resolved, then use actual
 
   const handleClick = () => {
     if (plain || !exists) return;

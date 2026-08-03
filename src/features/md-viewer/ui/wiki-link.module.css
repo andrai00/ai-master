@@ -2,17 +2,17 @@
   background: none;
   border: none;
   border-bottom: 1px dashed var(--text-dim);
-  color: inherit;
+  color: var(--link-color);
   cursor: pointer;
   font: inherit;
   padding: 0;
-  opacity: 0.85;
+  opacity: 0.9;
   transition: opacity 0.12s;
 }
 
 .wikiLink:hover {
   opacity: 1;
-  border-bottom-color: var(--text-primary);
+  border-bottom-color: var(--link-color);
 }
 
 .wikiText {

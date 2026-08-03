@@ -133,6 +133,20 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         }
         return <code className={className} {...rest}>{children}</code>;
       },
+      a(props) {
+        const { href, children } = props;
+        if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
+          const docId = href.slice(5);
+          return (
+            <WikiLink
+              docId={docId}
+              displayText={typeof children === "string" ? children : undefined}
+              onNavigate={onNavigate}
+            />
+          );
+        }
+        return <a href={href}>{children}</a>;
+      },
     }),
     [onNavigate, formulaResults]
   );

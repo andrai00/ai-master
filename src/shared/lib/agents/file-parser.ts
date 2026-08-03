@@ -1,7 +1,6 @@
 import "server-only";
 import { Worker } from "worker_threads";
 import { join } from "path";
-import mammoth from "mammoth";
 
 export interface IParsedFile {
   text: string;
@@ -17,7 +16,7 @@ function getExtension(filename: string): string {
 }
 
 function isAllowed(ext: string): boolean {
-  return [".pdf", ".txt", ".md", ".docx"].includes(ext);
+  return [".pdf", ".txt", ".md"].includes(ext);
 }
 
 function getWorkerPath(): string {
@@ -67,9 +66,6 @@ export async function parseFile(buffer: Buffer, filename: string, onProgress?: (
     console.log(`[file-parser] Starting PDF parse via worker: ${filename} (${buffer.length} bytes)`);
     text = await parsePdfViaWorker(buffer, onProgress);
     console.log(`[file-parser] PDF parse done: ${text.length} chars`);
-  } else if (ext === ".docx") {
-    const result = await mammoth.extractRawText({ buffer });
-    text = result.value;
   } else {
     text = new TextDecoder("utf-8").decode(buffer);
   }

@@ -281,7 +281,7 @@ export const BuilderChatView = () => {
         title={t("mode.builderChat")}
         hideShare
         allowFiles
-        acceptFiles=".pdf,.txt,.md,.docx"
+        acceptFiles=".pdf,.txt,.md"
         inputPrefix={
             <Segmented
               size="small"

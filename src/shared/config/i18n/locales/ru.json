@@ -105,6 +105,7 @@
     "fileProcessingTitle": "Обработка файлов",
     "editOffset": "Изменить страницу",
     "saveOffset": "Сохранить",
+    "pdfWarning": "PDF может быть изучен хуже чем MD.",
     "fileStatusDone": "Готово",
     "fileStatusProcessing": "Читается",
     "fileStatusWaiting": "Ожидает",

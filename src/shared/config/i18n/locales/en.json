@@ -105,6 +105,7 @@
     "fileProcessingTitle": "File processing",
     "editOffset": "Change page",
     "saveOffset": "Save",
+    "pdfWarning": "PDF may not be parsed perfectly.",
     "fileStatusDone": "Done",
     "fileStatusProcessing": "Processing",
     "fileStatusWaiting": "Waiting",

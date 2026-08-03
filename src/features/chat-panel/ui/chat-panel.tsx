@@ -640,6 +640,25 @@ export const ChatPanel = ({
           </div>
         )}
 
+        {/* PDF warning bar */}
+        {allowFiles && attachedFiles.some((f) => f.name.toLowerCase().endsWith(".pdf")) && (
+          <div style={{
+            background: "var(--warning-bg)",
+            border: "1px solid var(--warning-border)",
+            color: "var(--warning-text)",
+            padding: "6px 12px",
+            borderRadius: 4,
+            fontSize: 11,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 6,
+          }}>
+            <span style={{ opacity: 0.7 }}>&#9888;</span>
+            {t("chat.pdfWarning")}
+          </div>
+        )}
+
         <div className={styles.inputInner}>
           {inputPrefix}
           <Input.TextArea

@@ -25,4 +25,7 @@ export const TOOL_DESCRIPTIONS = {
 
   update_file_summary:
     "Save notes about file processing progress for a specific uploaded file. Use summary to record what was read, key chapters found, where text breaks mid-sentence. Use glossarySummary to record what glossary documents were created/updated from this file and which topics are already covered — helps avoid re-processing the same content.",
+
+  validate_links:
+    "Validate all /doc/ID links in glossary documents. Returns a list of broken links: source document, target ID that doesn't exist, and display text. Use this after STUDY to verify index integrity, or when the admin asks to check links.",
 } as const;

@@ -10,6 +10,7 @@ import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { updateFileSummaryTool } from "./tools/update-file-summary.tool";
+import { validateLinksTool } from "./tools/validate-links.tool";
 import { removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
@@ -118,6 +119,7 @@ function getTools() {
     update_document: updateDocumentTool,
     read_document: readDocumentTool,
     search_documents: searchDocumentsTool,
+    validate_links: validateLinksTool,
   };
 }
 

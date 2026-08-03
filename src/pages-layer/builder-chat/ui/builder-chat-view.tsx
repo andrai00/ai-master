@@ -220,7 +220,7 @@ export const BuilderChatView = () => {
   // --- File progress ---
   const fileProgress: IFileProgress[] = (progressData ?? []).map((f) => ({
     ...f,
-    onRemove: typing ? undefined : () => {
+    onRemove: (typing && f.readOffset < f.totalSize) ? undefined : () => {
       removeFileMutation.mutate(f.fileId);
     },
     onSetOffset: typing ? undefined : (chunkNumber: number) => {

@@ -142,7 +142,7 @@ export const FileProgressModal = ({ open, files, processing, onClose, onContinue
                 </div>
                 <div className={styles.modalFileRight}>
                   <span className={`${styles.modalFileStatus} ${status.className}`}>{status.label}</span>
-                  {f.onRemove && !processing && (
+                  {f.onRemove && (!processing || f.readOffset >= f.totalSize && f.totalSize > 0) && (
                     <Tooltip title={t("chat.removeFile")}>
                       <Button
                         type="text"

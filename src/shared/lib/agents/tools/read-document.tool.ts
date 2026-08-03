@@ -5,6 +5,28 @@ import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanRead } from "./builder-mode-guard";
 
+interface ITocEntry {
+  heading: string;
+  level: number;
+  offset: number;
+}
+
+const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
+
+function extractToc(content: string): ITocEntry[] {
+  const toc: ITocEntry[] = [];
+  let match: RegExpExecArray | null;
+  HEADING_RE.lastIndex = 0;
+  while ((match = HEADING_RE.exec(content)) !== null) {
+    toc.push({
+      heading: match[2].trim(),
+      level: match[1].length,
+      offset: match.index,
+    });
+  }
+  return toc;
+}
+
 export const readDocumentTool = {
   description: TOOL_DESCRIPTIONS.read_document,
   inputSchema: zodSchema(
@@ -33,6 +55,8 @@ export const readDocumentTool = {
     if (!doc) throw new Error("errors.documentNotFound");
     await assertCanRead(doc.category);
 
+    const toc = extractToc(doc.content);
+
     if (args.offset !== undefined || args.limit !== undefined) {
       const offset = args.offset ?? 0;
       const limit = args.limit ?? 5000;
@@ -51,9 +75,10 @@ export const readDocumentTool = {
         length: chunk.length,
         totalSize,
         hasMore,
+        toc,
       };
     }
 
-    return doc;
+    return { ...doc, toc };
   },
 };

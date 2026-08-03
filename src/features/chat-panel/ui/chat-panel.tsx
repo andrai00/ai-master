@@ -51,6 +51,23 @@ const wikiComponents: Components = {
     }
     return <span {...rest}>{children}</span>;
   },
+  a(props) {
+    const { href, children } = props;
+    if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
+      const docId = href.slice(5);
+      return (
+        <a
+          href={`/admin/documents?doc=${docId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--accent, #1677ff)", cursor: "pointer" }}
+        >
+          {children}
+        </a>
+      );
+    }
+    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+  },
 };
 
 export interface IMessage {

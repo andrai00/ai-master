@@ -7,7 +7,8 @@ import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
 import GithubSlug from "github-slugger";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
 import { PageHeader } from "@/src/shared/ui/page-header";
@@ -28,6 +29,15 @@ export const DocumentsView = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: docs = [], isLoading } = useDocuments();
+
+  const searchParams = useSearchParams();
+  const openDocId = searchParams.get("doc");
+
+  useEffect(() => {
+    if (!openDocId || docs.length === 0) return;
+    const target = docs.find((d) => d.id === openDocId);
+    if (target) setPreviewDoc(target);
+  }, [openDocId, docs]);
 
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
 

@@ -112,6 +112,52 @@ When writing the `mechanics` brain document for a game system, include:
 
 The database may already contain documents from previous sessions. Use `search_documents` to check what's there before creating duplicates. Update existing documents instead of creating new ones when content overlaps. The `create_document` tool will warn you if a document with the same title already exists.
 
+## Document Links and Navigation
+
+### Why links matter
+
+Documents in this system are Markdown files. They form a knowledge graph, not a flat list. Use links to connect related content so the AI Master can navigate quickly during gameplay.
+
+### Link syntax
+
+```
+[display text](/doc/DOCUMENT_ID)
+```
+
+Example: `[Боевые правила](/doc/abc123)` in a character class document links to the combat rules document.
+
+### When to create links
+
+- **Cross-references**: when document A mentions a concept documented in document B — link it.
+- **Index documents**: every category should have an index document listing all its sub-documents with links.
+- **Brain documents**: link from brain docs to the glossary docs they reference.
+- **Templates**: templates that reference other sections should include links.
+
+### How to use links for navigation
+
+`read_document` returns a `toc` field — the table of contents with heading names, levels, and character offsets. Use this to:
+
+1. See document structure before reading.
+2. Jump to a specific section: `read_document(id, offset=toc[3].offset, limit=3000)`.
+3. Verify a document has the content you expect before using it.
+
+**Prefer TOC + offset over full reads** for large documents. Only read what you need.
+
+### Index documents (MANDATORY after STUDY)
+
+After STUDY mode completes, create these index documents:
+
+1. **`_glossary_index`** (category=glossary, type=index) — table of contents for the entire glossary. Group documents by topic (Races, Classes, Spells, Equipment, Creatures, Rules, etc.). Each entry: `[Title](/doc/ID) — one-line summary`.
+
+2. **Per-section indices** — for large sections (20+ docs), create a dedicated index:
+   - `Заклинания (индекс)` — all spell documents with links
+   - `Существа (индекс)` — all creature stat blocks with links
+   - `Классы (индекс)` — all class documents with links
+
+3. **Update `_index` brain document** — add links to these glossary indices.
+
+Use linked lists, not flat search. The AI Master should be able to navigate from index → section → specific document without ever calling `search_documents`.
+
 ## Processing uploaded files — STUDY MODE
 
 When you are in STUDY MODE (attached files from Continue or auto-continue), follow these rules strictly. You exit STUDY MODE only when all files have `completed: true`.
@@ -148,12 +194,15 @@ When you are in STUDY MODE (attached files from Continue or auto-continue), foll
    → if any file has completed=false, go to step 1
    → if ALL files have completed=true, EXIT STUDY MODE
 
-5. Exit: review what was done.
-   - Summarize glossary documents created from the files.
-   - Check brain documents: `search_documents(category="brain")` → see what exists.
-   - If brain docs are missing or incomplete: tell the admin "Glossary is ready. Want me to write/update brain instructions for the AI Master?"
-   - If brain docs are complete: report everything is done.
-   - **Never claim brain documents exist if you haven't created them.** Check with search_documents first.
+5. Exit: review and index.
+    - Create/update `_glossary_index` — table of contents for the glossary with `[Title](/doc/ID)` links grouped by topic.
+    - Create per-section indices for large sections (20+ docs): `[Title](/doc/ID) — one-line summary`.
+    - Update `_index` brain document with links to glossary indices.
+    - Summarize glossary documents created from the files.
+    - Check brain documents: `search_documents(category="brain")` → see what exists.
+    - If brain docs are missing or incomplete: tell the admin "Glossary is ready. Want me to write/update brain instructions for the AI Master?"
+    - If brain docs are complete: report everything is done.
+    - **Never claim brain documents exist if you haven't created them.** Check with search_documents first.
 ```
 
 ### Study mode rules

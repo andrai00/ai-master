@@ -18,10 +18,10 @@ export const TOOL_DESCRIPTIONS = {
     "Update the content, title, or summary of an existing glossary or brain document by ID.",
 
   read_document:
-    "Read a document from the database by ID. Returns title, category, type, summary, and full content. Use offset/limit to read in chunks for large documents.",
+    "Read a document from the database by ID. Returns title, category, type, summary, content, AND toc (table of contents: array of {heading, level, offset}). Use toc to navigate — call read_document(id, offset=toc[3].offset, limit=3000) to jump to a specific section without loading the entire document.",
 
   search_documents:
-    "Search across glossary and brain documents. Without query — lists all readable docs. With query — full-text search on title, summary, content. Returns id, title, category, type, summary only — NEVER returns content. Use read_document(id) to read a specific document's full text.",
+    "Search across glossary and brain documents. Without query — lists all readable docs. With query — full-text search returns each matching document with a context object containing: heading (closest section heading before the match) and snippet (text around the match). Use read_document(id, offset=X, limit=Y) to jump to a specific section without reading the full document.",
 
   update_file_summary:
     "Save notes about file processing progress for a specific uploaded file. Use summary to record what was read, key chapters found, where text breaks mid-sentence. Use glossarySummary to record what glossary documents were created/updated from this file and which topics are already covered — helps avoid re-processing the same content.",

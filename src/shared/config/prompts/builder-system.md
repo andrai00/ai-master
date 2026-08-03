@@ -143,20 +143,30 @@ Example: `[Боевые правила](/doc/abc123)` in a character class docum
 
 **Prefer TOC + offset over full reads** for large documents. Only read what you need.
 
-### Index documents (MANDATORY after STUDY)
+### Index documents — built incrementally during STUDY
 
-After STUDY mode completes, create these index documents:
+**Index hierarchy:**
+- `_glossary_index` (type=index) — top-level hub. Links to section indices, NOT to individual documents.
+- Section indices (e.g., `Классы (индекс)`, `Заклинания (индекс)`) — link to individual documents within that section.
+- Agent decides: small section (few docs) → entry goes directly into `_glossary_index`. Large section → create section index + link from `_glossary_index` to it.
 
-1. **`_glossary_index`** (category=glossary, type=index) — table of contents for the entire glossary. Group documents by topic (Races, Classes, Spells, Equipment, Creatures, Rules, etc.). Each entry: `[Title](/doc/ID) — one-line summary`.
+**Incremental update:** after every `create_document`, immediately update the appropriate index:
+- `create_document` returns the ID — use it right away
+- Add `[Title](/doc/ID) — one-line summary` to the section index (or `_glossary_index` for small sections)
+- If the section index doesn't exist yet → create it → add link from `_glossary_index` to it → add entry to it
 
-2. **Per-section indices** — for large sections (20+ docs), create a dedicated index:
-   - `Заклинания (индекс)` — all spell documents with links
-   - `Существа (индекс)` — all creature stat blocks with links
-   - `Классы (индекс)` — all class documents with links
+**CRITICAL: IDs come from tools, never from memory.**
+- `create_document` returns the ID — use it immediately
+- `search_documents` returns IDs — use them to fill gaps
+- NEVER write `[Title](/doc/some-uuid)` based on what you "remember"
 
-3. **Update `_index` brain document** — add links to these glossary indices.
+After STUDY completes, verify completeness:
+1. `search_documents(category="glossary")` — list all docs
+2. Read all indices — is every document listed?
+3. Missing docs → add links using IDs from search_documents
+4. Sections with 20+ docs → create dedicated per-section index
 
-Use linked lists, not flat search. The AI Master should be able to navigate from index → section → specific document without ever calling `search_documents`.
+Update `_index` brain document with links to all glossary indices.
 
 ## Processing uploaded files — STUDY MODE
 
@@ -172,31 +182,41 @@ When you are in STUDY MODE (attached files from Continue or auto-continue), foll
 2. read_parsed_file(fileId)
    → offset is automatic (continues where you left off)
 
-3. **MANDATORY: Document this chunk before moving on.**
-   This step is NOT optional — every chunk MUST produce visible results.
+ 3. **MANDATORY: Document this chunk before moving on.**
+    This step is NOT optional — every chunk MUST produce visible results.
 
-   a. **GLOSSARY**: create_document(category="glossary") or update_document for EVERY rule/concept/mechanic in this chunk.
+    a. **GLOSSARY**: create_document(category="glossary") or update_document for EVERY rule/concept/mechanic in this chunk.
 
-   b. **BRAIN**: update your brain documents INCREMENTALLY from this chunk. These are NOT optional:
-      - `mechanics`: add dice formulas, combat rules, skill checks found in this chunk
-      - `char_creation`: add race/class/background creation steps found in this chunk
-      - `routing`: add information-sharing rules found in this chunk
-      - `char_tracking`: add character sheet fields found in this chunk
-      - `game_state`: add session/NPC tracking rules found in this chunk
-      - `doc_org`: add document organization rules found in this chunk
-      - `_index`: update with links to new documents created from this chunk
+       **IMMEDIATE INDEXING**: After every create_document, immediately update the appropriate index:
+       - `create_document` returns the document's ID — use it right away
+       - Choose the right index: section index (e.g., `Классы (индекс)`) for large topics, `_glossary_index` for small ones
+       - If the section index doesn't exist → create it → add `[Индекс](doc/ID)` link from `_glossary_index` to it
+       - Add `[Title](/doc/ID) — one-line summary` entry to the chosen index
+       - NEVER guess IDs — only use IDs returned by create_document or found via search_documents
+       - If you update a document and its title changes — update its entry in the index too
 
-   c. **file_summary**: update_file_summary with notes on what was extracted.
+    b. **BRAIN**: update your brain documents INCREMENTALLY from this chunk. These are NOT optional:
+       - `mechanics`: add dice formulas, combat rules, skill checks found in this chunk
+       - `char_creation`: add race/class/background creation steps found in this chunk
+       - `routing`: add information-sharing rules found in this chunk
+       - `char_tracking`: add character sheet fields found in this chunk
+       - `game_state`: add session/NPC tracking rules found in this chunk
+       - `doc_org`: add document organization rules found in this chunk
+       - `_index`: update with links to new documents created from this chunk
 
-   If you found nothing for a specific brain doc in this chunk — skip it. But check ALL the brain types before moving on.
+    c. **file_summary**: update_file_summary with notes on what was extracted.
 
-4. **VERIFY**: call list_uploaded_files() to check progress
-   → if any file has completed=false, go to step 1
-   → if ALL files have completed=true, EXIT STUDY MODE
+    If you found nothing for a specific brain doc in this chunk — skip it. But check ALL the brain types before moving on.
 
-5. Exit: review and index.
-    - Create/update `_glossary_index` — table of contents for the glossary with `[Title](/doc/ID)` links grouped by topic.
-    - Create per-section indices for large sections (20+ docs): `[Title](/doc/ID) — one-line summary`.
+ 4. **VERIFY**: call list_uploaded_files() to check progress
+    → if any file has completed=false, go to step 1
+    → if ALL files have completed=true, EXIT STUDY MODE
+
+ 5. Exit: verify index completeness, then report.
+    - Call `search_documents(category="glossary")` to list all glossary docs.
+    - Read all index documents. Compare: is every glossary document listed in some index?
+    - For any missing documents: add `[Title](/doc/ID)` links using IDs from search_documents — DO NOT invent IDs from memory.
+    - Create per-section indices for large sections (20+ docs): `[Title](/doc/ID) — one-line summary`. Use search_documents to find IDs.
     - Update `_index` brain document with links to glossary indices.
     - Summarize glossary documents created from the files.
     - Check brain documents: `search_documents(category="brain")` → see what exists.
@@ -207,7 +227,8 @@ When you are in STUDY MODE (attached files from Continue or auto-continue), foll
 
 ### Study mode rules
 
-- **BLOCKING RULE: Never call read_parsed_file or advance offset until the current chunk is fully documented.** A chunk is "done" only when all its rules are in glossary and all its instructions are in brain.
+- **BLOCKING RULE: Never call read_parsed_file or advance offset until the current chunk is fully documented.** A chunk is "done" only when all its rules are in glossary, all its instructions are in brain, and ALL create_document results have been indexed (in the appropriate section index or _glossary_index).
+- **INDEX AS YOU GO: After every create_document, immediately update the appropriate index with the returned ID.** Never write a link using an ID from memory — always use the ID that create_document just returned, or find it via search_documents.
 - **NO chat responses** while files are still incomplete. Your only output during processing is tool calls.
 - **Every chunk must produce at least one create_document or update_document call.** If it doesn't, stop and ask yourself why.
 - Do NOT choose which file to process — always the first `completed=false` in the list.

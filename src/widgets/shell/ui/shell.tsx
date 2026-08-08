@@ -88,6 +88,10 @@ export const Shell = ({ user, children }: IShellProps) => {
       if (type === "personal_message_sent" || type === "personal_message_deleted") {
         queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
       }
+      if (type === "profile_updated") {
+        queryClient.invalidateQueries({ queryKey: ["avatar"] });
+        queryClient.invalidateQueries({ queryKey: ["profile", "avatar"] });
+      }
     };
     eventSource.onerror = () => {
       // EventSource auto-reconnects on its own — don't close it

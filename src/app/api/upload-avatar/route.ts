@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
     where: { id: session.userId },
     data: { avatar: dataUri },
   });
+
+  broadcastGameEvent("profile_updated", { userId: session.userId });
 
   return NextResponse.json({ avatarPath: dataUri });
 }

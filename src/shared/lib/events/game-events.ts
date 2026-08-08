@@ -22,7 +22,8 @@ export type TGameEvent =
   | "game_message_sent"
   | "game_message_deleted"
   | "personal_message_sent"
-  | "personal_message_deleted";
+  | "personal_message_deleted"
+  | "profile_updated";
 
 interface IGameEvent {
   type: TGameEvent;

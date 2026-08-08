@@ -19,6 +19,8 @@ export function useSendGameMessage() {
         role: "player",
         content,
         senderId: "",
+        senderDisplayName: "",
+        senderAvatar: "",
         shared: false,
         summarized: false,
         createdAt: new Date(),

@@ -19,6 +19,8 @@ export function useSendPersonalMessage() {
         role: "player",
         content,
         senderId: "",
+        senderDisplayName: "",
+        senderAvatar: "",
         summarized: false,
         createdAt: new Date(),
       };

@@ -26,7 +26,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
-  const preTypingMsgCount = useRef(0);
+  const [preTypingMsgCount, setPreTypingMsgCount] = useState(0);
 
   const { data: sessionData } = useGameSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -57,11 +57,12 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
 
   const mapMsg = (m: IGameMessage): IMessage => ({
     id: m.id,
-    sender: m.role === "master" ? t("chat.master") : t("admin.roleAdmin"),
+    sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
     role: m.role,
     text: m.content,
     shared: m.shared,
     summarized: m.summarized,
+    avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
   });
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
@@ -71,8 +72,8 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const pendingCount = useMemo(() => {
     if (!typing) return 0;
     const currentCount = rawMessages.filter(m => m.role === "player" || m.role === "admin").length;
-    return Math.max(0, currentCount - preTypingMsgCount.current);
-  }, [rawMessages, typing]);
+    return Math.max(0, currentCount - preTypingMsgCount);
+  }, [rawMessages, typing, preTypingMsgCount]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -143,7 +144,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
         pendingCount={pendingCount}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
-        onStepsStart={() => { preTypingMsgCount.current = rawMessages.filter(m => m.role === "player" || m.role === "admin").length; setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        onStepsStart={() => { setPreTypingMsgCount(rawMessages.filter(m => m.role === "player" || m.role === "admin").length); setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
       />

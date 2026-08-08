@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession, createSessionToken, setSessionCookie } from "@/src/shared/lib/auth/session";
 import { hashPassword } from "@/src/shared/lib/auth/password";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function updateProfileAction(
   displayName: string
@@ -26,6 +27,8 @@ export async function updateProfileAction(
     displayName: newDisplayName,
   });
   await setSessionCookie(newToken);
+
+  broadcastGameEvent("profile_updated", { userId: session.userId });
 
   return { success: true, displayName: newDisplayName };
 }

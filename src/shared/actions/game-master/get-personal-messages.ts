@@ -8,6 +8,8 @@ export interface IPersonalMessage {
   role: string;
   content: string;
   senderId: string;
+  senderDisplayName: string;
+  senderAvatar: string;
   summarized: boolean;
   createdAt: Date;
 }
@@ -50,6 +52,7 @@ export async function getPersonalMessagesAction(
         role: true,
         content: true,
         senderId: true,
+        sender: { select: { displayName: true, avatar: true } },
         summarized: true,
         createdAt: true,
       },
@@ -57,5 +60,8 @@ export async function getPersonalMessagesAction(
     prisma.message.count({ where: { sessionId } }),
   ]);
 
-  return { messages, total, page, pageSize };
+  return { messages: messages.map((m) => {
+    const { sender, ...rest } = m as typeof m & { sender: { displayName: string; avatar: string } };
+    return { ...rest, senderDisplayName: sender.displayName, senderAvatar: sender.avatar };
+  }), total, page, pageSize };
 }

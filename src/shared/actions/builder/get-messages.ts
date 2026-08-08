@@ -8,6 +8,8 @@ export interface IBuilderMessage {
   role: string;
   content: string;
   senderId: string;
+  senderDisplayName: string;
+  senderAvatar: string;
   summarized: boolean;
   hasFiles: boolean;
   attachedFiles: { fileId: string; filename: string }[];
@@ -42,6 +44,7 @@ export async function getBuilderMessagesAction(
         role: true,
         content: true,
         senderId: true,
+        sender: { select: { displayName: true, avatar: true } },
         summarized: true,
         hasFiles: true,
         attachedFiles: true,
@@ -52,8 +55,9 @@ export async function getBuilderMessagesAction(
   ]);
 
   return { messages: messages.map((m) => {
+    const { sender, ...rest } = m as typeof m & { sender: { displayName: string; avatar: string } };
     let attachedFiles: { fileId: string; filename: string }[] = [];
-    try { attachedFiles = JSON.parse(m.attachedFiles); } catch { /* keep default */ }
-    return { ...m, attachedFiles };
+    try { attachedFiles = JSON.parse(rest.attachedFiles); } catch { /* keep default */ }
+    return { ...rest, senderDisplayName: sender.displayName, senderAvatar: sender.avatar, attachedFiles };
   }), total, page, pageSize };
 }

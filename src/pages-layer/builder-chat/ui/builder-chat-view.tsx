@@ -139,10 +139,11 @@ export const BuilderChatView = () => {
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
-    sender: m.role === "builder" ? t("chat.builderLabel") : t("admin.roleAdmin"),
+    sender: m.role === "builder" ? t("chat.builderLabel") : (m.senderDisplayName || t("admin.roleAdmin")),
     role: m.role,
     text: m.content,
     summarized: m.summarized,
+    avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
     prefix: m.attachedFiles?.length ? (
       <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>

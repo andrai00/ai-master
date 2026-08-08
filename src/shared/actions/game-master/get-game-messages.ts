@@ -8,6 +8,8 @@ export interface IGameMessage {
   role: string;
   content: string;
   senderId: string;
+  senderDisplayName: string;
+  senderAvatar: string;
   shared: boolean;
   summarized: boolean;
   createdAt: Date;
@@ -54,6 +56,7 @@ export async function getGameMessagesAction(
         role: true,
         content: true,
         senderId: true,
+        sender: { select: { displayName: true, avatar: true } },
         shared: true,
         summarized: true,
         createdAt: true,
@@ -62,5 +65,8 @@ export async function getGameMessagesAction(
     prisma.message.count({ where: { sessionId } }),
   ]);
 
-  return { messages, total, page, pageSize };
+  return { messages: messages.map((m) => {
+    const { sender, ...rest } = m as typeof m & { sender: { displayName: string; avatar: string } };
+    return { ...rest, senderDisplayName: sender.displayName, senderAvatar: sender.avatar };
+  }), total, page, pageSize };
 }

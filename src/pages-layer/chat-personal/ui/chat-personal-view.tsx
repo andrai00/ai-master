@@ -58,10 +58,11 @@ export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
 
   const mapMsg = (m: IPersonalMessage): IMessage => ({
     id: m.id,
-    sender: m.role === "master" ? t("chat.master") : t("admin.roleAdmin"),
+    sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
     role: m.role,
     text: m.content,
     summarized: m.summarized,
+    avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
   });
 
   const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];

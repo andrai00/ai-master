@@ -5,6 +5,12 @@
 $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath $env:WORKTREE_PATH
 
+# --- Self-heal: hoisted node_modules for Turbopack ESM resolution ---
+if (-not (Test-Path ".npmrc") -or -not (Select-String -LiteralPath ".npmrc" -Pattern "node-linker=hoisted")) {
+    Write-Host "Creating .npmrc (hoisted node_modules)..."
+    Set-Content -LiteralPath ".npmrc" -Value "node-linker=hoisted"
+}
+
 # --- Self-heal: dependencies ---
 if (-not (Test-Path "node_modules")) {
     Write-Host "node_modules missing, running pnpm install..."

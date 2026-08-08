@@ -12,6 +12,9 @@ import { exploreArchiveTool } from "./tools/explore-archive.tool";
 import { readFileTool } from "./tools/read-file.tool";
 import { bulkImportTool } from "./tools/bulk-import.tool";
 import { deleteUploadedFilesTool } from "./tools/delete-uploaded-files.tool";
+import { scanWikiLinksTool } from "./tools/scan-wiki-links.tool";
+import { replaceWikiLinksTool } from "./tools/replace-wiki-links.tool";
+import { deleteDocumentTool } from "./tools/delete-document.tool";
 import { validateLinksTool } from "./tools/validate-links.tool";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
@@ -117,6 +120,9 @@ function getTools() {
     read_file: readFileTool,
     bulk_import_to_glossary: bulkImportTool,
     delete_uploaded_files: deleteUploadedFilesTool,
+    scan_wiki_links: scanWikiLinksTool,
+    replace_wiki_links: replaceWikiLinksTool,
+    delete_document: deleteDocumentTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
     read_document: readDocumentTool,

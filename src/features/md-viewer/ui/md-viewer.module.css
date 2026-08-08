@@ -176,6 +176,20 @@
   margin: 20px 0;
 }
 
+/* External link (website) — distinct from internal wiki-links */
+.content a:not([class]) {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--text-muted);
+  transition: color 0.12s;
+}
+
+.content a:not([class]):hover {
+  color: var(--link-color);
+  text-decoration-color: var(--link-color);
+}
+
 [data-theme="light"] .content table th {
   background: var(--bg-active);
 }

@@ -145,7 +145,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        return <a href={href}>{children}</a>;
+        return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
       },
     }),
     [onNavigate, formulaResults]

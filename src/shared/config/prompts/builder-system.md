@@ -119,13 +119,38 @@ The database may already contain documents from previous sessions. Use `search_d
 
 Documents in this system are Markdown files. They form a knowledge graph, not a flat list. Use links to connect related content so the AI Master can navigate quickly during gameplay.
 
-### Link syntax
+### Link syntax — CRITICAL: use EXACTLY one of these formats
 
 ```
-[display text](/doc/DOCUMENT_ID)
+[[DOCUMENT_ID]]                        ← preferred, simplest
+[[DOCUMENT_ID|display text]]           ← with custom label
+[display text](/doc/DOCUMENT_ID)       ← markdown-style, also works
 ```
 
-Example: `[Боевые правила](/doc/abc123)` in a character class document links to the combat rules document.
+**WRONG — NEVER use these:**
+```
+[/doc/UUID text]     ← BAD: swapped URL and text, no parentheses
+[/doc/UUID](text)    ← BAD: URL and display text are mixed up
+(doc/UUID)           ← BAD: parentheses instead of brackets
+```
+
+Examples of CORRECT links:
+```
+[[abc123]]                                        → renders as clickable "Fireball"
+[[abc123|Боевые правила]]                         → renders as "Боевые правила"
+[Боевые правила](/doc/abc123)                     → same as above
+```
+
+**IDs come from tools, never from memory.** Use the exact ID returned by `create_document` or `search_documents`.
+
+**In markdown tables:** use `[text](/doc/UUID)` format, NOT `[[UUID|text]]`. The `|` in wiki-links breaks table column parsing.
+
+```
+| Column A | Column B |
+|----------|----------|
+| [Fireball](/doc/abc123) | Level 3 spell |    ← CORRECT in tables
+| [[abc123\|Fireball]] | Level 3 spell |         ← BAD: breaks table
+```
 
 ### When to create links
 
@@ -144,22 +169,22 @@ Example: `[Боевые правила](/doc/abc123)` in a character class docum
 
 **Prefer TOC + offset over full reads** for large documents. Only read what you need.
 
-### Index documents — built incrementally during STUDY
+### Index documents — built incrementally during import
 
 **Index hierarchy:**
-- `_glossary_index` (type=index) — top-level hub. Links to section indices, NOT to individual documents.
-- Section indices (e.g., `Классы (индекс)`, `Заклинания (индекс)`) — link to individual documents within that section.
+- `_glossary_index` (type=_index) — top-level hub. Links to section indices, NOT to individual documents.
+- Section indices (e.g., "Классы (индекс)", "Заклинания (индекс)") — link to individual documents within that section.
 - Agent decides: small section (few docs) → entry goes directly into `_glossary_index`. Large section → create section index + link from `_glossary_index` to it.
 
 **Incremental update:** after every `create_document`, immediately update the appropriate index:
 - `create_document` returns the ID — use it right away
-- Add `[Title](/doc/ID) — one-line summary` to the section index (or `_glossary_index` for small sections)
+- Add `- [[ID|Title]] — one-line summary` to the section index
 - If the section index doesn't exist yet → create it → add link from `_glossary_index` to it → add entry to it
 
 **CRITICAL: IDs come from tools, never from memory.**
-- `create_document` returns the ID — use it immediately
+- `create_document` returns the ID — use it immediately in `[[ID|Title]]` format
 - `search_documents` returns IDs — use them to fill gaps
-- NEVER write `[Title](/doc/some-uuid)` based on what you "remember"
+- NEVER write `[[some-uuid]]` based on what you "remember"
 
 After STUDY completes, verify completeness:
 1. `search_documents(category="glossary")` — list all docs

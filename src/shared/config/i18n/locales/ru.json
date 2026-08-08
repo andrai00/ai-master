@@ -271,7 +271,13 @@
     "brain": "Мозг",
     "gameHidden": "Скрытые",
     "gameVisible": "Данные игроков",
-    "searchPlaceholder": "Поиск по документам..."
+    "searchPlaceholder": "Поиск по документам...",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "importConfirmTitle": "Заменить все данные?",
+    "importConfirmDesc": "Будет удалено {{existing}} существующих документов (глоссарий + мозг) и импортировано {{importing}} новых. Это действие необратимо.",
+    "importConfirmOk": "Заменить всё",
+    "importSuccess": "Импортировано {{count}} документов"
   },
   "aiSettings": {
     "title": "Настройки AI",

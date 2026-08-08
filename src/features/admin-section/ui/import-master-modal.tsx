@@ -1,8 +1,9 @@
 "use client";
 
-import { Modal, Button, Upload } from "antd";
+import { Modal, Button, Upload, App } from "antd";
 import { ImportOutlined, UploadOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 
 interface IImportMasterModalProps {
   open: boolean;
@@ -11,9 +12,71 @@ interface IImportMasterModalProps {
 
 export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) => {
   const { t } = useTranslation();
+  const { notification, modal } = App.useApp();
+  const [file, setFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
-  const handleImport = () => {
-    // TODO: implement import — upload dump, create new Master from it
+  const handleImport = async () => {
+    if (!file) return;
+    setImporting(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      // Check existing count
+      const checkRes = await fetch("/api/builder/import", {
+        method: "POST",
+        body: form,
+        headers: { "x-confirm-overwrite": "false" },
+      });
+
+      if (checkRes.status === 409) {
+        const data = await checkRes.json();
+        const confirmed = await new Promise<boolean>((resolve) => {
+          modal.confirm({
+            title: t("documents.importConfirmTitle"),
+            content: t("documents.importConfirmDesc", { existing: data.existingCount, importing: data.importCount }),
+            okText: t("documents.importConfirmOk"),
+            cancelText: t("common.cancel"),
+            okButtonProps: { danger: true },
+            mask: { closable: true },
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!confirmed) { setImporting(false); return; }
+
+        const importForm = new FormData();
+        importForm.append("file", file);
+        const importRes = await fetch("/api/builder/import", {
+          method: "POST",
+          body: importForm,
+          headers: { "x-confirm-overwrite": "true" },
+        });
+        if (!importRes.ok) {
+          const err = await importRes.json().catch(() => ({ error: "errors.unknownError" }));
+          notification.error({ message: t(err.error) });
+          setImporting(false);
+          return;
+        }
+        const importData = await importRes.json();
+        notification.success({ message: t("documents.importSuccess", { count: importData.imported }) });
+      } else if (checkRes.ok) {
+        const data = await checkRes.json();
+        notification.success({ message: t("documents.importSuccess", { count: data.imported }) });
+      } else {
+        const err = await checkRes.json().catch(() => ({ error: "errors.unknownError" }));
+        notification.error({ message: t(err.error) });
+      }
+    } catch {
+      notification.error({ message: t("errors.unknownError") });
+    }
+
+    setImporting(false);
+    setFile(null);
+    onClose();
+    window.location.reload();
   };
 
   return (
@@ -23,7 +86,7 @@ export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) =>
       onCancel={onClose}
       footer={[
         <Button key="cancel" onClick={onClose}>{t("common.cancel")}</Button>,
-        <Button key="import" type="primary" icon={<ImportOutlined />} onClick={handleImport}>
+        <Button key="import" type="primary" icon={<ImportOutlined />} onClick={handleImport} loading={importing} disabled={!file}>
           {t("mode.importBtn")}
         </Button>,
       ]}
@@ -34,16 +97,17 @@ export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) =>
           {t("mode.importDesc")}
         </p>
         <Upload.Dragger
-          accept=".json,.db"
+          accept=".json"
           maxCount={1}
-          beforeUpload={() => false}
+          beforeUpload={(f) => { setFile(f); return false; }}
+          onRemove={() => setFile(null)}
           style={{ padding: "16px 0" }}
         >
           <p style={{ marginBottom: 4 }}>
             <UploadOutlined style={{ fontSize: 20, color: "var(--text-dim)" }} />
           </p>
           <p style={{ fontSize: 12, color: "var(--text-dim)", margin: 0 }}>
-            {t("mode.importDrag")}
+            {file ? file.name : t("mode.importDrag")}
           </p>
         </Upload.Dragger>
         <div style={{

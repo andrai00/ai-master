@@ -271,7 +271,13 @@
     "brain": "Brain",
     "gameHidden": "Hidden",
     "gameVisible": "Player Data",
-    "searchPlaceholder": "Search documents..."
+    "searchPlaceholder": "Search documents...",
+    "export": "Export",
+    "import": "Import",
+    "importConfirmTitle": "Replace all data?",
+    "importConfirmDesc": "{{existing}} existing documents (glossary + brain) will be deleted and replaced with {{importing}} new ones. This cannot be undone.",
+    "importConfirmOk": "Replace everything",
+    "importSuccess": "Imported {{count}} documents"
   },
   "aiSettings": {
     "title": "AI Settings",

@@ -1,2 +1,2 @@
-export { ChatPanel, FileProgressModal } from "./ui";
-export type { IMessage, IFileProgress } from "./ui";
+export { ChatPanel } from "./ui";
+export type { IMessage } from "./ui";

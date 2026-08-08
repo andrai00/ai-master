@@ -21,10 +21,8 @@ import {
   SearchOutlined,
   CommentOutlined,
   PaperClipOutlined,
-  CaretRightOutlined,
   FileOutlined,
   MenuOutlined,
-  SettingOutlined,
   StopOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
@@ -82,16 +80,6 @@ export interface IMessage {
   prefix?: ReactNode;
 }
 
-export interface IFileProgress {
-  fileId: string;
-  filename: string;
-  totalSize: number;
-  readOffset: number;
-  status: "parsing" | "done" | "error";
-  onRemove?: () => void;
-  onSetOffset?: (chunkNumber: number) => void;
-}
-
 interface IChatPanelProps {
   messages: IMessage[];
   placeholder?: string;
@@ -126,12 +114,6 @@ interface IChatPanelProps {
   stopping?: boolean;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
-  /** File reading progress to show above the input */
-  fileProgress?: IFileProgress[];
-  /** Called when user clicks "Continue" to resume file processing */
-  onContinueFiles?: () => void;
-  /** Called when user clicks "Details" to open file progress modal */
-  onOpenFileDetails?: () => void;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -219,7 +201,7 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
-  inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
+  inputPrefix,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -573,55 +555,6 @@ export const ChatPanel = ({
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}
-
-        {fileProgress && fileProgress.length > 0 && (() => {
-          const filesDone = fileProgress.filter((f) => f.readOffset >= f.totalSize && f.totalSize > 0).length;
-          const filesTotal = fileProgress.length;
-          const chunkSize = 5000;
-          const chunksTotal = fileProgress.reduce((s, f) => s + Math.ceil(f.totalSize / chunkSize), 0);
-          const chunksRead = fileProgress.reduce((s, f) => s + Math.min(Math.ceil(f.readOffset / chunkSize), Math.ceil(f.totalSize / chunkSize)), 0);
-          const allDone = filesTotal > 0 && filesDone === filesTotal;
-
-          return (
-            <div className={styles.fileProgressBar}>
-              <div className={styles.progressBarInner}>
-                <div className={styles.progressActions}>
-                  <button className={styles.progressSummary} onClick={onOpenFileDetails}>
-                    <FileOutlined style={{ fontSize: 12, color: "var(--text-dim)" }} />
-                    <span className={styles.progressNum}>{filesDone}/{filesTotal}</span>
-                    <span className={styles.progressSep} />
-                    <FileTextOutlined style={{ fontSize: 11, color: "var(--text-dim)" }} />
-                    <span className={styles.progressNum}>{chunksRead}/{chunksTotal}</span>
-                  </button>
-                  {onOpenFileDetails && (
-                    <Tooltip title={t("chat.fileDetails")}>
-                      <button className={styles.progressActionBtn} onClick={onOpenFileDetails}>
-                        <SettingOutlined style={{ fontSize: 14 }} />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {typing ? (
-                    onStop && (
-                      <Tooltip title={t("chat.stop")}>
-                        <button className={styles.progressActionBtn} onClick={onStop}>
-                          <StopOutlined style={{ fontSize: 14 }} />
-                        </button>
-                      </Tooltip>
-                    )
-                  ) : (
-                    onContinueFiles && !allDone && (
-                      <Tooltip title={t("chat.continueReading")}>
-                        <button className={styles.progressActionBtn} onClick={onContinueFiles}>
-                          <CaretRightOutlined style={{ fontSize: 14 }} />
-                        </button>
-                      </Tooltip>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {/* attached file chips */}
         {allowFiles && attachedFiles.length > 0 && (

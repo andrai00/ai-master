@@ -17,25 +17,16 @@ export const listUploadedFilesTool = {
     const prisma = getPrisma();
     return prisma.uploadedFile.findMany({
       where: { masterId },
-      select: { id: true, filename: true, size: true, lastReadOffset: true, status: true },
+      select: { id: true, filename: true, size: true, path: true, status: true },
       orderBy: { createdAt: "asc" },
     }).then((files) =>
-      files.map((f) => {
-        const totalChunks = Math.ceil(f.size / 5000);
-        const chunkNum = f.lastReadOffset > 0
-          ? Math.min(Math.ceil(f.lastReadOffset / 5000), totalChunks)
-          : 0;
-        return {
-          id: f.id,
-          filename: f.filename,
-          size: f.size,
-          lastReadOffset: f.lastReadOffset,
-          status: f.status,
-          chunkNum,
-          totalChunks,
-          completed: f.status === "done" && f.lastReadOffset >= f.size,
-        };
-      })
+      files.map((f) => ({
+        id: f.id,
+        filename: f.filename,
+        size: f.size,
+        path: f.path,
+        status: f.status,
+      }))
     );
   },
 };

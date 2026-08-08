@@ -14,7 +14,7 @@ export type TGameEvent =
   | "builder_chat_cleared"
   | "file_uploaded"
   | "file_removed"
-  | "file_progress_updated"
+  | "archive_uploaded"
   | "user_created"
   | "user_updated"
   | "user_deleted"

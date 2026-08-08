@@ -7,17 +7,17 @@ import { createDocumentTool } from "./tools/create-document.tool";
 import { updateDocumentTool } from "./tools/update-document.tool";
 import { readDocumentTool } from "./tools/read-document.tool";
 import { searchDocumentsTool } from "./tools/search-documents.tool";
-import { readParsedFileTool } from "./tools/read-parsed-file.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
-import { updateFileSummaryTool } from "./tools/update-file-summary.tool";
+import { exploreArchiveTool } from "./tools/explore-archive.tool";
+import { readFileTool } from "./tools/read-file.tool";
+import { bulkImportTool } from "./tools/bulk-import.tool";
+import { deleteUploadedFilesTool } from "./tools/delete-uploaded-files.tool";
 import { validateLinksTool } from "./tools/validate-links.tool";
-import { removeCachedFiles } from "./file-cache";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopping, emitStopped, clearSession,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
-import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -112,9 +112,11 @@ async function createProvider() {
 
 function getTools() {
   return {
-    read_parsed_file: readParsedFileTool,
     list_uploaded_files: listUploadedFilesTool,
-    update_file_summary: updateFileSummaryTool,
+    explore_archive: exploreArchiveTool,
+    read_file: readFileTool,
+    bulk_import_to_glossary: bulkImportTool,
+    delete_uploaded_files: deleteUploadedFilesTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
     read_document: readDocumentTool,
@@ -245,9 +247,9 @@ export async function runBuilderAgent(
     throwIfCancelled();
 
     if (fileIds.length === 0) {
-      ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Do not use list_uploaded_files or read_parsed_file unless the user explicitly asks you to process files. Answer the user's question as a normal assistant.";
+      ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Answer the user's question as a normal assistant.";
     } else {
-      ctx.system += "\n\n## Current Mode: STUDY\nYou are processing uploaded files. Read the STUDY MODE section below for rules.";
+      ctx.system += "\n\n## Current Mode: IMPORT\nYou are processing uploaded files. Read the IMPORT MODE section below for rules.";
     }
 
     const activeGame = await getActiveGame();
@@ -262,7 +264,7 @@ export async function runBuilderAgent(
         orderBy: { createdAt: "asc" },
       });
       const names = files.map((f) => f.filename).join(", ");
-      fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and read_parsed_file(fileId) to read each.]`;
+      fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and explore_archive() to view directory structure.]`;
     }
 
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [
@@ -305,11 +307,10 @@ export async function runBuilderAgent(
             }
 
             // Count tool calls for summary (used by both compression paths)
-            let reads = 0, created = 0, updated = 0, searched = 0, listed = 0;
+            let created = 0, updated = 0, searched = 0, listed = 0;
             for (const s of allSteps ?? []) {
               for (const c of (s.toolCalls ?? [])) {
                 switch (c.toolName) {
-                  case "read_parsed_file": reads++; break;
                   case "create_document": created++; break;
                   case "update_document": updated++; break;
                   case "search_documents": searched++; break;
@@ -318,51 +319,15 @@ export async function runBuilderAgent(
               }
             }
 
-            // Periodic status log every 10 steps or every step in STUDY mode
+            // Periodic status log every 10 steps
             const stepIdx = (allSteps ?? []).length;
             if (isStudy || stepIdx % 10 === 0) {
               const totalMsgs = allMsgs.length;
               const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} reads=${reads} created=${created} updated=${updated} mode=${isStudy ? "STUDY" : "CHAT"}`);
+              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} created=${created} updated=${updated} mode=${isStudy ? "STUDY" : "CHAT"}`);
             }
 
-            // --- FILE-CHUNK COMPRESSION ---
-            // When 3+ chunks have been read, old raw chunk text is no longer needed —
-            // rules should already be extracted into glossary documents.
-            // Keep: system + admin + summary + last 2 chunks in full + LLM notes between them.
-            if (reads > 2) {
-              const systemMsg = allMsgs.find(m => m.role === "system");
-              const adminMsgs = allMsgs.filter(m => m.role === "user");
-              const lastAdmin = adminMsgs[adminMsgs.length - 1];
-
-              const summary = [
-                "[Compressed — processed earlier file chunks]",
-                `Read ${reads} chunks total.`,
-                created ? `Created ${created} documents.` : "",
-                updated ? `Updated ${updated} documents.` : "",
-                "Extracted rules are in glossary — use search_documents to reference them.",
-                "Continue from the last chunk. The LLM notes between chunks tell you what was extracted and what remains.",
-              ].filter(Boolean).join(" ");
-
-              // Keep last 10 messages — preserves ~2 recent chunks + processing + LLM self-notes
-              const TAIL = 10;
-              const recentMsgs = allMsgs.slice(-TAIL);
-
-              const compressed: ModelMessage[] = [];
-              if (systemMsg) compressed.push(systemMsg);
-              if (lastAdmin) compressed.push(lastAdmin);
-              compressed.push({ role: "assistant", content: summary });
-              for (const m of recentMsgs) {
-                if (m.role !== "system" && m.role !== "user") {
-                  compressed.push(m);
-                }
-              }
-
-              console.log(`[builder] File-chunk compression: ${allMsgs.length}→${compressed.length} msgs, ${reads} chunks read, ${created} docs created`);
-              return { messages: compressed };
-            }
-
-            // --- THRESHOLD-BASED COMPRESSION: original logic for non-file or early-file scenarios ---
+            // --- THRESHOLD-BASED COMPRESSION ---
             const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
             const estimated = totalChars / 4;
             if (estimated < compressThreshold) {
@@ -381,7 +346,6 @@ export async function runBuilderAgent(
 
             const summary = [
               "[Compressed — previous steps]",
-              reads ? `Read ${reads} file chunks` : "",
               created ? `Created ${created} documents` : "",
               updated ? `Updated ${updated} documents` : "",
               searched ? `Searched ${searched} times` : "",
@@ -389,10 +353,10 @@ export async function runBuilderAgent(
             ].filter(Boolean).join(". ");
 
             const compressed: ModelMessage[] = [];
-            if (systemMsg) compressed.push(systemMsg);
-            if (lastAdmin) compressed.push(lastAdmin);
-            compressed.push({ role: "assistant", content: summary });
-            if (lastTool) compressed.push(lastTool);
+            if (systemMsg) compressed.push(systemMsg as ModelMessage);
+            if (lastAdmin) compressed.push(lastAdmin as ModelMessage);
+            compressed.push({ role: "assistant" as const, content: summary });
+            if (lastTool) compressed.push(lastTool as ModelMessage);
 
             console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.length} msgs, ${Math.round(estimated/1000)}K→~${Math.round(totalChars/4/compressed.length/1000)}K tokens`);
             return { messages: compressed };
@@ -401,24 +365,12 @@ export async function runBuilderAgent(
           onStepFinish: async (event: StepResult<typeof tools>) => {
             console.log(`[builder] RAW onStepFinish — ${JSON.stringify({ hasToolCalls: "toolCalls" in event, hasToolResults: "toolResults" in event, keys: Object.keys(event), stepNumber: (event as Record<string,unknown>).stepNumber, finishReason: (event as Record<string,unknown>).finishReason, text: (event as Record<string,unknown>).text })}`);
             const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-            const res = (event as Record<string,unknown>).toolResults as Array<{ output?: unknown }> | undefined;
             if (calls?.length) {
               for (let i = 0; i < calls.length; i++) {
                 try {
                   const call = calls[i];
-                  const r = res?.[i];
                   const toolName = call.toolName as string;
-                  let detail: string | undefined;
-                  if (toolName === "read_parsed_file" && r?.output) {
-                    const out = r.output as Record<string, unknown>;
-                    if (typeof out.fileId === "string") {
-                      broadcastGameEvent("file_progress_updated", { fileId: out.fileId });
-                    }
-                    if (typeof out.offset === "number" && typeof out.totalSize === "number") {
-                      detail = `${Math.floor(out.offset / 5000) + 1}/${Math.ceil(out.totalSize / 5000)}`;
-                    }
-                  }
-                  emitStep(sessionId, toolName, detail);
+                  emitStep(sessionId, toolName);
                 } catch (e) {
                   console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${calls[i]?.toolName} error=${e instanceof Error ? e.message : String(e)}`);
                 }
@@ -526,8 +478,6 @@ export async function runBuilderAgent(
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);
-    // Clear files used in this processing — they live exactly one run
-    if (fileIds.length > 0) removeCachedFiles(fileIds);
     setTimeout(() => clearSession(sessionId), 10_000);
   }
 }

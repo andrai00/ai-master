@@ -102,19 +102,16 @@ model Message {
 }
 
 model UploadedFile {
-  id              String    @id @default(uuid())
-  masterId        String
-  filename        String
-  text            String
-  size            Int
-  status          String    @default("parsing") // parsing | done | error
-  lastReadOffset  Int       @default(0)
-  lastReadAt      DateTime?
-  summary         String    @default("")
-  glossarySummary String    @default("")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now()) @updatedAt
-  master          Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  masterId  String
+  filename  String
+  text      String
+  size      Int
+  path      String   @default("")
+  status    String   @default("pending") // pending | ready | error
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
 }
 
 model AppConfig {

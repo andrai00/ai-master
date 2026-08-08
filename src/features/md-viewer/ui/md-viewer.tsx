@@ -65,8 +65,10 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
   // separator row BEFORE header (| --- | before | Header |).
   const cleanContent = useMemo(() => {
     let c = content.replace(/^[ \t]*>[ \t]*(\|[^\n]+)/gm, "$1");
-    // Fix: if separator appears before header, swap them
     c = c.replace(/^(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/gm, "$2$1");
+    // rehype-raw strips empty <a> without href — rewrite to <span>
+    c = c.replace(/<a id=/g, "<span id=");
+    c = c.replace(/<\/a>/g, "</span>");
     return c;
   }, [content]);
 
@@ -175,7 +177,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
               type="button"
               onClick={() => {
                 const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
-                           contentRef.current?.querySelector(`[id="${CSS.escape(anchorRaw)}"]`);
+                           contentRef.current?.querySelector(`[id="${anchorRaw}"]`);
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
               style={{

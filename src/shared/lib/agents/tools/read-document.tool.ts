@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanRead } from "./builder-mode-guard";
+import { resolveDocId } from "./resolve-doc-id";
 
 interface ITocEntry {
   heading: string;
@@ -53,14 +54,9 @@ export const readDocumentTool = {
     const prisma = getPrisma();
 
     let docId = args.id;
-    // Auto-resolve path → UUID
     if (docId.includes("/") || docId.endsWith(".md")) {
-      const cleanPath = docId.replace(/\.md$/i, "");
-      const resolved = await prisma.document.findFirst({
-        where: { title: cleanPath, status: "active" },
-        select: { id: true },
-      });
-      if (resolved) docId = resolved.id;
+      const resolved = await resolveDocId(docId);
+      if (resolved) docId = resolved;
     }
 
     const doc = await prisma.document.findUnique({

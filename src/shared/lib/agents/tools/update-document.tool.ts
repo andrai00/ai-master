@@ -5,12 +5,13 @@ import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanWrite } from "./builder-mode-guard";
+import { resolveDocId } from "./resolve-doc-id";
 
 export const updateDocumentTool = {
   description: TOOL_DESCRIPTIONS.update_document,
   inputSchema: zodSchema(
     z.object({
-      id: z.string().describe("Document ID to update"),
+      id: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire'). Auto-resolves."),
       content: z.string().describe("New Markdown content"),
       title: z.string().optional().describe("New title (optional)"),
       summary: z.string().optional().describe("New summary (optional)"),
@@ -21,8 +22,11 @@ export const updateDocumentTool = {
     await assertNotGameMode();
     const prisma = getPrisma();
 
+    const resolvedId = await resolveDocId(args.id);
+    if (!resolvedId) throw new Error("errors.documentNotFound");
+
     const doc = await prisma.document.findUnique({
-      where: { id: args.id },
+      where: { id: resolvedId },
       select: { category: true },
     });
     if (!doc) throw new Error("errors.documentNotFound");
@@ -33,7 +37,7 @@ export const updateDocumentTool = {
     if (args.summary !== undefined) data.summary = args.summary;
 
     const updated = await prisma.document.update({
-      where: { id: args.id },
+      where: { id: resolvedId },
       data,
     });
     return { id: updated.id, title: updated.title, category: updated.category };

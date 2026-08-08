@@ -97,7 +97,7 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
     }
     if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
       const [pathPart, hashPart] = (href as string).split("#");
-      const cleanPath = (pathPart ?? "").replace(/\.md$/i, "");
+      const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
       return (
         <button
           type="button"

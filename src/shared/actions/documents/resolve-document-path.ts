@@ -11,7 +11,7 @@ export async function resolveDocumentByPath(
   if (!masterId) return null;
 
   const [pathPart, hashPart] = path.split("#");
-  const cleanPath = (pathPart ?? "").replace(/\.md$/i, "");
+  const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
 
   if (!cleanPath) return null;
 

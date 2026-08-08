@@ -126,8 +126,13 @@ Documents in this system are Markdown files. They form a knowledge graph, not a 
 ```
 [[DOCUMENT_ID]]                        ← preferred, simplest
 [[DOCUMENT_ID|display text]]           ← with custom label
-[display text](/doc/DOCUMENT_ID)       ← markdown-style, also works
+[[DOCUMENT_ID#heading|display text]]   ← with anchor
+[display text](/doc/DOCUMENT_ID)       ← markdown-style
+[display text](/path/doc.md)           ← path-based (new), also clickable
+[display text](/path/doc.md#heading)   ← path-based with anchor
 ```
+
+**IDs and paths are interchangeable in all tools** — `read_document`, `update_document`, `delete_document` accept both UUID and path (e.g. `"spells/207-faerie_fire"`). Use whichever you have at hand.
 
 **WRONG — NEVER use these:**
 ```

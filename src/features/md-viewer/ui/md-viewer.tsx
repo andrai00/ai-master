@@ -206,7 +206,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         }
         if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
           const [pathPart, hashPart] = (href as string).split("#");
-          const cleanPath = (pathPart ?? "").replace(/\.md$/i, "");
+          const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
           return (
             <WikiLink
               docId={cleanPath}

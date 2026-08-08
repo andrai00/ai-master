@@ -4,7 +4,9 @@ import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
+import rehypeRaw from "rehype-raw";
 import GithubSlug from "github-slugger";
+import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-document-path";
 import { MenuOutlined } from "@ant-design/icons";
 import { remarkWikiLink } from "../model/remark-wiki-link";
 import { remarkFormulaRef } from "../model/remark-formula-ref";
@@ -27,6 +29,15 @@ interface IMdViewerProps {
   showToc?: boolean;
 }
 
+function cleanTocText(raw: string): string {
+  return raw
+    .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Extract TOC using github-slugger — matches rehype-slug's slug generation exactly. */
 function useToc(content: string): ITocItem[] {
   return useMemo(() => {
@@ -36,9 +47,9 @@ function useToc(content: string): ITocItem[] {
     let match: RegExpExecArray | null;
     while ((match = headingRe.exec(content)) !== null) {
       const level = match[1]!.length;
-      const text = match[2]!.trim();
-      const id = slugger.slug(text);
-      // GithubSlug returns empty string for headings with no slug-worthy content
+      const rawText = match[2]!.trim();
+      const id = slugger.slug(rawText);       // slug from RAW text — matches rehypeSlug
+      const text = cleanTocText(rawText);     // clean text for display
       if (!id) continue;
       items.push({ id, text, level });
     }
@@ -48,15 +59,28 @@ function useToc(content: string): ITocItem[] {
 
 export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMdViewerProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
-  const toc = useToc(content);
+
+  // Strip blockquote markers from table rows and fix separator/header order.
+  // Some imported content has `> | col |` (blockquote pollution) and
+  // separator row BEFORE header (| --- | before | Header |).
+  const cleanContent = useMemo(() => {
+    let c = content.replace(/^[ \t]*>[ \t]*(\|[^\n]+)/gm, "$1");
+    c = c.replace(/^(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/gm, "$2$1");
+    // rehype-raw strips empty <a> without href — rewrite to <span>
+    c = c.replace(/<a id=/g, "<span id=");
+    c = c.replace(/<\/a>/g, "</span>");
+    return c;
+  }, [content]);
+
+  const toc = useToc(content);  // headings are fine, no > pollution
   const [activeId, setActiveId] = useState<string>("");
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
   const formulaResults = useMemo(() => {
-    const blocks = parseFormulaBlocks(content);
+    const blocks = parseFormulaBlocks(cleanContent);
     if (blocks.length === 0) return new Map<string, IFormulaResult>();
     return evaluateFormulas(blocks).results;
-  }, [content]);
+  }, [cleanContent]);
 
   const handleTocClick = useCallback((id: string) => {
     if (!id) return;
@@ -68,18 +92,30 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
     setMobileTocOpen(false);
   }, []);
 
-  // Scroll to anchor on mount / when scrollTo changes
+  // Scroll to top on mount — only if no anchor is provided
   useEffect(() => {
-    if (!scrollTo) return;
-    // Small delay so ReactMarkdown has rendered
+    if (scrollTo !== undefined) return;
+    const id = requestAnimationFrame(() => {
+      contentRef.current?.scrollTo({ top: 0 });
+    });
+    return () => cancelAnimationFrame(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (scrollTo === undefined) return;
     const timer = setTimeout(() => {
-      if (!scrollTo) return;
-      const el = contentRef.current?.querySelector(`#${CSS.escape(scrollTo)}`);
+      if (scrollTo === "") {
+        contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      const slugger = new GithubSlug();
+      const slug = slugger.slug(scrollTo);
+      const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
+                 contentRef.current?.querySelector(`[id="${scrollTo}"]`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
-        setActiveId(scrollTo);
+        setActiveId(slug);
       }
-    }, 150);
+    }, 200);
     return () => clearTimeout(timer);
   }, [scrollTo]);
 
@@ -135,6 +171,34 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       },
       a(props) {
         const { href, children } = props;
+        if (href && /^#/.test(href)) {
+          const anchorRaw = href.slice(1);
+          const slugger = new GithubSlug();
+          const slug = slugger.slug(anchorRaw);
+          return (
+            <button
+              type="button"
+              onClick={() => {
+                const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
+                           contentRef.current?.querySelector(`[id="${anchorRaw}"]`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-dim)",
+                cursor: "pointer",
+                font: "inherit",
+                padding: 0,
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                textDecorationColor: "var(--text-muted)",
+              }}
+            >
+              {children}
+            </button>
+          );
+        }
         if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
           const docId = href.slice(5);
           return (
@@ -145,7 +209,35 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        return <a href={href}>{children}</a>;
+        if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
+          const [pathPart, hashPart] = (href as string).split("#");
+          const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
+          return (
+            <WikiLink
+              docId={cleanPath}
+              anchor={hashPart || undefined}
+              displayText={typeof children === "string" ? children : undefined}
+              onNavigate={onNavigate}
+            />
+          );
+        }
+        return (
+          <span>
+            <span style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--text-muted)" }}>
+              {children}
+            </span>
+            <a href={href} target="_blank" rel="noopener noreferrer" className={styles.extIcon}>
+              &#x2197;
+            </a>
+          </span>
+        );
+      },
+      table(props) {
+        return (
+          <div style={{ overflowX: "auto", display: "block" }}>
+            <table {...props} />
+          </div>
+        );
       },
     }),
     [onNavigate, formulaResults]
@@ -185,10 +277,10 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       <div className={styles.content} ref={contentRef}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef]}
-          rehypePlugins={[rehypeSlug]}
+          rehypePlugins={[rehypeRaw, rehypeSlug]}
           components={components}
         >
-          {content}
+          {cleanContent}
         </ReactMarkdown>
       </div>
     </div>

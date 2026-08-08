@@ -1,3 +1,2 @@
 export { ChatPanel } from "./chat-panel";
-export { FileProgressModal } from "./file-progress-modal";
-export type { IMessage, IFileProgress } from "./chat-panel";
+export type { IMessage } from "./chat-panel";

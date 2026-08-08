@@ -12,8 +12,21 @@ interface IExportMasterModalProps {
 export const ExportMasterModal = ({ open, onClose }: IExportMasterModalProps) => {
   const { t } = useTranslation();
 
-  const handleExport = () => {
-    // TODO: implement export — download Master dump (glossary + brain, no game data)
+  const handleExport = async () => {
+    try {
+      const res = await fetch("/api/builder/export");
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ai-master-export.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      onClose();
+    } catch {
+      // silently fail
+    }
   };
 
   return (

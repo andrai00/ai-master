@@ -35,6 +35,7 @@ model Master {
   sessions    Session[]
   documents     Document[]
   uploadedFiles UploadedFile[]
+  chatSummaries ChatSummary[]
 }
 
 model GameAccess {
@@ -102,19 +103,16 @@ model Message {
 }
 
 model UploadedFile {
-  id              String    @id @default(uuid())
-  masterId        String
-  filename        String
-  text            String
-  size            Int
-  status          String    @default("parsing") // parsing | done | error
-  lastReadOffset  Int       @default(0)
-  lastReadAt      DateTime?
-  summary         String    @default("")
-  glossarySummary String    @default("")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now()) @updatedAt
-  master          Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  masterId  String
+  filename  String
+  text      String
+  size      Int
+  path      String   @default("")
+  status    String   @default("pending") // pending | ready | error
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
 }
 
 model AppConfig {
@@ -138,4 +136,14 @@ model BuilderJob {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@index([status, createdAt])
+}
+
+model ChatSummary {
+  id        String   @id @default(uuid())
+  masterId  String
+  content   String             // accumulated summary text
+  preview   String   @default("")  // latest preview
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
 }

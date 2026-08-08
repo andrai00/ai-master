@@ -27,6 +27,13 @@
 - [ ] G17: После изменения схемы: `migrate dev` + `generate`
 - [ ] G18: Глобальные события через SSE-push
 - [ ] G19: Builder Agent: fire-and-forget, без await
+- [ ] G22: Контент полным текстом, одна запись на документ
+- [ ] G23: Импорт файлов — `explore_archive()` (дерево, без чтения контента) + `bulk_import_to_glossary`
+- [ ] G24: SSE-push для мутаций чата между клиентами
+- [ ] G25: Все страницы через единый `<PageHeader>`
+- [ ] G26: Real-time через EventEmitter push, без polling
+- [ ] G27: DB-update → await → broadcast
+- [ ] G28: Тулзы не фильтруются по режиму, принимают UUID и путь
 
 ## Documentation (проверить)
 - [ ] Я тронул domain rule → обновил AGENTS.md invariants

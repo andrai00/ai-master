@@ -147,10 +147,11 @@
 }
 
 .content table {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   margin: 12px 0;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .content table th,
@@ -174,6 +175,38 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 20px 0;
+}
+
+/* External link (website) — distinct from internal wiki-links */
+.content a:not([class]) {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--text-muted);
+  transition: color 0.12s;
+}
+
+.content a:not([class]):hover {
+  color: var(--text-secondary);
+  text-decoration-color: var(--text-dim);
+}
+
+.extIcon {
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  display: inline-block;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.extIcon:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 [data-theme="light"] .content table th {

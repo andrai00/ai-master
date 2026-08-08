@@ -238,6 +238,13 @@
     "steps": {
       "read_parsed_file": ["Studying rules", "Reading source", "Parsing content", "Going through text"],
       "list_uploaded_files": ["Checking files", "Listing uploads"],
+      "explore_archive": ["Exploring archive", "Analyzing folders"],
+      "read_file": ["Reading file", "Opening document"],
+      "bulk_import_to_glossary": ["Importing glossary", "Saving reference", "Moving data"],
+      "scan_wiki_links": ["Finding replaceable links", "Scanning documents"],
+      "replace_wiki_links": ["Replacing links", "Fixing cross-references"],
+      "delete_document": ["Deleting document"],
+      "delete_uploaded_files": ["Cleaning uploaded files"],
       "create_document": ["Writing glossary", "Structuring rules", "Saving information", "Building data"],
       "update_document": ["Updating entry", "Refining data", "Editing document"],
       "read_document": ["Checking database", "Reviewing notes"],
@@ -271,7 +278,13 @@
     "brain": "Brain",
     "gameHidden": "Hidden",
     "gameVisible": "Player Data",
-    "searchPlaceholder": "Search documents..."
+    "searchPlaceholder": "Search documents...",
+    "export": "Export",
+    "import": "Import",
+    "importConfirmTitle": "Replace all data?",
+    "importConfirmDesc": "{{existing}} existing documents (glossary + brain) will be deleted and replaced with {{importing}} new ones. This cannot be undone.",
+    "importConfirmOk": "Replace everything",
+    "importSuccess": "Imported {{count}} documents"
   },
   "aiSettings": {
     "title": "AI Settings",

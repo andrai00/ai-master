@@ -69,8 +69,8 @@ export const Shell = ({ user, children }: IShellProps) => {
           queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
         }
       }
-      if (type === "file_uploaded" || type === "file_removed" || type === "file_progress_updated") {
-        queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
+      if (type === "file_uploaded" || type === "file_removed" || type === "archive_uploaded") {
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages"] });
       }
       if (type === "game_created" || type === "game_updated" || type === "game_deleted") {
         queryClient.invalidateQueries({ queryKey: ["admin", "games"] });

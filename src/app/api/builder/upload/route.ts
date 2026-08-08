@@ -1,25 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
-import { parseFile } from "@/src/shared/lib/agents/file-parser";
-import { autoContinueBuilder } from "@/src/shared/actions/builder/continue-builder";
-import { cacheFile, setFileParseError } from "@/src/shared/lib/agents/file-cache";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { ensureSession, emitStep, emitDone } from "@/src/shared/lib/agents/step-tracker";
+import { enqueueBuilderJob } from "@/src/shared/lib/queue";
+import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
+import AdmZip from "adm-zip";
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 const MAX_SIZE = 100 * 1024 * 1024;
 
-// In-memory store for in-progress parsing status
-const globalParsing = globalThis as unknown as {
-  parsingStatus: Map<string, { status: "parsing" | "done" | "error"; error?: string }> | undefined;
-};
+function getDirname(entryName: string): string {
+  const lastSlash = entryName.lastIndexOf("/");
+  return lastSlash === -1 ? "" : "/" + entryName.slice(0, lastSlash);
+}
 
-function getStatusMap(): Map<string, { status: "parsing" | "done" | "error"; error?: string }> {
-  if (!globalParsing.parsingStatus) globalParsing.parsingStatus = new Map();
-  return globalParsing.parsingStatus;
+function getBasename(entryName: string): string {
+  const lastSlash = entryName.lastIndexOf("/");
+  return lastSlash === -1 ? entryName : entryName.slice(lastSlash + 1);
+}
+
+async function triggerAgent(archive: boolean): Promise<void> {
+  const prisma = getPrisma();
+  const activeGame = await getActiveGame();
+  const masterId = activeGame?.currentMasterId;
+  if (!masterId) return;
+
+  const builderSession = await prisma.session.findFirst({
+    where: { masterId, type: "builder" },
+    select: { id: true },
+  });
+  const sessionId = builderSession?.id;
+  if (!sessionId) return;
+
+  const msg = archive
+    ? "Archive uploaded. Use explore_archive() to see the file tree, then bulk_import_to_glossary() with your type map."
+    : "File uploaded. Read it and create a glossary document with the appropriate type.";
+
+  enqueueBuilderJob(sessionId, msg, []).catch((err) => {
+    console.error("[upload] Failed to enqueue builder job:", err);
+    runBuilderAgent(sessionId, msg, []).catch((e) => {
+      console.error("[upload] Background builder crashed:", e);
+    });
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -38,14 +62,12 @@ export async function POST(request: NextRequest) {
 
   let formData: FormData;
   try {
-    console.log("[upload] Parsing formData...");
     formData = await request.formData();
-    console.log("[upload] formData parsed OK");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("[upload] formData parse failed:", msg);
     return NextResponse.json({
-      error: `errors.readFileFailed: ${msg}. The file might be too large, or the request was interrupted.`,
+      error: `errors.readFileFailed: ${msg}`,
     }, { status: 400 });
   }
 
@@ -56,93 +78,97 @@ export async function POST(request: NextRequest) {
 
   console.log(`[upload] File received: ${file.name} (${file.size} bytes)`);
 
-  const fileId = crypto.randomUUID();
-  const statusMap = getStatusMap();
-  statusMap.set(fileId, { status: "parsing" });
-
+  const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
+  const masterId = activeGame?.currentMasterId;
 
-  // Get builder session for SSE step tracking (shows parsing bubble in chat)
-  let sessionId: string | undefined;
-  if (activeGame?.currentMasterId) {
-    const s = await prisma.session.findFirst({
-      where: { masterId: activeGame.currentMasterId, type: "builder" },
-      select: { id: true },
-    });
-    sessionId = s?.id;
-  }
-  if (sessionId) {
-    ensureSession(sessionId);
-    emitStep(sessionId, "file_parsing", `${file.name}: parsing`);
-  }
+  if (ext === ".md") {
+    const text = await file.text();
+    if (!masterId) {
+      return NextResponse.json({ error: "errors.noActiveGame" }, { status: 400 });
+    }
 
-  // Parse in background via worker — main thread stays responsive
-  const buffer = Buffer.from(await file.arrayBuffer());
-  console.log(`[upload] Buffer: ${buffer.length} bytes, starting background parse`);
+    const fileId = crypto.randomUUID();
 
-  parseFile(buffer, file.name, sessionId ? (elapsed) => {
-    emitStep(sessionId!, "file_parsing", `${file.name}: ${elapsed}s`);
-  } : undefined)
-    .then(async (parsed) => {
-      cacheFile(fileId, parsed.text, parsed.size, file.name);
-
-      // Create DB record only after successful parse — files without text don't appear in lists
-      if (activeGame?.currentMasterId) {
-        try {
-          await prisma.uploadedFile.create({
-            data: {
-              id: fileId,
-              masterId: activeGame.currentMasterId,
-              filename: file.name,
-              text: parsed.text,
-              size: parsed.size,
-              status: "done",
-            },
-          });
-          broadcastGameEvent("file_uploaded", { fileId });
-        } catch (dbErr) {
-          console.error(`[upload] Failed to save parsed file to DB: ${dbErr}`);
-        }
-      }
-
-      statusMap.set(fileId, { status: "done" });
-      console.log(`[upload] Background parse done: ${parsed.size} chars, fileId=${fileId}`);
-
-      if (sessionId) {
-        emitStep(sessionId, "file_parsing", `${file.name}: ${Math.round(parsed.size / 1024)}K chars`);
-        const stillParsing = Array.from(statusMap.values()).some((s) => s.status === "parsing");
-        if (!stillParsing) {
-          emitDone(sessionId);
-          autoContinueBuilder(sessionId).catch((e) =>
-            console.error("[upload] Auto-continue failed:", e)
-          );
-        }
-      }
-    })
-    .catch(async (err) => {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      console.error(`[upload] Background parse failed: ${msg}`);
-      setFileParseError(fileId, msg);
-      statusMap.set(fileId, { status: "error", error: msg });
-
-      if (sessionId) {
-        emitStep(sessionId, "file_parsing", `${file.name}: error`);
-        const stillParsing = Array.from(statusMap.values()).some((s) => s.status === "parsing");
-        if (!stillParsing) emitDone(sessionId);
-      }
+    await prisma.uploadedFile.create({
+      data: {
+        id: fileId,
+        masterId,
+        filename: file.name,
+        text,
+        size: text.length,
+        path: "",
+        status: "ready",
+      },
     });
 
-  return NextResponse.json({ fileId, filename: file.name, size: file.size, status: "parsing" });
-}
+    broadcastGameEvent("file_uploaded", {});
+    triggerAgent(false).catch((e) => console.error("[upload] triggerAgent failed:", e));
 
-// Status check endpoint
-export async function GET(request: NextRequest) {
-  const fileId = request.nextUrl.searchParams.get("fileId");
-  if (!fileId) return NextResponse.json({ error: "errors.missingParam" }, { status: 400 });
+    return NextResponse.json({ fileId, filename: file.name, size: text.length, status: "ready" });
+  }
 
-  const status = getStatusMap().get(fileId);
-  if (!status) return NextResponse.json({ error: "errors.unknownFileId" }, { status: 404 });
+  if (ext === ".zip") {
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-  return NextResponse.json(status);
+    let zip: AdmZip;
+    try {
+      zip = new AdmZip(buffer);
+    } catch (err: unknown) {
+      console.error("[upload] ZIP parse failed:", err);
+      return NextResponse.json({ error: "errors.zipParseFailed" }, { status: 400 });
+    }
+
+    const entries = zip.getEntries();
+    const mdEntries: Array<{ filename: string; path: string; text: string; size: number }> = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const name = entry.entryName;
+      if (!name.toLowerCase().endsWith(".md")) continue;
+
+      const text = entry.getData().toString("utf-8");
+      mdEntries.push({
+        filename: getBasename(name),
+        path: getDirname(name),
+        text,
+        size: text.length,
+      });
+    }
+
+    console.log(`[upload] ZIP extracted: ${mdEntries.length} .md files`);
+
+    if (mdEntries.length === 0) {
+      return NextResponse.json({ error: "errors.noMdFilesInArchive" }, { status: 400 });
+    }
+
+    if (masterId) {
+      await prisma.uploadedFile.createMany({
+        data: mdEntries.map((e) => ({
+          masterId,
+          filename: e.filename,
+          text: e.text,
+          size: e.size,
+          path: e.path,
+          status: "ready",
+        })),
+      });
+    }
+
+    const folders = [...new Set(mdEntries.map((e) => e.path))].sort();
+
+    broadcastGameEvent("archive_uploaded", { fileCount: mdEntries.length, folders });
+    triggerAgent(true).catch((e) => console.error("[upload] triggerAgent failed:", e));
+
+    return NextResponse.json({
+      fileId: "__archive__",
+      filename: file.name,
+      status: "ready",
+      fileCount: mdEntries.length,
+      folders,
+    });
+  }
+
+  return NextResponse.json({ error: "errors.unsupportedFileType" }, { status: 400 });
 }

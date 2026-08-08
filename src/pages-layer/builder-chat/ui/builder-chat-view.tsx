@@ -5,19 +5,16 @@ import { useTranslation } from "react-i18next";
 import { Modal, Table, App, Segmented, Tooltip } from "antd";
 import { SettingOutlined, DatabaseOutlined, PaperClipOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChatPanel, FileProgressModal, type IFileProgress } from "@/src/features/chat-panel";
+import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { useBuilderSession } from "@/src/shared/api/builder/useBuilderSession";
 import { useBuilderMessages } from "@/src/shared/api/builder/useBuilderMessages";
 import { useSendBuilderMessage } from "@/src/shared/api/builder/useSendMessage";
 import { useDeleteBuilderMessage } from "@/src/shared/api/builder/useDeleteMessage";
 import { useClearBuilderChat } from "@/src/shared/api/builder/useClearChat";
 import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
-import { useFileProgress, useRemoveUploadedFile, useSetFileOffset } from "@/src/shared/api/builder/use-file-progress";
-import { useContinueBuilder } from "@/src/shared/api/builder/use-continue-builder";
 import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
-import type { IMessage } from "@/src/features/chat-panel";
 import type { ColumnsType } from "antd/es/table";
 import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
 
@@ -53,7 +50,6 @@ export const BuilderChatView = () => {
   const [stopping, setStopping] = useState(false);
   const stoppingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [fileModalOpen, setFileModalOpen] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const prevSessionId = useRef<string | undefined>(undefined);
@@ -140,10 +136,6 @@ export const BuilderChatView = () => {
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
-  const { data: progressData } = useFileProgress();
-  const removeFileMutation = useRemoveUploadedFile();
-  const setOffsetMutation = useSetFileOffset();
-  const continueMutation = useContinueBuilder();
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
@@ -217,22 +209,6 @@ export const BuilderChatView = () => {
     if (sessionId) clearMutation.mutate(sessionId);
   }, [sessionId, clearMutation]);
 
-  // --- File progress ---
-  const fileProgress: IFileProgress[] = (progressData ?? []).map((f) => ({
-    ...f,
-    onRemove: (typing && f.readOffset < f.totalSize) ? undefined : () => {
-      removeFileMutation.mutate(f.fileId);
-    },
-    onSetOffset: typing ? undefined : (chunkNumber: number) => {
-      setOffsetMutation.mutate({ fileId: f.fileId, chunkNumber });
-    },
-  }));
-
-  const handleContinue = useCallback(() => {
-    if (!sessionId) return;
-    continueMutation.mutate(sessionId);
-  }, [sessionId, continueMutation]);
-
   // --- History ---
   const openHistory = async () => {
     if (!sessionId) return;
@@ -281,7 +257,7 @@ export const BuilderChatView = () => {
         title={t("mode.builderChat")}
         hideShare
         allowFiles
-        acceptFiles=".pdf,.txt,.md"
+        acceptFiles=".md,.zip"
         inputPrefix={
             <Segmented
               size="small"
@@ -307,9 +283,6 @@ export const BuilderChatView = () => {
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        fileProgress={fileProgress}
-        onContinueFiles={handleContinue}
-        onOpenFileDetails={() => setFileModalOpen(true)}
       />
       <Modal
         title={t("chat.historyTitle")}
@@ -324,13 +297,6 @@ export const BuilderChatView = () => {
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>
-      <FileProgressModal
-        open={fileModalOpen}
-        files={fileProgress}
-        processing={typing}
-        onClose={() => setFileModalOpen(false)}
-        onContinue={handleContinue}
-      />
     </>
   );
 };

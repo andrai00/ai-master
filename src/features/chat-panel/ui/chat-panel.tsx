@@ -21,10 +21,8 @@ import {
   SearchOutlined,
   CommentOutlined,
   PaperClipOutlined,
-  CaretRightOutlined,
   FileOutlined,
   MenuOutlined,
-  SettingOutlined,
   StopOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
@@ -34,41 +32,102 @@ import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
-import { WikiLink } from "@/src/features/md-viewer/ui/wiki-link";
+import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
-/** Reusable wiki-link renderer for chat messages — plain text, no navigation */
-const wikiComponents: Components = {
+/** Reusable wiki-link renderer for chat messages */
+const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): Components => ({
   span(props) {
     const { node, children, ...rest } = props;
-    const href = (node?.properties as Record<string, string> | undefined)?.["data-wiki-link"];
+    const properties = (node?.properties as Record<string, string> | undefined);
+    const href = properties?.["data-wiki-link"];
     if (href) {
       const [docId, anchor] = href.split("|");
-      return <WikiLink docId={docId!} anchor={anchor || null} plain />;
+      const display = properties?.["data-wiki-display"] || docId;
+      return (
+        <button
+          type="button"
+          onClick={() => onWikiClick(docId!, anchor || undefined)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
+        >
+          {display}
+        </button>
+      );
     }
     return <span {...rest}>{children}</span>;
   },
   a(props) {
     const { href, children } = props;
-    if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
-      const docId = href.slice(5);
+    if (href && /^#/.test(href)) {
+      // Same-document anchor — scroll within current modal
+      return <span style={{ color: "var(--text-dim)" }}>{children}</span>;
+    }
+    if (href && /^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/.test(href)) {
+      const m = href.match(/^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/);
+      const docId = m![1]!;
+      const anchor = m![2] || undefined;
       return (
-        <a
-          href={`/admin/documents?doc=${docId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "var(--link-color)", cursor: "pointer" }}
+        <button
+          type="button"
+          onClick={() => onWikiClick(docId!, anchor)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
         >
           {children}
-        </a>
+        </button>
       );
     }
-    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+    if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
+      const [pathPart, hashPart] = (href as string).split("#");
+      const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
+      return (
+        <button
+          type="button"
+          onClick={() => onWikiClick(cleanPath, hashPart || undefined)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
+        >
+          {children}
+        </button>
+      );
+    }
+    return (
+      <span>
+        <span style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--text-muted)" }}>
+          {children}
+        </span>
+        <a href={href} target="_blank" rel="noopener noreferrer" className={styles.extIcon}>
+          &#x2197;
+        </a>
+      </span>
+    );
   },
-};
+});
 
 export interface IMessage {
   id: string;
@@ -80,16 +139,6 @@ export interface IMessage {
   summarized?: boolean;
   attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
-}
-
-export interface IFileProgress {
-  fileId: string;
-  filename: string;
-  totalSize: number;
-  readOffset: number;
-  status: "parsing" | "done" | "error";
-  onRemove?: () => void;
-  onSetOffset?: (chunkNumber: number) => void;
 }
 
 interface IChatPanelProps {
@@ -126,12 +175,6 @@ interface IChatPanelProps {
   stopping?: boolean;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
-  /** File reading progress to show above the input */
-  fileProgress?: IFileProgress[];
-  /** Called when user clicks "Continue" to resume file processing */
-  onContinueFiles?: () => void;
-  /** Called when user clicks "Details" to open file progress modal */
-  onOpenFileDetails?: () => void;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -219,7 +262,7 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
-  inputPrefix, fileProgress, onContinueFiles, onOpenFileDetails,
+  inputPrefix,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -232,6 +275,13 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [previewAnchor, setPreviewAnchor] = useState<string | undefined>(undefined);
+
+  const handleWikiClick = useCallback((docId: string, anchor?: string) => {
+    setPreviewDocId(docId);
+    setPreviewAnchor(anchor);
+  }, []);
   const [stepLabel, setStepLabel] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -416,7 +466,7 @@ export const ChatPanel = ({
             {msg.prefix}
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkWikiLink]}
-              components={wikiComponents}
+               components={wikiComponents(handleWikiClick)}
             >
               {String(msg.text)}
             </ReactMarkdown>
@@ -470,6 +520,7 @@ export const ChatPanel = ({
   const grouped = groupMessages(messages);
 
   return (
+    <>
     <div
       className={`${styles.panel} ${dragOver ? styles.dragOver : ""}`}
       onDragEnter={handleDragEnter}
@@ -573,55 +624,6 @@ export const ChatPanel = ({
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}
-
-        {fileProgress && fileProgress.length > 0 && (() => {
-          const filesDone = fileProgress.filter((f) => f.readOffset >= f.totalSize && f.totalSize > 0).length;
-          const filesTotal = fileProgress.length;
-          const chunkSize = 5000;
-          const chunksTotal = fileProgress.reduce((s, f) => s + Math.ceil(f.totalSize / chunkSize), 0);
-          const chunksRead = fileProgress.reduce((s, f) => s + Math.min(Math.ceil(f.readOffset / chunkSize), Math.ceil(f.totalSize / chunkSize)), 0);
-          const allDone = filesTotal > 0 && filesDone === filesTotal;
-
-          return (
-            <div className={styles.fileProgressBar}>
-              <div className={styles.progressBarInner}>
-                <div className={styles.progressActions}>
-                  <button className={styles.progressSummary} onClick={onOpenFileDetails}>
-                    <FileOutlined style={{ fontSize: 12, color: "var(--text-dim)" }} />
-                    <span className={styles.progressNum}>{filesDone}/{filesTotal}</span>
-                    <span className={styles.progressSep} />
-                    <FileTextOutlined style={{ fontSize: 11, color: "var(--text-dim)" }} />
-                    <span className={styles.progressNum}>{chunksRead}/{chunksTotal}</span>
-                  </button>
-                  {onOpenFileDetails && (
-                    <Tooltip title={t("chat.fileDetails")}>
-                      <button className={styles.progressActionBtn} onClick={onOpenFileDetails}>
-                        <SettingOutlined style={{ fontSize: 14 }} />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {typing ? (
-                    onStop && (
-                      <Tooltip title={t("chat.stop")}>
-                        <button className={styles.progressActionBtn} onClick={onStop}>
-                          <StopOutlined style={{ fontSize: 14 }} />
-                        </button>
-                      </Tooltip>
-                    )
-                  ) : (
-                    onContinueFiles && !allDone && (
-                      <Tooltip title={t("chat.continueReading")}>
-                        <button className={styles.progressActionBtn} onClick={onContinueFiles}>
-                          <CaretRightOutlined style={{ fontSize: 14 }} />
-                        </button>
-                      </Tooltip>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
         {/* attached file chips */}
         {allowFiles && attachedFiles.length > 0 && (
@@ -732,6 +734,13 @@ export const ChatPanel = ({
         </div>
       </div>
     </div>
+      <DocumentPreviewModal
+        open={previewDocId !== null}
+        docId={previewDocId}
+        anchor={previewAnchor}
+        onClose={() => { setPreviewDocId(null); setPreviewAnchor(undefined); }}
+      />
+    </>
   );
 };
 

@@ -163,7 +163,7 @@ export const UsersTable = () => {
         title={t("admin.users")}
         actions={<Button icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>{t("admin.addPlayer")}</Button>}
       />
-      <div style={{ padding: "16px", flex: 1, overflow: "auto" }}>
+      <div style={{ padding: "16px", flex: 1, overflow: "auto", maxWidth: "var(--content-width)", margin: "0 auto", width: "100%" }}>
       <Table dataSource={users} columns={columns} rowKey="id" loading={isLoading}
         pagination={{ size: "small", pageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: (_page, size) => setPageSize(size) }} size="middle" scroll={{ x: "max-content" }}
         locale={{ emptyText: t("admin.noUsers") }}

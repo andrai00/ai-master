@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-queue", "better-queue-memory", "adm-zip"],
   turbopack: {
-    root: __dirname,
+    root: process.cwd(),
   },
   experimental: {
     proxyClientMaxBodySize: "150mb",

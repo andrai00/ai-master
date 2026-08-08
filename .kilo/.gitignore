@@ -16,3 +16,5 @@
 # Local dependencies (if .kilo/ has its own package.json)
 /node_modules/
 /package-lock.json
+/package.json
+/pnpm-lock.yaml

@@ -198,7 +198,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             <span style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--text-muted)" }}>
               {children}
             </span>
-            <a href={href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer", textDecoration: "none", marginLeft: 2 }}>
+            <a href={href} target="_blank" rel="noopener noreferrer" className={styles.extIcon}>
               &#x2197;
             </a>
           </span>

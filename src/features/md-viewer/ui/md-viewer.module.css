@@ -191,6 +191,24 @@
   text-decoration-color: var(--text-dim);
 }
 
+.extIcon {
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  display: inline-block;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.extIcon:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
 [data-theme="light"] .content table th {
   background: var(--bg-active);
 }

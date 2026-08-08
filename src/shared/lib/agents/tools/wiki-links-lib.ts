@@ -2,7 +2,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 const WIKI_LINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
-const MD_LINK_RE = /\[(.+?)\]\((\/[^)\s]+?)\)/g;
+const MD_LINK_RE = /\[(.+?)\]\((https?:\/\/[^)\s]+?|\/[^)\s]+?)\)/g;
 
 export interface IScanResult {
   wikiLinks: number;
@@ -70,7 +70,7 @@ export async function scanAllLinks(): Promise<IScanResult> {
 }
 
 function extractLastPathSegment(url: string): string {
-  const stripped = url.replace(/\/$/, "").split(/[?#]/)[0] ?? "";
+  const stripped = url.replace(/\/$/, "").split(/[?#]/)[0]?.replace(/\/$/, "") ?? "";
   const idx = stripped.lastIndexOf("/");
   if (idx === -1) return "";
   return stripped.slice(idx + 1);

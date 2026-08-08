@@ -265,9 +265,11 @@ If a `.zip` archive is uploaded:
    - No manual cleanup needed for bulk import.
 
 5. After import completes:
-   - Report: "Imported X files. Reference: types A, B, C. Rules: types X, Y, Z."
-   - If any rule-type documents were imported: "Found N rule documents. Want me to study them and write brain documents for the AI Master?"
-   - If no rules were found: "All files are reference data. The glossary is ready."
+    - Run `scan_wiki_links()` → report how many links can be auto-replaced
+    - Run `replace_wiki_links()` to convert [[Title]] and [text](/path) links into [[uuid]] format
+    - Report: "Imported X files, replaced Y internal links. Reference: types A, B, C. Rules: types X, Y, Z."
+    - If any rule-type documents were imported: "Found N rule documents. Want me to study them and write brain documents for the AI Master?"
+    - If no rules were found: "All files are reference data. The glossary is ready."
 
 ### Import rules
 
@@ -276,6 +278,7 @@ If a `.zip` archive is uploaded:
 - **Bulk import is done server-side** via `bulk_import_to_glossary` — you only decide the type map
 - **Show the type map to the admin before importing** — they must confirm
 - **Separate reference from rules** — this is critical for the brain study step later
+- **After import, ALWAYS run scan_wiki_links + replace_wiki_links** — converts cross-document links to clickable [[uuid]] format automatically. No need to ask admin.
 
 ## What brain documents to create
 

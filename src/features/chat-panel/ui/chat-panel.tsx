@@ -95,10 +95,12 @@ const wikiComponents = (onWikiClick: (docId: string) => void): Components => ({
     }
     return (
       <span>
-        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3 }}>
+        <span style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--text-muted)" }}>
           {children}
+        </span>
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "var(--text-dim)", cursor: "pointer", textDecoration: "none", marginLeft: 2 }}>
+          &#x2197;
         </a>
-        <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 2 }}>&#x2197;</span>
       </span>
     );
   },

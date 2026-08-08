@@ -82,6 +82,12 @@ export const Shell = ({ user, children }: IShellProps) => {
       if (type === "ai_config_updated") {
         queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
       }
+      if (type === "game_message_sent" || type === "game_message_deleted") {
+        queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
+      }
+      if (type === "personal_message_sent" || type === "personal_message_deleted") {
+        queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
+      }
     };
     eventSource.onerror = () => {
       // EventSource auto-reconnects on its own — don't close it

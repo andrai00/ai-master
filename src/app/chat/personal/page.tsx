@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { Shell } from "@/src/widgets/shell";
-import { PersonalChatPlaceholder } from "./placeholder";
+import { ChatPersonalView } from "@/src/pages-layer/chat-personal";
 
 export default async function PersonalChatPage() {
   const session = await getSession();
@@ -9,7 +9,7 @@ export default async function PersonalChatPage() {
 
   return (
     <Shell user={session}>
-      <PersonalChatPlaceholder />
+      <ChatPersonalView />
     </Shell>
   );
 }

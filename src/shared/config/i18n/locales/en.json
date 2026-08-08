@@ -79,6 +79,7 @@
     "sharedEvent": "shared a message from private chat",
     "copy": "Copy",
     "share": "Share",
+    "shareDone": "Shared to game chat",
     "copied": "Copied",
     "placeholderEmpty": "Game chat with the master and players will be here",
     "devModeDisabled": "Game chat is unavailable — the master is being edited",
@@ -318,7 +319,8 @@
   },
   "chatPersonal": {
     "title": "Personal chat with master",
-    "subtitle": "Private communication will be here"
+    "subtitle": "Private communication will be here",
+    "inputBlocked": "Master is responding..."
   },
   "errors": {
     "emptyLoginPassword": "Enter login and password",
@@ -345,6 +347,10 @@
     "messageNotFound": "Message not found",
     "cannotDeleteSummarized": "Cannot delete — already summarized",
     "sessionNotFound": "Session not found",
+    "noGame": "No game selected",
+    "devModeDisabled": "Chat unavailable in development mode",
+    "wrongGame": "Wrong game",
+    "notInGameMode": "Action only available in game mode",
     "aiTestError": "Error {{status}}: {{text}}",
     "aiTestFound": "Found: {{count}}",
     "fileTooLarge": "File too large (max 5MB)",

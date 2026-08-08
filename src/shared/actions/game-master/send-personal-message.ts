@@ -1,0 +1,50 @@
+"use server";
+
+import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { runGameMasterPersonal } from "@/src/shared/lib/agents/gm-runner";
+
+export async function sendPersonalMessageAction(
+  sessionId: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "errors.forbidden" };
+  if (!content.trim()) return { success: false, error: "errors.emptyMessage" };
+
+  const activeGame = await getActiveGame();
+  if (!activeGame) return { success: false, error: "errors.noGame" };
+
+  const prisma = getPrisma();
+
+  const s = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { masterId: true, type: true, playerId: true },
+  });
+  if (!s || s.type !== "personal") return { success: false, error: "errors.sessionNotFound" };
+
+  if (session.role !== "admin" && s.playerId !== session.userId) {
+    return { success: false, error: "errors.forbidden" };
+  }
+
+  await prisma.message.create({
+    data: {
+      sessionId,
+      senderId: session.userId,
+      role: session.role,
+      content: content.trim(),
+    },
+  });
+
+  broadcastGameEvent("personal_message_sent", { sessionId });
+
+  const playerId = s.playerId ?? session.userId;
+
+  runGameMasterPersonal(sessionId, playerId).catch((e) => {
+    console.error("[gm-personal] Background processing crashed:", e);
+  });
+
+  return { success: true };
+}

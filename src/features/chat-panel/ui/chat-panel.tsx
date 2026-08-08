@@ -149,6 +149,7 @@ interface IChatPanelProps {
   hideShare?: boolean;
   title?: string;
   onDelete?: (id: string) => void;
+  onShare?: (id: string) => void;
   onHistoryClick?: () => void;
   onClearChat?: () => void;
   onSend?: (text: string, files: File[]) => void;
@@ -258,7 +259,7 @@ function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: bo
 
 export const ChatPanel = ({
   messages, placeholder, disabled, disabledText, hideShare, title,
-  onDelete, onHistoryClick, onClearChat, onSend, onStop,
+  onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
@@ -477,9 +478,9 @@ export const ChatPanel = ({
                 <CopyOutlined />
               </button>
             </Tooltip>
-            {!hideShare && (
+            {!hideShare && onShare && (
               <Tooltip title={t("chat.share")} placement="top">
-                <button className={styles.actionBtn}>
+                <button className={styles.actionBtn} onClick={() => onShare(msg.id)}>
                   <ShareAltOutlined />
                 </button>
               </Tooltip>

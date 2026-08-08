@@ -18,7 +18,11 @@ export type TGameEvent =
   | "user_created"
   | "user_updated"
   | "user_deleted"
-  | "ai_config_updated";
+  | "ai_config_updated"
+  | "game_message_sent"
+  | "game_message_deleted"
+  | "personal_message_sent"
+  | "personal_message_deleted";
 
 interface IGameEvent {
   type: TGameEvent;

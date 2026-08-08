@@ -7,8 +7,14 @@
 #   AGENTS.md  — agent workflow index
 #   docs/      — Kilo-specific documentation
 
+# Kilo local config (may change per session)
+/kilo.jsonc
+
 # Local agent state (session list, etc.)
 /agent-manager.json
+
+# Kilo temp files
+*.tmp
 
 # Local worktree directories
 /worktrees/

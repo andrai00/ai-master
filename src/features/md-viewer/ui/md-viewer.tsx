@@ -107,12 +107,15 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
-      const el = contentRef.current?.querySelector(`#${CSS.escape(scrollTo)}`);
+      const slugger = new GithubSlug();
+      const slug = slugger.slug(scrollTo);
+      const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
+                 contentRef.current?.querySelector(`[id="${scrollTo}"]`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
-        setActiveId(scrollTo);
+        setActiveId(slug);
       }
-    }, 150);
+    }, 200);
     return () => clearTimeout(timer);
   }, [scrollTo]);
 

@@ -71,11 +71,7 @@ export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWik
   };
 
   if (plain || !exists) {
-    return (
-      <span className={styles.wikiText}>
-        {anchor ? `${resolvedDisplay} › ${anchor}` : resolvedDisplay}
-      </span>
-    );
+    return <span className={styles.wikiText}>{resolvedDisplay}</span>;
   }
 
   return (
@@ -83,9 +79,9 @@ export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWik
       type="button"
       className={styles.wikiLink}
       onClick={handleClick}
-      title={anchor ? `Открыть «${resolvedDisplay}» → ${anchor}` : `Открыть «${resolvedDisplay}»`}
+      title={anchor ? `«${resolvedDisplay}» → ${anchor}` : resolvedDisplay}
     >
-      {anchor ? `${resolvedDisplay} › ${anchor}` : resolvedDisplay}
+      {resolvedDisplay}
     </button>
   );
 };

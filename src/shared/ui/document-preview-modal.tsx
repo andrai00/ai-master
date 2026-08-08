@@ -39,8 +39,7 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
         if (el) el.scrollTop = 0;
       });
       if (anchor) {
-        const slugger = new GithubSlug();
-        setTimeout(() => { setScrollTo(slugger.slug(anchor)); }, 300);
+        setTimeout(() => { setScrollTo(anchor); }, 300);
       }
     }
   }, [doc, anchor]);
@@ -57,8 +56,7 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
   };
 
   const handleNavigate = useCallback((targetId: string, anchor?: string) => {
-    const anchorSlug = anchor ? new GithubSlug().slug(anchor) : undefined;
-    setScrollTo(anchorSlug || undefined);
+    setScrollTo(anchor || "");
     if (targetId !== doc?.id) {
       setNavStack((s) => [...s, doc!]);
       loadDoc(targetId);

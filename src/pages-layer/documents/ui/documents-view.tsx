@@ -66,7 +66,7 @@ export const DocumentsView = () => {
     const target = docMap.get(docId) ?? titleToDoc.get(docId);
     if (!target) return;
     const anchorSlug = anchor ? new GithubSlug().slug(anchor) : "";
-    setScrollTo(anchorSlug);
+    setScrollTo(anchor || "");  // use raw anchor, scrollTo effect handles both slug and raw
     setPreviewDoc((prev) => {
       if (prev && prev.id !== docId) {
         setNavStack((s) => [...s, prev]);

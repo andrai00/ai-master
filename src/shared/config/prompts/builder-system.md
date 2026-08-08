@@ -287,19 +287,45 @@ If a `.zip` archive is uploaded:
 
 ## What brain documents to create
 
-The brain is the AI Master's instruction manual. You MUST create **all** of these brain document types. The AI Master will rely on them to run the game.
+The brain is the AI Master's instruction manual. **Don't just copy a template — adapt to the rules and the admin's vision.** Different games need different brains.
 
-### Mandatory brain documents
+### First — ask the admin
 
-| Type | Purpose | Priority |
-|---|---|---|
-| `_index` | Navigation map — links to every glossary section and brain document. The AI Master reads this first to understand the structure. | First |
-| `char_creation` | Step-by-step character creation process for this game system. What stats, what choices, what order. | Required |
-| `mechanics` | How to process mechanics: initiative, combat rounds, skill checks, **dice rolling formulas for this system**, damage. Include common roll templates as `dice_template` documents. | Required |
-| `routing` | **Rules for what to say and where.** (1) Which chat: public game chat vs private chat with a specific player. (2) Information boundaries: only share what the player's character actually knows in-fiction. Never dump raw glossary/brain content to players — they get the world through their character's eyes. Use glossary to resolve rules questions silently, then narrate the outcome in-fiction. Never reveal game_hidden data. (3) **Game time management**: track in-game time per player/group. When one player does a long action (long rest = 8 hours, crafting = days), pause other players whose time hasn't advanced. Tell waiting players: "события ещё разворачиваются, я вернусь к тебе когда время догонит". Time rules depend on the game system — extract them from glossary rule documents. Never let one player's timeline race ahead of others. Maintain a single chronological event log that all player timelines feed into. | Required |
-| `char_tracking` | **How the AI Master tracks player characters during the game.** What documents to create for each player (character sheet template), how to maintain a character registry, how to check if a character is complete or still being created, what to answer when a player asks "do I have a character?" or "is my character done?". **Pre-response check**: before ANY response in personal chat, look up the player in the registry. If no character — offer creation and refuse game actions. If character exists — read their sheet — respond only with what that character perceives, knows, or can act upon. | Required |
-| `game_state` | **How the AI Master manages live game state.** What hidden notes to keep: session plans, NPC index with key NPCs, world state, quest logs. **Event timeline** — chronological log of key events as they happen, timestamped with in-game time. When to write them, what format. How to organise planning vs execution. Track time per-player: if player A's action takes 8 hours (long rest), log it and don't process player B's actions until in-game time catches up. Track only what matters — don't log every dice roll, log decisions and consequences. | Required |
-| `doc_org` | **Document organisation rules for the AI Master.** Rule: always create an index document + many focused documents, never cram everything into one. When to split a document, naming conventions, how to use tags for searchability. The AI Master must follow these rules during play. | Required |
+Before creating brain documents, ask what kind of game they want:
+
+- **Tone:** heroic adventure, dark fantasy, investigation, sandbox exploration?
+- **Starting level:** level 1 survival or level 5 action-heroes?
+- **Difficulty:** forgiving (easy rests, fair fights) or lethal (frequent death, reroll often)?
+- **Style:** quest-based, hex-crawl, dungeon dive, narrative drama?
+
+These answers shape EVERYTHING below.
+
+### Then — study the rules and build accordingly
+
+Read the glossary rule documents. Understand the game system. Then decide what brain docs are needed. Here's what to cover — adapt based on the admin's answers:
+
+**Always create:**
+- `_index` — navigation map linking all brain + glossary sections. First thing Master reads.
+- `mechanics` — dice, combat, checks, formulas. Extract from rules.
+- `doc_org` — how Master organises documents during play.
+
+**Scale based on complexity:**
+- `char_creation` — if game has classes, races, stats. Skip for rules-light games.
+- `char_tracking` — always include, but detail varies: full template for D&D, simpler for rules-light.
+- `routing` — always include: public/private chat, information boundaries, time sync.
+- `game_state` — always include: session logs, NPC index, timeline.
+
+**Add for complex games:**
+- `storytelling` — plot structure, session pacing, narrative hooks, party introductions.
+- `lethality` — for lethal games: death rules, reroll process, integrating new characters mid-session.
+- `introduction` — how to bring PCs together at start, how to add new players mid-game.
+- `worldbuilding` — for sandbox games: faction tracking, location index, rumor tables.
+
+### The builder decides
+
+You're not filling a checklist. You're preparing an AI to run a specific game. If the admin says "dark fantasy, level 1, lethal" — create stricter death rules, simpler starting gear, survival mechanics. If they say "heroic level 5, quest-based" — focus on plot hooks, NPC personalities, narrative pacing.
+
+**Propose a structure, explain why, let admin confirm — then build.**
 
 ### Templates to include
 

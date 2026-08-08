@@ -26,6 +26,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
+  const preTypingMsgCount = useRef(0);
 
   const { data: sessionData } = useGameSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -69,11 +70,8 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
 
   const pendingCount = useMemo(() => {
     if (!typing) return 0;
-    let lastMasterIdx = -1;
-    for (let i = rawMessages.length - 1; i >= 0; i--) {
-      if (rawMessages[i].role === "master") { lastMasterIdx = i; break; }
-    }
-    return rawMessages.filter((m, i) => i > lastMasterIdx && (m.role === "player" || m.role === "admin")).length;
+    const currentCount = rawMessages.filter(m => m.role === "player" || m.role === "admin").length;
+    return Math.max(0, currentCount - preTypingMsgCount.current);
   }, [rawMessages, typing]);
 
   const handleSend = useCallback(
@@ -145,7 +143,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
         pendingCount={pendingCount}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
-        onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        onStepsStart={() => { preTypingMsgCount.current = rawMessages.filter(m => m.role === "player" || m.role === "admin").length; setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
       />

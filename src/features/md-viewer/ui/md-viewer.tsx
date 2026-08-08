@@ -27,6 +27,15 @@ interface IMdViewerProps {
   showToc?: boolean;
 }
 
+function cleanTocText(raw: string): string {
+  return raw
+    .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Extract TOC using github-slugger — matches rehype-slug's slug generation exactly. */
 function useToc(content: string): ITocItem[] {
   return useMemo(() => {
@@ -36,9 +45,8 @@ function useToc(content: string): ITocItem[] {
     let match: RegExpExecArray | null;
     while ((match = headingRe.exec(content)) !== null) {
       const level = match[1]!.length;
-      const text = match[2]!.trim();
+      const text = cleanTocText(match[2]!);
       const id = slugger.slug(text);
-      // GithubSlug returns empty string for headings with no slug-worthy content
       if (!id) continue;
       items.push({ id, text, level });
     }

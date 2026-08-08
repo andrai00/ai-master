@@ -13,13 +13,25 @@ interface ITocEntry {
 
 const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
 
+function cleanHeading(text: string): string {
+  return text
+    .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractToc(content: string): ITocEntry[] {
   const toc: ITocEntry[] = [];
   let match: RegExpExecArray | null;
   HEADING_RE.lastIndex = 0;
   while ((match = HEADING_RE.exec(content)) !== null) {
     toc.push({
-      heading: match[2].trim(),
+      heading: cleanHeading(match[2]),
       level: match[1].length,
       offset: match.index,
     });

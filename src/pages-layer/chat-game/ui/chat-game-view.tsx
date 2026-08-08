@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App } from "antd";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatGameView = () => {
+export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -63,7 +63,18 @@ export const ChatGameView = () => {
     summarized: m.summarized,
   });
 
-  const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];
+  const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
+
+  const messages: IMessage[] = rawMessages.map(mapMsg);
+
+  const pendingCount = useMemo(() => {
+    if (!typing) return 0;
+    let lastMasterIdx = -1;
+    for (let i = rawMessages.length - 1; i >= 0; i--) {
+      if (rawMessages[i].role === "master") { lastMasterIdx = i; break; }
+    }
+    return rawMessages.filter((m, i) => i > lastMasterIdx && (m.role === "player" || m.role === "admin")).length;
+  }, [rawMessages, typing]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -124,12 +135,16 @@ export const ChatGameView = () => {
         placeholder={t("chat.placeholder")}
         title={t("chat.gameChat")}
         hideShare={false}
+        disabled={disabled}
+        disabledText={disabled ? t("chat.devModeDisabled") : undefined}
         onDelete={handleDelete}
         onHistoryClick={openHistory}
         onSend={handleSend}
         sending={sendMutation.isPending}
         typing={typing}
+        pendingCount={pendingCount}
         stepsSessionId={sessionId}
+        stepsEndpoint="/api/game-chat/steps"
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}

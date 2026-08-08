@@ -15,7 +15,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatPersonalView = () => {
+export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -137,6 +137,8 @@ export const ChatPersonalView = () => {
         placeholder={t("chat.placeholder")}
         title={t("chatPersonal.title")}
         hideShare={false}
+        disabled={disabled}
+        disabledText={disabled ? t("chat.devModeDisabled") : undefined}
         onDelete={handleDelete}
         onShare={handleShare}
         onHistoryClick={openHistory}
@@ -144,6 +146,7 @@ export const ChatPersonalView = () => {
         sending={sendMutation.isPending}
         typing={typing}
         stepsSessionId={sessionId}
+        stepsEndpoint="/api/game-chat/steps"
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}

@@ -41,12 +41,12 @@ export const searchDocumentsTool = {
     z.object({
       query: z.string().optional().describe("Search query (omit to list all readable documents)"),
       category: z
-        .enum(["glossary", "brain"])
+        .enum(["glossary", "brain", "game_hidden", "game_visible"])
         .optional()
         .describe("Filter by category (optional, searches all readable categories if omitted)"),
     })
   ),
-  execute: async (args: { query?: string; category?: "glossary" | "brain" }) => {
+  execute: async (args: { query?: string; category?: "glossary" | "brain" | "game_hidden" | "game_visible" }) => {
     if (isCancelled()) throw new Error("errors.cancelled");
     const activeGame = await getActiveGame();
     if (!activeGame) return [];

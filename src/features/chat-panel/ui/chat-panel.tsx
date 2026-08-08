@@ -25,6 +25,7 @@ import {
   MenuOutlined,
   StopOutlined,
   LoadingOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -166,6 +167,8 @@ interface IChatPanelProps {
   maxFileSize?: number;
   /** Session ID for real-time step tracking via SSE (builder chat) */
   stepsSessionId?: string;
+  /** SSE endpoint path for step events (default: /api/builder/steps) */
+  stepsEndpoint?: string;
   /** Called when first step event arrives (processing started) */
   onStepsStart?: () => void;
   /** Called when SSE reports processing is done */
@@ -174,6 +177,8 @@ interface IChatPanelProps {
   onStepsError?: (message: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
+  /** Number of player messages awaiting AI response (game chat batch mode) */
+  pendingCount?: number;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
 }
@@ -262,7 +267,8 @@ export const ChatPanel = ({
   onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
+  stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError,
+  pendingCount,
   inputPrefix,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
@@ -302,7 +308,7 @@ export const ChatPanel = ({
     if (!stepsSessionId) return;
 
     let started = false;
-    const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
+    const es = new EventSource(`${stepsEndpoint ?? "/api/builder/steps"}?sessionId=${stepsSessionId}`);
 
     es.onmessage = (e) => {
       try {
@@ -622,6 +628,12 @@ export const ChatPanel = ({
         </div>
       </div>
       <div className={styles.inputBar}>
+        {typing && pendingCount !== undefined && pendingCount > 0 && (
+          <div className={styles.pendingBanner}>
+            <ClockCircleOutlined className={styles.pendingIcon} />
+            <span>{t("chat.messagesPending", { count: pendingCount })}</span>
+          </div>
+        )}
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}

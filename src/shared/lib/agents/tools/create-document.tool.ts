@@ -13,19 +13,21 @@ export const createDocumentTool = {
     z.object({
       title: z.string().describe("Document title"),
       content: z.string().describe("Document body in Markdown"),
-      category: z.enum(["glossary", "brain"]).describe("Document category"),
-      type: z.string().describe("Document type (e.g. rule, template, _index, char_creation, mechanics, routing, char_tracking, game_state, doc_org)"),
+      category: z.enum(["glossary", "brain", "game_hidden", "game_visible"]).describe("Document category (glossary/brain in brain mode, game_hidden/game_visible in memory mode)"),
+      type: z.string().describe("Document type (e.g. rule, template, _index, char_creation, mechanics, routing, char_tracking, game_state, doc_org, note, scene, character_sheet, lore)"),
       tags: z.array(z.string()).optional().describe("Tags for searchability"),
       summary: z.string().optional().describe("1-2 sentence summary for quick preview"),
+      playerId: z.string().optional().describe("Player ID for game_visible personal docs. Omit for common/non-player docs."),
     })
   ),
   execute: async (args: {
     title: string;
     content: string;
-    category: "glossary" | "brain";
+    category: "glossary" | "brain" | "game_hidden" | "game_visible";
     type: string;
     tags?: string[];
     summary?: string;
+    playerId?: string;
   }) => {
     if (isCancelled()) throw new Error("errors.cancelled");
     await assertNotGameMode();
@@ -65,6 +67,7 @@ export const createDocumentTool = {
         content: args.content,
         category: args.category,
         type: args.type,
+        playerId: args.playerId ?? null,
         tags: JSON.stringify(args.tags ?? []),
         summary: args.summary ?? null,
       },

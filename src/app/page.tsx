@@ -19,6 +19,7 @@ export default async function Home() {
   }
 
   const activeGame = await getActiveGame();
+  const isDev = activeGame?.mode === "development";
 
   if (session.role === "player") {
     if (!activeGame) {
@@ -35,7 +36,7 @@ export default async function Home() {
 
   return (
     <Shell user={session}>
-      <ChatGameView />
+      <ChatGameView disabled={isDev} />
     </Shell>
   );
 }

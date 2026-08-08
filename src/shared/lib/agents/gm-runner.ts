@@ -274,6 +274,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
   initSession(sessionId);
 
+  const cutoffTime = new Date();
+
   try {
     const ctx = await buildGameContext(sessionId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
@@ -329,8 +331,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     emitDone(sessionId);
 
     const newMessages = await prisma.message.findMany({
-      where: { sessionId, summarized: false },
-      orderBy: { createdAt: "asc" },
+      where: { sessionId, createdAt: { gt: cutoffTime } },
       select: { role: true },
     });
 

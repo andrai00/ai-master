@@ -80,6 +80,7 @@
     "copy": "Copy",
     "share": "Share",
     "shareDone": "Shared to game chat",
+    "messagesPending": "{{count}} messages awaiting response...",
     "copied": "Copied",
     "placeholderEmpty": "Game chat with the master and players will be here",
     "devModeDisabled": "Game chat is unavailable — the master is being edited",

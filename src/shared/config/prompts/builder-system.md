@@ -305,7 +305,14 @@ These answers shape EVERYTHING below.
 Read the glossary rule documents. Understand the game system. Then decide what brain docs are needed. Here's what to cover — adapt based on the admin's answers:
 
 **Always create:**
-- `_index` — navigation map linking all brain + glossary sections. First thing Master reads.
+- `_index` — **The Master's entry point. First document read at game start, always re-checked when confused.** Must contain:
+  - Who the AI Master is and its role in this specific game
+  - Core rules summary (distilled from mechanics brain doc)
+  - Links to every brain document with one-line descriptions
+  - Links to major glossary sections (classes, spells, rules)
+  - **Decision flow**: "if player asks X → read brain doc Y → consult glossary Z"
+  - Quick-reference: dice formulas, key mechanics, time rules
+  - The `_index` is NOT a table of contents — it's a mission briefing. The Master should be able to answer 80% of questions from `_index` alone, and know exactly where to look for the other 20%.
 - `mechanics` — dice, combat, checks, formulas. Extract from rules.
 - `doc_org` — how Master organises documents during play.
 

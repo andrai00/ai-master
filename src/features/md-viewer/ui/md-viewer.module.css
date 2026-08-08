@@ -147,10 +147,11 @@
 }
 
 .content table {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   margin: 12px 0;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .content table th,
@@ -186,8 +187,8 @@
 }
 
 .content a:not([class]):hover {
-  color: var(--link-color);
-  text-decoration-color: var(--link-color);
+  color: var(--text-secondary);
+  text-decoration-color: var(--text-dim);
 }
 
 [data-theme="light"] .content table th {

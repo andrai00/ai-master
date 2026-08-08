@@ -32,13 +32,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
+import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
-const wikiComponents: Components = {
+const wikiComponents = (onWikiClick: (docId: string) => void): Components => ({
   span(props) {
     const { node, children, ...rest } = props;
     const properties = (node?.properties as Record<string, string> | undefined);
@@ -47,36 +48,61 @@ const wikiComponents: Components = {
       const [docId] = href.split("|");
       const display = properties?.["data-wiki-display"] || docId;
       return (
-        <a
-          href={`/admin/documents?doc=${docId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "var(--link-color)", cursor: "pointer" }}
+        <button
+          type="button"
+          onClick={() => onWikiClick(docId!)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
         >
           {display}
-        </a>
+        </button>
       );
     }
     return <span {...rest}>{children}</span>;
   },
   a(props) {
     const { href, children } = props;
+    if (href && /^#/.test(href)) {
+      // Same-document anchor — scroll within current modal
+      return <span style={{ color: "var(--text-dim)" }}>{children}</span>;
+    }
     if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
       const docId = href.slice(5);
       return (
-        <a
-          href={`/admin/documents?doc=${docId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "var(--link-color)", cursor: "pointer" }}
+        <button
+          type="button"
+          onClick={() => onWikiClick(docId!)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
         >
           {children}
-        </a>
+        </button>
       );
     }
-    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+    return (
+      <span>
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3 }}>
+          {children}
+        </a>
+        <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 2 }}>&#x2197;</span>
+      </span>
+    );
   },
-};
+});
 
 export interface IMessage {
   id: string;
@@ -224,6 +250,7 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [stepLabel, setStepLabel] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -408,7 +435,7 @@ export const ChatPanel = ({
             {msg.prefix}
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkWikiLink]}
-              components={wikiComponents}
+               components={wikiComponents(setPreviewDocId)}
             >
               {String(msg.text)}
             </ReactMarkdown>
@@ -462,6 +489,7 @@ export const ChatPanel = ({
   const grouped = groupMessages(messages);
 
   return (
+    <>
     <div
       className={`${styles.panel} ${dragOver ? styles.dragOver : ""}`}
       onDragEnter={handleDragEnter}
@@ -675,6 +703,12 @@ export const ChatPanel = ({
         </div>
       </div>
     </div>
+      <DocumentPreviewModal
+        open={previewDocId !== null}
+        docId={previewDocId}
+        onClose={() => setPreviewDocId(null)}
+      />
+    </>
   );
 };
 

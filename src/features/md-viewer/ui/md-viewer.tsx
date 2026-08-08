@@ -45,8 +45,9 @@ function useToc(content: string): ITocItem[] {
     let match: RegExpExecArray | null;
     while ((match = headingRe.exec(content)) !== null) {
       const level = match[1]!.length;
-      const text = cleanTocText(match[2]!);
-      const id = slugger.slug(text);
+      const rawText = match[2]!.trim();
+      const id = slugger.slug(rawText);       // slug from RAW text — matches rehypeSlug
+      const text = cleanTocText(rawText);     // clean text for display
       if (!id) continue;
       items.push({ id, text, level });
     }
@@ -56,15 +57,26 @@ function useToc(content: string): ITocItem[] {
 
 export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMdViewerProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
-  const toc = useToc(content);
+
+  // Strip blockquote markers from table rows and fix separator/header order.
+  // Some imported content has `> | col |` (blockquote pollution) and
+  // separator row BEFORE header (| --- | before | Header |).
+  const cleanContent = useMemo(() => {
+    let c = content.replace(/^[ \t]*>[ \t]*(\|[^\n]+)/gm, "$1");
+    // Fix: if separator appears before header, swap them
+    c = c.replace(/^(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/gm, "$2$1");
+    return c;
+  }, [content]);
+
+  const toc = useToc(content);  // headings are fine, no > pollution
   const [activeId, setActiveId] = useState<string>("");
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
   const formulaResults = useMemo(() => {
-    const blocks = parseFormulaBlocks(content);
+    const blocks = parseFormulaBlocks(cleanContent);
     if (blocks.length === 0) return new Map<string, IFormulaResult>();
     return evaluateFormulas(blocks).results;
-  }, [content]);
+  }, [cleanContent]);
 
   const handleTocClick = useCallback((id: string) => {
     if (!id) return;
@@ -143,6 +155,34 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       },
       a(props) {
         const { href, children } = props;
+        if (href && /^#/.test(href)) {
+          const anchorRaw = href.slice(1);
+          const slugger = new GithubSlug();
+          const slug = slugger.slug(anchorRaw);
+          return (
+            <button
+              type="button"
+              onClick={() => {
+                const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
+                           contentRef.current?.querySelector(`[id="${CSS.escape(anchorRaw)}"]`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-dim)",
+                cursor: "pointer",
+                font: "inherit",
+                padding: 0,
+                textDecoration: "underline",
+                textUnderlineOffset: 3,
+                textDecorationColor: "var(--text-muted)",
+              }}
+            >
+              {children}
+            </button>
+          );
+        }
         if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
           const docId = href.slice(5);
           return (
@@ -153,7 +193,14 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+        return <span><a href={href} target="_blank" rel="noopener noreferrer">{children}</a><span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 2 }}>&#x2197;</span></span>;
+      },
+      table(props) {
+        return (
+          <div style={{ overflowX: "auto", display: "block" }}>
+            <table {...props} />
+          </div>
+        );
       },
     }),
     [onNavigate, formulaResults]
@@ -196,7 +243,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
           rehypePlugins={[rehypeSlug]}
           components={components}
         >
-          {content}
+          {cleanContent}
         </ReactMarkdown>
       </div>
     </div>

@@ -43,7 +43,7 @@ export const readDocumentTool = {
   description: TOOL_DESCRIPTIONS.read_document,
   inputSchema: zodSchema(
     z.object({
-      id: z.string().describe("Document ID to read"),
+      id: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire' or '/spells/207-faerie_fire.md'). If contains '/' or ends with '.md' — treated as path/title, auto-resolved to UUID."),
       offset: z.number().optional().describe("Character offset for chunked reading (default 0 = full document)"),
       limit: z.number().optional().describe("Max characters for chunked reading (omit for full document)"),
     })
@@ -52,8 +52,19 @@ export const readDocumentTool = {
     if (isCancelled()) throw new Error("errors.cancelled");
     const prisma = getPrisma();
 
+    let docId = args.id;
+    // Auto-resolve path → UUID
+    if (docId.includes("/") || docId.endsWith(".md")) {
+      const cleanPath = docId.replace(/\.md$/i, "");
+      const resolved = await prisma.document.findFirst({
+        where: { title: cleanPath, status: "active" },
+        select: { id: true },
+      });
+      if (resolved) docId = resolved.id;
+    }
+
     const doc = await prisma.document.findUnique({
-      where: { id: args.id },
+      where: { id: docId },
       select: {
         id: true,
         title: true,

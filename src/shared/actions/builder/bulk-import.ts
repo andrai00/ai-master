@@ -43,16 +43,7 @@ export async function bulkImportToGlossaryAction(
     return { success: true, imported: 0, byType: {} };
   }
 
-  // --- Phase 2: detect duplicate base names ---
-  const baseNames = allFiles.map((f) => stripMd(f.filename));
-  const dupes = new Set<string>();
-  const seen = new Set<string>();
-  for (const name of baseNames) {
-    if (seen.has(name)) dupes.add(name);
-    else seen.add(name);
-  }
-
-  // --- Phase 3: done, dupes set is ready ---
+  // --- Phase 2: build titles — always include path for cross-reference matching ---
   const byType: Record<string, number> = {};
   let totalImported = 0;
 
@@ -62,9 +53,7 @@ export async function bulkImportToGlossaryAction(
 
     const documents = folderFiles.map((f) => {
       const base = stripMd(f.filename);
-      const title = dupes.has(base) && f.path
-        ? `${f.path}/${base}`.replace(/^\//, "")
-        : base;
+      const title = f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
       return {
         masterId,
         title,

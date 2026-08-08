@@ -4,7 +4,9 @@ import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
+import rehypeRaw from "rehype-raw";
 import GithubSlug from "github-slugger";
+import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-document-path";
 import { MenuOutlined } from "@ant-design/icons";
 import { remarkWikiLink } from "../model/remark-wiki-link";
 import { remarkFormulaRef } from "../model/remark-formula-ref";
@@ -88,12 +90,21 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
     setMobileTocOpen(false);
   }, []);
 
-  // Scroll to anchor on mount / when scrollTo changes
+  // Scroll to top on mount — only if no anchor is provided
   useEffect(() => {
-    if (!scrollTo) return;
-    // Small delay so ReactMarkdown has rendered
+    if (scrollTo !== undefined) return;
+    const id = requestAnimationFrame(() => {
+      contentRef.current?.scrollTo({ top: 0 });
+    });
+    return () => cancelAnimationFrame(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (scrollTo === undefined) return;
     const timer = setTimeout(() => {
-      if (!scrollTo) return;
+      if (scrollTo === "") {
+        contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
       const el = contentRef.current?.querySelector(`#${CSS.escape(scrollTo)}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -193,6 +204,18 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
+        if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
+          const [pathPart, hashPart] = (href as string).split("#");
+          const cleanPath = (pathPart ?? "").replace(/\.md$/i, "");
+          return (
+            <WikiLink
+              docId={cleanPath}
+              anchor={hashPart || undefined}
+              displayText={typeof children === "string" ? children : undefined}
+              onNavigate={onNavigate}
+            />
+          );
+        }
         return (
           <span>
             <span style={{ color: "var(--text-dim)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--text-muted)" }}>
@@ -249,7 +272,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       <div className={styles.content} ref={contentRef}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef]}
-          rehypePlugins={[rehypeSlug]}
+          rehypePlugins={[rehypeRaw, rehypeSlug]}
           components={components}
         >
           {cleanContent}

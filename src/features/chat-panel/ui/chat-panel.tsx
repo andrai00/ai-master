@@ -39,18 +39,18 @@ import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
-const wikiComponents = (onWikiClick: (docId: string) => void): Components => ({
+const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): Components => ({
   span(props) {
     const { node, children, ...rest } = props;
     const properties = (node?.properties as Record<string, string> | undefined);
     const href = properties?.["data-wiki-link"];
     if (href) {
-      const [docId] = href.split("|");
+      const [docId, anchor] = href.split("|");
       const display = properties?.["data-wiki-display"] || docId;
       return (
         <button
           type="button"
-          onClick={() => onWikiClick(docId!)}
+          onClick={() => onWikiClick(docId!, anchor || undefined)}
           style={{
             background: "none",
             border: "none",
@@ -73,12 +73,35 @@ const wikiComponents = (onWikiClick: (docId: string) => void): Components => ({
       // Same-document anchor — scroll within current modal
       return <span style={{ color: "var(--text-dim)" }}>{children}</span>;
     }
-    if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
-      const docId = href.slice(5);
+    if (href && /^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/.test(href)) {
+      const m = href.match(/^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/);
+      const docId = m![1]!;
+      const anchor = m![2] || undefined;
       return (
         <button
           type="button"
-          onClick={() => onWikiClick(docId!)}
+          onClick={() => onWikiClick(docId!, anchor)}
+          style={{
+            background: "none",
+            border: "none",
+            borderBottom: "1px dashed var(--text-primary)",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+            font: "inherit",
+            padding: 0,
+          }}
+        >
+          {children}
+        </button>
+      );
+    }
+    if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
+      const [pathPart, hashPart] = (href as string).split("#");
+      const cleanPath = (pathPart ?? "").replace(/\.md$/i, "");
+      return (
+        <button
+          type="button"
+          onClick={() => onWikiClick(cleanPath, hashPart || undefined)}
           style={{
             background: "none",
             border: "none",
@@ -253,6 +276,12 @@ export const ChatPanel = ({
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [previewAnchor, setPreviewAnchor] = useState<string | undefined>(undefined);
+
+  const handleWikiClick = useCallback((docId: string, anchor?: string) => {
+    setPreviewDocId(docId);
+    setPreviewAnchor(anchor);
+  }, []);
   const [stepLabel, setStepLabel] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -437,7 +466,7 @@ export const ChatPanel = ({
             {msg.prefix}
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkWikiLink]}
-               components={wikiComponents(setPreviewDocId)}
+               components={wikiComponents(handleWikiClick)}
             >
               {String(msg.text)}
             </ReactMarkdown>
@@ -708,7 +737,8 @@ export const ChatPanel = ({
       <DocumentPreviewModal
         open={previewDocId !== null}
         docId={previewDocId}
-        onClose={() => setPreviewDocId(null)}
+        anchor={previewAnchor}
+        onClose={() => { setPreviewDocId(null); setPreviewAnchor(undefined); }}
       />
     </>
   );

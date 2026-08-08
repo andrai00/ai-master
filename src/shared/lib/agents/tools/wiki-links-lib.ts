@@ -46,15 +46,15 @@ export async function scanAllLinks(): Promise<IScanResult> {
       if (existingId) matched++; else unmatched++;
     }
 
-    // 2. [text](/relative/path) markdown links
+    // 2. [text](../path/file.md) or [text](https://...) markdown links
     for (const m of doc.content.matchAll(MD_LINK_RE)) {
       mdCount++;
       const url = (m[2] ?? "").trim();
-      const lastSlug = extractLastPathSegment(url);
-      if (!lastSlug) { unmatched++; continue; }
+      const resolved = resolveRelativePath(url);
+      if (!resolved) { unmatched++; continue; }
 
-      const existingId = titleToId.get(lastSlug.toLowerCase());
-      recordMatch(samples, m[0], lastSlug, existingId);
+      const existingId = titleToId.get(resolved.toLowerCase());
+      recordMatch(samples, m[0], resolved, existingId);
       if (existingId) matched++; else unmatched++;
     }
   }
@@ -69,11 +69,17 @@ export async function scanAllLinks(): Promise<IScanResult> {
   };
 }
 
-function extractLastPathSegment(url: string): string {
-  const stripped = url.replace(/\/$/, "").split(/[?#]/)[0]?.replace(/\/$/, "") ?? "";
-  const idx = stripped.lastIndexOf("/");
-  if (idx === -1) return "";
-  return stripped.slice(idx + 1);
+function resolveRelativePath(url: string): string {
+  let cleaned = url.replace(/\.md$/i, "").split(/[?#]/)[0] ?? "";
+  cleaned = cleaned.replace(/^https?:\/\/[^\/]+/, ""); // strip domain for absolute URLs
+  cleaned = cleaned.replace(/(^|\/)\.\.\//g, "/");
+  cleaned = cleaned.replace(/\/+/g, "/");
+  return cleaned.replace(/^\//, "");
+}
+
+function extractAnchor(url: string): string {
+  const hashIdx = url.indexOf("#");
+  return hashIdx === -1 ? "" : url.slice(hashIdx + 1).split(/[?#]/)[0] ?? "";
 }
 
 function recordMatch(
@@ -108,15 +114,19 @@ export function replaceAllLinks(
     return `[[${result}]]`;
   });
 
-  // 2. Replace [text](/relative/path) → [[uuid|text]]
+  // 2. Replace [text](../path/file.md) → [[uuid#anchor|text]]
   content = content.replace(MD_LINK_RE, (match, text, url) => {
-    const lastSlug = extractLastPathSegment(url as string);
-    if (!lastSlug) return match;
-    const id = titleToId.get(lastSlug.toLowerCase());
+    const resolved = resolveRelativePath(url as string);
+    if (!resolved) return match;
+    const id = titleToId.get(resolved.toLowerCase());
     if (!id) return match;
     replaced++;
+    const anchor = extractAnchor(url as string);
     const display = (text as string).trim();
-    return display ? `[[${id}|${display}]]` : `[[${id}]]`;
+    let result = id;
+    if (anchor) result += `#${anchor}`;
+    if (display) result += `|${display}`;
+    return `[[${result}]]`;
   });
 
   return { content, replaced };

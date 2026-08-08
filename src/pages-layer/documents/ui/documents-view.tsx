@@ -40,6 +40,7 @@ export const DocumentsView = () => {
   }, [openDocId, docs]);
 
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
+  const titleToDoc = useMemo(() => new Map(docs.map((d) => [d.title, d])), [docs]);
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
@@ -62,15 +63,15 @@ export const DocumentsView = () => {
   }, []);
 
   const handleNavigate = useCallback((docId: string, anchor?: string) => {
-    const target = docMap.get(docId);
+    const target = docMap.get(docId) ?? titleToDoc.get(docId);
     if (!target) return;
-    const anchorSlug = anchor ? new GithubSlug().slug(anchor) : undefined;
-    setScrollTo(anchorSlug || undefined);
+    const anchorSlug = anchor ? new GithubSlug().slug(anchor) : "";
+    setScrollTo(anchorSlug);
     setPreviewDoc((prev) => {
       if (prev && prev.id !== docId) {
         setNavStack((s) => [...s, prev]);
       }
-      return { ...target, content: target.content }; // fresh ref for scrollTo effect
+      return { ...target, content: target.content };
     });
   }, [docMap]);
 
@@ -182,6 +183,7 @@ export const DocumentsView = () => {
         }
         open={!!previewDoc}
         onCancel={handleClose}
+        destroyOnHidden
         footer={null}
         centered
         wrapClassName={styles.modal}
@@ -189,12 +191,13 @@ export const DocumentsView = () => {
         styles={{ body: { padding: 0, height: "65vh", overflow: "hidden" } }}
       >
         {previewDoc && (
-          <MdViewer
-            content={previewDoc.content}
-            onNavigate={handleNavigate}
-            scrollTo={scrollTo}
-            showToc
-          />
+            <MdViewer
+              key={previewDoc.id}
+              content={previewDoc.content}
+              onNavigate={handleNavigate}
+              scrollTo={scrollTo}
+              showToc
+            />
         )}
       </Modal>
     </div>

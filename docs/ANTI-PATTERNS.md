@@ -140,7 +140,11 @@
 
 ### Bad: сохранять чанки файла в отдельные записи БД
 ### Why: множественная запись чанков = SQLite single-writer lock на каждую запись → блокирует все остальные запросы (страницы, server actions, SSE). Плюс сложная логика восстановления позиции.
-### Good: `UploadedFile.text` — полный текст одной записью. Чанки через `text.slice(offset, limit)` на чтении. Прогресс — `lastReadOffset`.
+### Good: `UploadedFile.text` — полный текст одной записью. Для импорта — `bulk_import_to_glossary` с `createMany` (один SQL-запрос на папку).
+
+### Bad: читать содержимое каждого файла при импорте архива
+### Why: 8000 AI-шагов на чтение файлов + 8000 отдельных create_document = десятки тысяч tool calls. AI уходит в бесконечный цикл или упирается в лимит шагов.
+### Good: `explore_archive()` — видит только дерево папок и sample-имена. Типы определяет по названиям папок. `bulk_import_to_glossary` создаёт все Document'ы серверной операцией (createMany на папку).
 
 ### Bad: 10+ параллельных `generateText()` без контроля concurrency
 ### Why: забивает event loop, память, SQLite. Next.js начинает лагать на обычных запросах.

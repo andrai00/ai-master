@@ -162,9 +162,9 @@ async function buildContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  // Load summary document to inject into context
-  const summaryDoc = await prisma.document.findFirst({
-    where: { masterId: activeGame?.currentMasterId ?? "", category: "brain", type: "builder_summary" },
+  // Load chat summary to inject into context
+  const summary = await prisma.chatSummary.findFirst({
+    where: { masterId: activeGame?.currentMasterId ?? "" },
     select: { content: true },
   });
 
@@ -182,8 +182,8 @@ async function buildContext(sessionId: string) {
   }));
 
   // Prepend summary as a system context message if it exists
-  if (summaryDoc?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summaryDoc.content}\n`;
+  if (summary?.content) {
+    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
   return { messages, system: systemPrompt };
@@ -445,17 +445,17 @@ export async function runBuilderAgent(
       const toSummarize = withText.slice(0, 20);
       const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
 
-      const existing = await prisma.document.findFirst({
-        where: { masterId, category: "brain", type: "builder_summary" },
+      const existing = await prisma.chatSummary.findFirst({
+        where: { masterId },
       });
       const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
       const newContent = `📋 Chat Summary\n\n${prevContent}🆕 ${preview}`;
 
       if (existing) {
-        await prisma.document.update({ where: { id: existing.id }, data: { content: newContent, summary: preview } });
+        await prisma.chatSummary.update({ where: { id: existing.id }, data: { content: newContent, preview } });
       } else {
-        await prisma.document.create({
-          data: { masterId, title: "Builder Chat Summary", type: "builder_summary", category: "brain", content: newContent, summary: preview },
+        await prisma.chatSummary.create({
+          data: { masterId, content: newContent, preview },
         });
       }
       await prisma.message.updateMany({ where: { id: { in: toSummarize.map(m => m.id) } }, data: { summarized: true } });

@@ -32,20 +32,30 @@ import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
-import { WikiLink } from "@/src/features/md-viewer/ui/wiki-link";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import styles from "./chat-panel.module.css";
 
-/** Reusable wiki-link renderer for chat messages — plain text, no navigation */
+/** Reusable wiki-link renderer for chat messages */
 const wikiComponents: Components = {
   span(props) {
     const { node, children, ...rest } = props;
-    const href = (node?.properties as Record<string, string> | undefined)?.["data-wiki-link"];
+    const properties = (node?.properties as Record<string, string> | undefined);
+    const href = properties?.["data-wiki-link"];
     if (href) {
-      const [docId, anchor] = href.split("|");
-      return <WikiLink docId={docId!} anchor={anchor || null} plain />;
+      const [docId] = href.split("|");
+      const display = properties?.["data-wiki-display"] || docId;
+      return (
+        <a
+          href={`/admin/documents?doc=${docId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--link-color)", cursor: "pointer" }}
+        >
+          {display}
+        </a>
+      );
     }
     return <span {...rest}>{children}</span>;
   },

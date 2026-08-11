@@ -505,16 +505,20 @@ export const ChatPanel = ({
       if (isSimple) {
         // single roll — show the total
       } else if (detail.startsWith("{")) {
-        const eqIdx = detail.lastIndexOf(" = ");
-        const arrays = eqIdx > 0 ? detail.slice(1, eqIdx) : detail.slice(1);
-        displayTotal = arrays
-          .replace(/\[([^\]]+)\]/g, (_, nums) => {
-            const trimmed = nums.split(",").map((s: string) => s.trim());
-            const vals = trimmed.filter((s: string) => !s.endsWith("d")).map(Number).sort((a: number, b: number) => b - a);
-            const dropped = trimmed.filter((s: string) => s.endsWith("d")).length;
-            const kept = vals.slice(0, vals.length - dropped);
-            return String(kept.reduce((a: number, b: number) => a + b, 0));
-          });
+        const resultStart = detail.indexOf("}: {");
+        const arrays = resultStart > 0 ? detail.slice(resultStart + 4, detail.lastIndexOf("}")) : "";
+        if (arrays) {
+          displayTotal = arrays
+            .split("], [")
+            .map((sub: string) => {
+              const trimmed = sub.replace(/[\[\]]/g, "").split(",").map((s: string) => s.trim());
+              const vals = trimmed.filter((s: string) => !s.endsWith("d")).map(Number).sort((a: number, b: number) => b - a);
+              const dropped = trimmed.filter((s: string) => s.endsWith("d")).length;
+              const kept = vals.slice(0, vals.length - dropped);
+              return kept.reduce((a: number, b: number) => a + b, 0);
+            })
+            .join(", ");
+        }
       } else {
         // #1: or compound — extract = N values
         displayTotal = [...(detail.matchAll(/= (\d+)/g))].map(m => m[1]).join(", ");

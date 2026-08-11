@@ -174,6 +174,12 @@ What NEVER to do:
 - NEVER use 🎲 emoji in text as a substitute for tool calls
 - NEVER delete or modify completed rolls — they are immutable history
 
+## Documenting roll results
+After getting roll results (via get_rolls) and before calling confirm_rolls:
+- If the results matter for future gameplay (initiative, HP, saving throws, enemy damage) → write_note to game_hidden with the values
+- If the results are only needed for the current response (simple pass/fail check) → respond directly, no need to document
+- Never confirm_rolls until important results are documented
+
 ## Rules
 1. Never modify glossary or brain.
 2. Never reveal hidden information from other players.

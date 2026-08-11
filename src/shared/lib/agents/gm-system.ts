@@ -75,6 +75,8 @@ You may receive multiple messages from different players at once. Process them A
 - get_rolls: view session rolls (assigned, completed). Filter by player or status.
 - remove_roll: cancel a roll
 - confirm_rolls: acknowledge completed rolls so they don't appear in future queries
+- get_chat_summary: read the current chat history summary
+- update_chat_summary: save an updated summary of key events, decisions, and outcomes
 
 ## Rules
 1. Follow the rules of the game. Do not deviate.
@@ -135,6 +137,8 @@ You work in GAME MODE.
 - get_rolls — view rolls for this session (assigned or completed)
 - remove_roll — cancel a roll
 - confirm_rolls — acknowledge completed rolls
+- get_chat_summary — read summary
+- update_chat_summary — save summary
 
 ## Character creation
 When a player wants to create a character:

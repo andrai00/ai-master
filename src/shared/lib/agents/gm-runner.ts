@@ -16,6 +16,7 @@ import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
 import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
+import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
   GM_GAME_SYSTEM,
   GM_PERSONAL_SYSTEM,
@@ -82,6 +83,8 @@ function getGameTools() {
     get_rolls: gmGetRollsTool,
     remove_roll: gmRemoveRollTool,
     confirm_rolls: gmConfirmRollsTool,
+    get_chat_summary: getChatSummaryTool,
+    update_chat_summary: updateChatSummaryTool,
   };
 }
 
@@ -98,6 +101,8 @@ function getPersonalTools() {
     get_rolls: gmPersonalGetRollsTool,
     remove_roll: gmRemoveRollTool,
     confirm_rolls: gmConfirmRollsTool,
+    get_chat_summary: getChatSummaryTool,
+    update_chat_summary: updateChatSummaryTool,
   };
 }
 
@@ -119,7 +124,19 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results.`;
+  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results. Use update_chat_summary to save summaries of key events.`;
+
+  const unseenRolls = await prisma.roll.findMany({
+    where: { sessionId, status: "completed", consumed: false },
+    select: { id: true },
+  });
+  const unseenAssigned = await prisma.roll.findMany({
+    where: { sessionId, status: "assigned" },
+    select: { id: true },
+  });
+  if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
+    systemPrompt += `\n\n⚠️ ROLLS PENDING: ${unseenAssigned.length} unrolled, ${unseenRolls.length} completed with unseen results. Use get_rolls to check them.`;
+  }
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -164,7 +181,19 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
   systemPrompt += `\n- Player ID: ${playerId}\n`;
 
-  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check this player's roll results.`;
+  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
+
+  const unseenRolls = await prisma.roll.findMany({
+    where: { sessionId, status: "completed", consumed: false },
+    select: { id: true },
+  });
+  const unseenAssigned = await prisma.roll.findMany({
+    where: { sessionId, status: "assigned" },
+    select: { id: true },
+  });
+  if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
+    systemPrompt += `\n\n⚠️ ROLLS PENDING: ${unseenAssigned.length} unrolled, ${unseenRolls.length} completed with unseen results. Use get_rolls to check them.`;
+  }
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -190,7 +219,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
-async function autoSummarize(sessionId: string, masterId: string): Promise<void> {
+async function autoSummarize(sessionId: string, _masterId: string): Promise<void> {
   const prisma = getPrisma();
   const allUnsummarized = await prisma.message.findMany({
     where: { sessionId, summarized: false },
@@ -201,20 +230,6 @@ async function autoSummarize(sessionId: string, masterId: string): Promise<void>
   if (withText.length < 20) return;
 
   const toSummarize = withText.slice(0, 20);
-  const preview = toSummarize
-    .filter(m => m.role === "player" || m.role === "admin")
-    .map(m => m.content.slice(0, 40))
-    .join(" | ");
-
-  const existing = await prisma.chatSummary.findFirst({ where: { masterId } });
-  const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
-  const newContent = `📋 Chat Summary\n\n${prevContent}🆕 ${preview}`;
-
-  if (existing) {
-    await prisma.chatSummary.update({ where: { id: existing.id }, data: { content: newContent, preview } });
-  } else {
-    await prisma.chatSummary.create({ data: { masterId, content: newContent, preview } });
-  }
 
   await prisma.message.updateMany({
     where: { id: { in: toSummarize.map(m => m.id) } },

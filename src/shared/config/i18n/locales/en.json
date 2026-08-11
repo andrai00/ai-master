@@ -266,6 +266,8 @@
       "get_rolls": ["Checking rolls", "Viewing results"],
       "remove_roll": ["Removing roll"],
       "confirm_rolls": ["Confirming rolls"],
+      "get_chat_summary": ["Reading memory"],
+      "update_chat_summary": ["Saving notes"],
       "retry": ["Retrying"],
       "final": "Writing response",
       "summarize": "Summarizing history",

@@ -359,7 +359,9 @@ export const ChatPanel = ({
     };
 
     es.onerror = () => {
-      // EventSource auto-reconnects on its own — don't close it
+      if (es.readyState === EventSource.CLOSED) {
+        console.warn("[ChatPanel] SSE connection lost for session", stepsSessionId);
+      }
     };
 
     return () => es.close();

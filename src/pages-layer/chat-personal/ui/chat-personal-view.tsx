@@ -46,6 +46,12 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   }, [sessionId]);
 
   useEffect(() => {
+    if (!typing) return;
+    const t = setTimeout(() => setTyping(false), 25_000);
+    return () => clearTimeout(t);
+  }, [typing]);
+
+  useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
         queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });

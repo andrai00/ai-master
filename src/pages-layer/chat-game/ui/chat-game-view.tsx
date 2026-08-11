@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App } from "antd";
-import { useQueryClient } from "@tanstack/react-query";
+import { Modal, Table, App, Button, Tooltip } from "antd";
+import { ThunderboltOutlined } from "@ant-design/icons";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { useGameSession } from "@/src/shared/api/game-master/use-game-session";
 import { useGameMessages } from "@/src/shared/api/game-master/use-game-messages";
 import { useSendGameMessage } from "@/src/shared/api/game-master/use-send-game-message";
 import { useDeleteGameMessage } from "@/src/shared/api/game-master/use-delete-game-message";
+import { requestMasterResponseAction } from "@/src/shared/actions/game-master/request-master-response";
+import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
 import type { ColumnsType } from "antd/es/table";
 
@@ -26,7 +29,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
-  const [preTypingMsgCount, setPreTypingMsgCount] = useState(0);
+  const [stopping, setStopping] = useState(false);
 
   const { data: sessionData } = useGameSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -37,6 +40,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
     if (!sessionId) return;
     if (prevSessionId.current && prevSessionId.current !== sessionId) {
       setTyping(false);
+      setStopping(false);
     }
     prevSessionId.current = sessionId;
   }, [sessionId]);
@@ -55,6 +59,17 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const sendMutation = useSendGameMessage();
   const deleteMutation = useDeleteGameMessage();
 
+  const requestMutation = useMutation({
+    mutationFn: () => requestMasterResponseAction(sessionId!),
+    onError: (err: Error) => notification.error({ title: err.message }),
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => stopGameMasterResponseAction(sessionId!),
+    onMutate: () => setStopping(true),
+    onSettled: () => setStopping(false),
+  });
+
   const mapMsg = (m: IGameMessage): IMessage => ({
     id: m.id,
     sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
@@ -68,12 +83,6 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
 
   const messages: IMessage[] = rawMessages.map(mapMsg);
-
-  const pendingCount = useMemo(() => {
-    if (!typing) return 0;
-    const currentCount = rawMessages.filter(m => m.role === "player" || m.role === "admin").length;
-    return Math.max(0, currentCount - preTypingMsgCount);
-  }, [rawMessages, typing, preTypingMsgCount]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -93,6 +102,16 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
     },
     [deleteMutation, t, notification]
   );
+
+  const handleRequestMaster = useCallback(async () => {
+    if (!sessionId) return;
+    await requestMutation.mutateAsync();
+  }, [sessionId, requestMutation]);
+
+  const handleStopMaster = useCallback(async () => {
+    if (!sessionId) return;
+    await stopMutation.mutateAsync();
+  }, [sessionId, stopMutation]);
 
   const openHistory = async () => {
     if (!sessionId) return;
@@ -127,6 +146,21 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
     },
   ];
 
+  const requestBtn = (
+    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+      <Button
+        type="primary"
+        size="small"
+        icon={<ThunderboltOutlined />}
+        disabled={typing || stopping || requestMutation.isPending || !sessionId}
+        loading={requestMutation.isPending}
+        onClick={handleRequestMaster}
+      >
+        {typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}
+      </Button>
+    </Tooltip>
+  );
+
   return (
     <>
       <ChatPanel
@@ -134,19 +168,22 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
         placeholder={t("chat.placeholder")}
         title={t("chat.gameChat")}
         hideShare={false}
-        disabled={disabled}
-        disabledText={disabled ? t("chat.devModeDisabled") : undefined}
+        disabled={disabled || typing}
+        disabledText={typing ? t("chat.masterThinking") : undefined}
         onDelete={handleDelete}
         onHistoryClick={openHistory}
         onSend={handleSend}
+        onStop={handleStopMaster}
         sending={sendMutation.isPending}
         typing={typing}
-        pendingCount={pendingCount}
+        stopping={stopping}
+        pendingCount={0}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
-        onStepsStart={() => { setPreTypingMsgCount(rawMessages.filter(m => m.role === "player" || m.role === "admin").length); setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        inputPrefix={requestBtn}
+        onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
       />
       <Modal
         title={t("chat.historyTitle")}

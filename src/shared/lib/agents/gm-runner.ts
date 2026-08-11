@@ -21,6 +21,8 @@ import {
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
+export { emitStopped } from "./step-tracker";
+
 const globalGuard = globalThis as unknown as {
   gmProcessing: Map<string, AbortController>;
 };
@@ -40,6 +42,13 @@ function startProcessing(sessionId: string): AbortController | null {
 
 function endProcessing(sessionId: string): void {
   getGuard().delete(sessionId);
+}
+
+export function stopProcessing(sessionId: string): void {
+  const g = getGuard();
+  const ac = g.get(sessionId);
+  if (ac) ac.abort();
+  g.delete(sessionId);
 }
 
 async function createProvider() {
@@ -125,7 +134,7 @@ async function buildGameContext(sessionId: string) {
 
   const playerDocs = await prisma.document.findMany({
     where: { masterId: activeGame?.currentMasterId ?? "", category: "game_visible" },
-    select: { title: true, playerId: true, summary: true, content: true },
+    select: { title: true, playerId: true, summary: true, content: true, type: true },
     take: 20,
   });
 
@@ -134,6 +143,15 @@ async function buildGameContext(sessionId: string) {
     for (const d of playerDocs) {
       const label = d.playerId ? `[Player: ${d.playerId}]` : "[Common]";
       systemPrompt += `\n### ${d.title} ${label}\n${d.summary ?? d.content.slice(0, 300)}\n`;
+    }
+
+    const charSheets = playerDocs.filter(d => d.type === "character_sheet" && d.playerId);
+    if (charSheets.length > 0) {
+      systemPrompt += "\n\n## Player-Character Mapping\n";
+      systemPrompt += "Address players by character name, NOT by login/userId. When mentioning a character, use **bold** formatting.\n";
+      for (const cs of charSheets) {
+        systemPrompt += `- senderId ${cs.playerId} → **${cs.title}**\n`;
+      }
     }
   }
 

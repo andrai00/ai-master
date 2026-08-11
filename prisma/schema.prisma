@@ -18,6 +18,7 @@ model User {
   updatedAt    DateTime     @default(now()) @updatedAt
   ownedMasters Master[]     @relation("MasterOwner")
   gameAccess   GameAccess[]
+  documentAccess DocumentAccess[]
   messages     Message[]
   sessions     Session[]    @relation("SessionPlayer")
 }
@@ -72,6 +73,7 @@ model Document {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
   master      Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  access      DocumentAccess[]
 }
 
 model Session {
@@ -146,4 +148,14 @@ model ChatSummary {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+}
+
+model DocumentAccess {
+  id         String   @id @default(uuid())
+  documentId String
+  userId     String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([documentId, userId])
 }

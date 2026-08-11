@@ -92,6 +92,9 @@ export const Shell = ({ user, children }: IShellProps) => {
         queryClient.invalidateQueries({ queryKey: ["avatar"] });
         queryClient.invalidateQueries({ queryKey: ["profile", "avatar"] });
       }
+      if (type === "gm_response_requested" || type === "gm_response_stopped") {
+        queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
+      }
     };
     eventSource.onerror = () => {
       // EventSource auto-reconnects on its own — don't close it

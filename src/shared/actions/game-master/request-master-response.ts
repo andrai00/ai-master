@@ -4,17 +4,16 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { runGameMasterBatch } from "@/src/shared/lib/agents/gm-runner";
 
-export async function sendGameMessageAction(
-  sessionId: string,
-  content: string
+export async function requestMasterResponseAction(
+  sessionId: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session) return { success: false, error: "errors.forbidden" };
-  if (!content.trim()) return { success: false, error: "errors.emptyMessage" };
 
   const activeGame = await getActiveGame();
-  if (!activeGame) return { success: false, error: "errors.noGame" };
+  if (!activeGame || activeGame.mode !== "game") return { success: false, error: "errors.notInGameMode" };
 
   const prisma = getPrisma();
 
@@ -24,8 +23,6 @@ export async function sendGameMessageAction(
   });
   if (!s || s.type !== "game") return { success: false, error: "errors.sessionNotFound" };
 
-  if (activeGame.mode !== "game") return { success: false, error: "errors.devModeDisabled" };
-
   if (session.role !== "admin") {
     const access = await prisma.gameAccess.findUnique({
       where: { userId_masterId: { userId: session.userId, masterId: s.masterId } },
@@ -33,16 +30,11 @@ export async function sendGameMessageAction(
     if (!access) return { success: false, error: "errors.noGameAccess" };
   }
 
-  await prisma.message.create({
-    data: {
-      sessionId,
-      senderId: session.userId,
-      role: session.role,
-      content: content.trim(),
-    },
-  });
+  broadcastGameEvent("gm_response_requested", { sessionId });
 
-  broadcastGameEvent("game_message_sent", { sessionId });
+  runGameMasterBatch(sessionId).catch((e) => {
+    console.error("[gm-game] Background batch processing crashed:", e);
+  });
 
   return { success: true };
 }

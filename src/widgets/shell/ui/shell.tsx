@@ -36,74 +36,96 @@ export const Shell = ({ user, children }: IShellProps) => {
   }, []);
 
   useEffect(() => {
-    const eventSource = new EventSource("/api/game-events");
-    eventSource.onmessage = (e) => {
-      let type: string = e.data;
-      let payload: { sessionId?: string } | undefined;
-      try {
-        const parsed = JSON.parse(e.data);
-        type = parsed.type ?? e.data;
-        payload = parsed.payload;
-      } catch { /* legacy format — data is the event type string */ }
+    let es: EventSource;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retries = 0;
+    let mounted = true;
 
-      if (type === "kick") {
-        eventSource.close();
-        window.location.href = "/api/logout?redirect=/login";
-      }
-      if (type === "mode_switch") {
-        router.refresh();
-      }
-      if (type === "builder_mode_change") {
-        queryClient.invalidateQueries({ queryKey: ["builderMode"] });
-      }
-      if (type === "game_deleted") {
-        queryClient.invalidateQueries();
-        router.refresh();
-      }
-      if (type === "game_switched") {
-        queryClient.invalidateQueries();
-        router.refresh();
-      }
-      if (type === "builder_message_deleted" || type === "builder_message_sent" || type === "builder_chat_cleared") {
-        if (payload?.sessionId) {
-          queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
+    const connect = () => {
+      if (!mounted) return;
+      es = new EventSource("/api/game-events");
+
+      es.onmessage = (e) => {
+        let type: string = e.data;
+        let payload: { sessionId?: string } | undefined;
+        try {
+          const parsed = JSON.parse(e.data);
+          type = parsed.type ?? e.data;
+          payload = parsed.payload;
+        } catch { /* legacy format */ }
+
+        if (type === "kick") {
+          es.close();
+          window.location.href = "/api/logout?redirect=/login";
         }
-      }
-      if (type === "file_uploaded" || type === "file_removed" || type === "archive_uploaded") {
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages"] });
-      }
-      if (type === "game_created" || type === "game_updated" || type === "game_deleted") {
-        queryClient.invalidateQueries({ queryKey: ["admin", "games"] });
-        queryClient.invalidateQueries({ queryKey: ["admin", "currentGame"] });
-      }
-      if (type === "user_created" || type === "user_updated" || type === "user_deleted") {
-        queryClient.invalidateQueries({ queryKey: ["admin", "players"] });
-      }
-      if (type === "ai_config_updated") {
-        queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
-      }
-      if (type === "game_message_sent" || type === "game_message_deleted") {
-        queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
-      }
-      if (type === "personal_message_sent" || type === "personal_message_deleted") {
-        queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
-      }
-      if (type === "profile_updated") {
-        queryClient.invalidateQueries({ queryKey: ["avatar"] });
-        queryClient.invalidateQueries({ queryKey: ["profile", "avatar"] });
-      }
-      if (type === "gm_response_requested" || type === "gm_response_stopped") {
-        queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
-      }
-      if (type === "roll_assigned" || type === "roll_completed" || type === "roll_removed") {
-        queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
-        queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
-      }
+        if (type === "mode_switch") {
+          router.refresh();
+        }
+        if (type === "builder_mode_change") {
+          queryClient.invalidateQueries({ queryKey: ["builderMode"] });
+        }
+        if (type === "game_deleted") {
+          queryClient.invalidateQueries();
+          router.refresh();
+        }
+        if (type === "game_switched") {
+          queryClient.invalidateQueries();
+          router.refresh();
+        }
+        if (type === "builder_message_deleted" || type === "builder_message_sent" || type === "builder_chat_cleared") {
+          if (payload?.sessionId) {
+            queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
+          }
+        }
+        if (type === "file_uploaded" || type === "file_removed" || type === "archive_uploaded") {
+          queryClient.invalidateQueries({ queryKey: ["builder", "messages"] });
+        }
+        if (type === "game_created" || type === "game_updated" || type === "game_deleted") {
+          queryClient.invalidateQueries({ queryKey: ["admin", "games"] });
+          queryClient.invalidateQueries({ queryKey: ["admin", "currentGame"] });
+        }
+        if (type === "user_created" || type === "user_updated" || type === "user_deleted") {
+          queryClient.invalidateQueries({ queryKey: ["admin", "players"] });
+        }
+        if (type === "ai_config_updated") {
+          queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
+        }
+        if (type === "game_message_sent" || type === "game_message_deleted") {
+          queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
+        }
+        if (type === "personal_message_sent" || type === "personal_message_deleted") {
+          queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
+        }
+        if (type === "profile_updated") {
+          queryClient.invalidateQueries({ queryKey: ["avatar"] });
+          queryClient.invalidateQueries({ queryKey: ["profile", "avatar"] });
+        }
+        if (type === "gm_response_requested" || type === "gm_response_stopped") {
+          queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
+        }
+        if (type === "roll_assigned" || type === "roll_completed" || type === "roll_removed") {
+          queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
+          queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
+        }
+      };
+
+      es.onerror = () => {
+        if (!mounted) return;
+        es.close();
+        if (retryTimer) clearTimeout(retryTimer);
+        const delay = Math.min(1000 * Math.pow(2, retries), 30_000);
+        retries++;
+        retryTimer = setTimeout(connect, delay);
+      };
     };
-    eventSource.onerror = () => {
-      // EventSource auto-reconnects on its own — don't close it
+
+    connect();
+
+    return () => {
+      mounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      try { es?.close(); } catch { /* already closed */ }
     };
-    return () => eventSource.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 

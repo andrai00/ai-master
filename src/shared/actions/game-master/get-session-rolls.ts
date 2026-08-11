@@ -21,6 +21,7 @@ export async function getSessionRollsAction(sessionId: string): Promise<TSession
   const rolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed" },
     orderBy: { createdAt: "asc" },
+    take: 200,
     select: {
       id: true,
       playerId: true,

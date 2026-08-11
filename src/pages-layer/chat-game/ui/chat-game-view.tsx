@@ -94,7 +94,15 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
 
   const messages: IMessage[] = useMemo(() => {
     const msgs = rawMessages.map(mapMsg);
-    const rollEntries: IMessage[] = (rolls ?? []).map(r => ({
+    if (rawMessages.length === 0) return msgs;
+
+    const msgTimes = rawMessages.map(m => new Date(m.createdAt).getTime());
+    const minTs = Math.min(...msgTimes);
+    const maxTs = Math.max(...msgTimes);
+
+    const rollEntries: IMessage[] = (rolls ?? [])
+      .filter(r => { const ts = new Date(r.createdAt).getTime(); return ts >= minTs && ts <= maxTs; })
+      .map(r => ({
       id: `roll-${r.id}`,
       sender: "",
       role: "roll",

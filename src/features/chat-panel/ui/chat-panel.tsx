@@ -498,11 +498,16 @@ export const ChatPanel = ({
 
   const renderBubble = (msg: IMessage) => {
     if (msg.isRollEntry) {
+      const isMulti = msg.rollDetail?.startsWith("#1:");
+      const totals = isMulti
+        ? [...(msg.rollDetail?.matchAll(/= (\d+)/g) ?? [])].map(m => m[1]).join(", ")
+        : null;
+
       return (
         <div key={msg.id} className={styles.rollEntry}>
           <Tooltip title={msg.rollDetail}>
             <span className={styles.rollEntryBadge}>
-              🎲 {msg.rollCheckName}: <strong>{msg.rollTotal}</strong>
+              🎲 {msg.rollCheckName}: <strong>{totals ?? msg.rollTotal}</strong>
             </span>
           </Tooltip>
         </div>

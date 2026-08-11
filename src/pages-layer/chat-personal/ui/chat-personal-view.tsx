@@ -18,7 +18,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatPersonalView = ({ disabled, isAdmin }: { disabled?: boolean; isAdmin?: boolean }) => {
+export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boolean; userId?: string; isAdmin?: boolean }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -167,10 +167,11 @@ export const ChatPersonalView = ({ disabled, isAdmin }: { disabled?: boolean; is
         stopping={stopping}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
+        onToolStep={(tool) => { if (tool === "present_roll_check") queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });  } }
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
-        rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={undefined} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
+        rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />
       <Modal
         title={t("chat.historyTitle")}

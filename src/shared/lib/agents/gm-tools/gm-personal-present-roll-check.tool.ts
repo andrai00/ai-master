@@ -4,7 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 
 export const gmPersonalPresentRollCheckTool = {
-  description: "Assign dice rolls to the current player in personal chat. Player sees roll buttons. ALWAYS use this when a player needs to roll — never roll for them. Use count>1 for multiple identical rolls.",
+  description: "Assign dice rolls to the current player in personal chat. Player sees one roll button. ALWAYS use this when a player needs to roll — never roll for them. Use count>1 for multiple identical rolls.",
   inputSchema: zodSchema(
     z.object({
       checkName: z.string().describe("What this check is: 'Характеристики', 'Проверка навыка', 'Бросок урона'"),
@@ -25,25 +25,21 @@ export const gmPersonalPresentRollCheckTool = {
     if (!personalSession) throw new Error("errors.sessionNotFound");
 
     const rollCount = args.count ?? 1;
-    const created: string[] = [];
 
-    for (let i = 0; i < rollCount; i++) {
-      const rollName = rollCount > 1 ? `${args.checkName} #${i + 1}` : args.checkName;
-      const roll = await prisma.roll.create({
-        data: {
-          sessionId: personalSession.id,
-          playerId: currentUser.userId,
-          checkName: rollName,
-          diceExpression: args.diceExpression,
-          status: "assigned",
-          assignedBy: currentUser.userId,
-        },
-      });
-      created.push(roll.id);
-    }
+    await prisma.roll.create({
+      data: {
+        sessionId: personalSession.id,
+        playerId: currentUser.userId,
+        checkName: args.checkName,
+        diceExpression: args.diceExpression,
+        count: rollCount,
+        status: "assigned",
+        assignedBy: currentUser.userId,
+      },
+    });
 
     return {
-      assigned: created.length,
+      assigned: rollCount,
       checkName: args.checkName,
       diceExpression: args.diceExpression,
       count: rollCount,

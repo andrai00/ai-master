@@ -181,6 +181,8 @@ interface IChatPanelProps {
   onStepsDone?: () => void;
   /** Called when SSE reports an error */
   onStepsError?: (message: string) => void;
+  /** Called for each SSE step event (individual tool call during processing) */
+  onToolStep?: (tool: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
   /** Number of player messages awaiting AI response (game chat batch mode) */
@@ -277,7 +279,7 @@ export const ChatPanel = ({
   onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError,
+  stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError, onToolStep,
   pendingCount,
   inputPrefix, footerAction, rollStrip,
 }: IChatPanelProps) => {
@@ -331,6 +333,7 @@ export const ChatPanel = ({
           case "step":
             if (!started) { started = true; onStepsStart?.(); }
             setLiveStep({ tool: data.tool, detail: data.detail });
+            onToolStep?.(data.tool);
             queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
             break;
           case "stopping":

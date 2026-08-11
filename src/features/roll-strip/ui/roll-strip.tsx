@@ -27,15 +27,16 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
         const isMine = roll.playerId === currentUserId;
         const isCompleted = roll.status === "completed";
         const isAssigned = roll.status === "assigned";
+        const label = roll.count > 1 ? `${roll.checkName} (×${roll.count})` : roll.checkName;
 
         if (isCompleted) {
           return (
             <Tooltip
               key={roll.id}
-              title={`${roll.checkName}: ${roll.diceExpression} → ${roll.resultDetail}`}
+              title={`${roll.checkName}: ${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.resultDetail}`}
             >
               <span className={styles.badge} style={{ color: getColor(roll.resultTotal ?? 0) }}>
-                🎲 {roll.checkName}: <strong>{roll.resultTotal}</strong>
+                🎲 {label}: <strong>{roll.resultTotal}</strong>
               </span>
             </Tooltip>
           );
@@ -49,7 +50,7 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
               disabled={executing}
               onClick={() => onExecuteRoll(roll.id)}
             >
-              🎲 {roll.checkName}: {roll.diceExpression}
+              🎲 {label}: {roll.diceExpression}
             </button>
           );
         }
@@ -57,7 +58,7 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
         if (isAssigned) {
           return (
             <Tooltip key={roll.id} title={`${roll.checkName}: ${roll.diceExpression}`}>
-              <span className={styles.waiting}>⏳ {roll.checkName}</span>
+              <span className={styles.waiting}>⏳ {label}</span>
             </Tooltip>
           );
         }

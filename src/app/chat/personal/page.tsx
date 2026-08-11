@@ -13,7 +13,7 @@ export default async function PersonalChatPage() {
 
   return (
     <Shell user={session}>
-      <ChatPersonalView disabled={isDev} isAdmin={session.role === "admin"} />
+      <ChatPersonalView disabled={isDev} userId={session.userId} isAdmin={session.role === "admin"} />
     </Shell>
   );
 }

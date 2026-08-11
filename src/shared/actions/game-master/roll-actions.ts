@@ -5,24 +5,35 @@ import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function executeRollAction(
   rollId: string
-): Promise<{ success: boolean; error?: string; result?: { total: number; detail: string } }> {
+): Promise<{ success: boolean; error?: string; results?: { total: number; detail: string }[] }> {
   const prisma = getPrisma();
   const roll = await prisma.roll.findUnique({ where: { id: rollId } });
   if (!roll) return { success: false, error: "errors.rollNotFound" };
   if (roll.status !== "assigned") return { success: false, error: "errors.rollAlreadyCompleted" };
 
-  const parsed = parseDiceExpression(roll.diceExpression);
-  const { results, total } = rollDice(parsed);
-  const detail = formatDetail(results, parsed);
+  const rollCount = roll.count ?? 1;
+  const allResults: { total: number; detail: string }[] = [];
+
+  for (let i = 0; i < rollCount; i++) {
+    const parsed = parseDiceExpression(roll.diceExpression);
+    const { results, total } = rollDice(parsed);
+    const detail = formatDetail(results, parsed);
+    allResults.push({ total, detail });
+  }
+
+  const totalSum = allResults.reduce((s, r) => s + r.total, 0);
+  const detailsStr = rollCount > 1
+    ? allResults.map((r, i) => `#${i + 1}: ${r.detail}`).join(" | ")
+    : allResults[0].detail;
 
   await prisma.roll.update({
     where: { id: rollId },
-    data: { status: "completed", resultTotal: total, resultDetail: detail, completedAt: new Date() },
+    data: { status: "completed", resultTotal: totalSum, resultDetail: detailsStr, completedAt: new Date() },
   });
 
   broadcastGameEvent("roll_completed", { sessionId: roll.sessionId, rollId });
 
-  return { success: true, result: { total, detail } };
+  return { success: true, results: allResults };
 }
 
 export async function removeRollAction(

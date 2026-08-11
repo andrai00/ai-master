@@ -8,6 +8,7 @@ export type TSessionRoll = {
   playerId: string | null;
   checkName: string;
   diceExpression: string;
+  count: number;
   status: string;
   resultTotal: number | null;
   resultDetail: string | null;
@@ -35,6 +36,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       playerId: true,
       checkName: true,
       diceExpression: true,
+      count: true,
       status: true,
       resultTotal: true,
       resultDetail: true,

@@ -11,6 +11,7 @@ import { gmUpdateCharSheetTool } from "./gm-tools/gm-update-char-sheet.tool";
 import { gmWriteNoteTool } from "./gm-tools/gm-write-note.tool";
 import { gmRollDiceTool } from "./gm-tools/gm-roll-dice.tool";
 import { gmPersonalRollDiceTool } from "./gm-tools/gm-personal-roll-dice.tool";
+import { gmPersonalPresentRollCheckTool } from "./gm-tools/gm-personal-present-roll-check.tool";
 import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
 import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import {
@@ -88,6 +89,7 @@ function getPersonalTools() {
     update_char_sheet: gmUpdateCharSheetTool,
     write_note: gmWriteNoteTool,
     roll_dice: gmPersonalRollDiceTool,
+    present_roll_check: gmPersonalPresentRollCheckTool,
   };
 }
 

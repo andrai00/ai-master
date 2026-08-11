@@ -6,15 +6,16 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmPresentRollCheckTool = {
-  description: "Assign a dice roll to specific players. Each player will see a roll button. When the player clicks it, the dice are rolled and the result appears in the roll strip. Use for skill checks, initiative, saving throws, etc.",
+  description: "Assign dice rolls to specific players. Each player will see roll buttons. Use count>1 for multiple identical rolls (e.g. 6 stat rolls). On subsequent depending rolls, assign one at a time.",
   inputSchema: zodSchema(
     z.object({
-      checkName: z.string().describe("What this check is: 'Инициатива', 'Скрытность', 'Спасбросок Ловкости'"),
+      checkName: z.string().describe("What this check is: 'Инициатива', 'Скрытность', 'Спасбросок Ловкости', 'Характеристики'"),
       diceExpression: z.string().describe("Dice expression: '1d20+5', '2d6+3', '4d6k3'"),
       targetPlayers: z.array(z.string()).describe("Array of player IDs (senderId/userId) who need to roll"),
+      count: z.number().optional().describe("Number of identical rolls per player (default 1). Use for stat rolls, multiple attacks, etc."),
     })
   ),
-  execute: async (args: { checkName: string; diceExpression: string; targetPlayers: string[] }) => {
+  execute: async (args: { checkName: string; diceExpression: string; targetPlayers: string[]; count?: number }) => {
     const activeGame = await getActiveGame();
     if (!activeGame || activeGame.mode !== "game") {
       throw new Error("errors.notInGameMode");
@@ -30,21 +31,24 @@ export const gmPresentRollCheckTool = {
 
     const currentUser = await getSession();
     const assignedBy = currentUser?.userId;
-
+    const rollCount = args.count ?? 1;
     const created: string[] = [];
 
     for (const playerId of args.targetPlayers) {
-      const roll = await prisma.roll.create({
-        data: {
-          sessionId: session.id,
-          playerId,
-          checkName: args.checkName,
-          diceExpression: args.diceExpression,
-          status: "assigned",
-          assignedBy,
-        },
-      });
-      created.push(roll.id);
+      for (let i = 0; i < rollCount; i++) {
+        const rollName = rollCount > 1 ? `${args.checkName} #${i + 1}` : args.checkName;
+        const roll = await prisma.roll.create({
+          data: {
+            sessionId: session.id,
+            playerId,
+            checkName: rollName,
+            diceExpression: args.diceExpression,
+            status: "assigned",
+            assignedBy,
+          },
+        });
+        created.push(roll.id);
+      }
     }
 
     broadcastGameEvent("roll_assigned", { sessionId: session.id });
@@ -54,6 +58,7 @@ export const gmPresentRollCheckTool = {
       checkName: args.checkName,
       diceExpression: args.diceExpression,
       playerIds: args.targetPlayers,
+      count: rollCount,
     };
   },
 };

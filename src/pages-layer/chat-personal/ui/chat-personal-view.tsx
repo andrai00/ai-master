@@ -5,11 +5,13 @@ import { useTranslation } from "react-i18next";
 import { Modal, Table, App, notification as antNotification } from "antd";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
+import { RollStrip } from "@/src/features/roll-strip";
 import { usePersonalSession } from "@/src/shared/api/game-master/use-personal-session";
 import { usePersonalMessages } from "@/src/shared/api/game-master/use-personal-messages";
 import { useSendPersonalMessage } from "@/src/shared/api/game-master/use-send-personal-message";
 import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delete-personal-message";
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
+import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getPersonalMessagesAction, type IPersonalMessage } from "@/src/shared/actions/game-master/get-personal-messages";
 import type { ColumnsType } from "antd/es/table";
@@ -57,6 +59,8 @@ export const ChatPersonalView = ({ disabled, isAdmin }: { disabled?: boolean; is
   const sendMutation = useSendPersonalMessage();
   const deleteMutation = useDeletePersonalMessage();
   const shareMutation = useShareMessage();
+  const { data: rolls } = usePersonalRolls();
+  const executeRollMutation = useExecuteRoll();
 
   const stopMutation = useMutation({
     mutationFn: () => stopGameMasterResponseAction(sessionId!),
@@ -164,8 +168,9 @@ export const ChatPersonalView = ({ disabled, isAdmin }: { disabled?: boolean; is
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
+        rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={undefined} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />
       <Modal
         title={t("chat.historyTitle")}

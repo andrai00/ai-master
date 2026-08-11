@@ -28,7 +28,33 @@ export function useExecuteRoll() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (rollId: string) => executeRollAction(rollId),
-    onSuccess: () => {
+    onMutate: async (rollId) => {
+      await qc.cancelQueries({ queryKey: ["game", "rolls"] });
+      await qc.cancelQueries({ queryKey: ["personal", "rolls"] });
+
+      const prevGame = qc.getQueriesData<TSessionRoll[]>({ queryKey: ["game", "rolls"] });
+      const prevPersonal = qc.getQueryData<TSessionRoll[]>(["personal", "rolls"]);
+
+      const update = (rolls: TSessionRoll[] | undefined): TSessionRoll[] | undefined =>
+        rolls?.map(r => r.id === rollId ? { ...r, status: "completed", resultTotal: 0, resultDetail: "..." } : r);
+
+      for (const [key] of prevGame) {
+        qc.setQueryData<TSessionRoll[]>(key, update(qc.getQueryData<TSessionRoll[]>(key)));
+      }
+      qc.setQueryData<TSessionRoll[]>(["personal", "rolls"], update(prevPersonal));
+
+      return { prevGame, prevPersonal };
+    },
+    onError: (_err, _rollId, context) => {
+      if (!context) return;
+      for (const [key, data] of context.prevGame) {
+        if (data !== undefined) qc.setQueryData(key, data);
+      }
+      if (context.prevPersonal !== undefined) {
+        qc.setQueryData(["personal", "rolls"], context.prevPersonal);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["game", "rolls"] });
       qc.invalidateQueries({ queryKey: ["personal", "rolls"] });
     },

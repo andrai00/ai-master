@@ -181,6 +181,8 @@ interface IChatPanelProps {
   pendingCount?: number;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
+  /** Optional action rendered between messages area and input bar */
+  footerAction?: ReactNode;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -269,7 +271,7 @@ export const ChatPanel = ({
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError,
   pendingCount,
-  inputPrefix,
+  inputPrefix, footerAction,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -627,6 +629,11 @@ export const ChatPanel = ({
           )}
         </div>
       </div>
+      {footerAction && (
+        <div className={styles.footerAction}>
+          {footerAction}
+        </div>
+      )}
       <div className={styles.inputBar}>
         {typing && pendingCount !== undefined && pendingCount > 0 && (
           <div className={styles.pendingBanner}>

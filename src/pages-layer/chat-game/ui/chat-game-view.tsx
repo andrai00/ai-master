@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, Button, Tooltip } from "antd";
-import { ThunderboltOutlined } from "@ant-design/icons";
+import { RobotOutlined } from "@ant-design/icons";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { useGameSession } from "@/src/shared/api/game-master/use-game-session";
@@ -149,9 +149,9 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const requestBtn = (
     <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
       <Button
-        type="primary"
+        type="default"
         size="small"
-        icon={<ThunderboltOutlined />}
+        icon={<RobotOutlined />}
         disabled={typing || stopping || requestMutation.isPending || !sessionId}
         loading={requestMutation.isPending}
         onClick={handleRequestMaster}
@@ -180,10 +180,10 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
         pendingCount={0}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
-        inputPrefix={requestBtn}
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
+        footerAction={requestBtn}
       />
       <Modal
         title={t("chat.historyTitle")}

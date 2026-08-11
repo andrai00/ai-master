@@ -68,8 +68,8 @@ You may receive multiple messages from different players at once. Process them A
 - create_document: create game_hidden or game_visible documents
 - update_document: update any writable document
 - update_char_sheet: update a player's character sheet (game_visible with playerId)
-- roll_dice: roll dice for yourself (GM). The result is saved and shown to all players in the roll strip.
-- present_roll_check: assign a dice roll to specific players. Players will see a clickable button, and the result is shown to everyone.
+- roll_dice: roll dice for yourself (GM). Supports full RPG notation: basic (4d6, 1d20), modifier (1d20+5), keep/drop (4d6kh3, 4d6dl1), reroll (4d6ro<2), compound (2d20+1d6), grouped ([[4d6dl1]][[4d6dl1]]).
+- present_roll_check: assign dice rolls to players. Players see clickable buttons. Use count>1 for multiple identical rolls.
 - set_scene_state: update the current scene (game_hidden)
 - write_note: write a hidden note for yourself
 

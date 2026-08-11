@@ -189,7 +189,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] }); }}
         footerAction={requestBtn}
-        rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
+        rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
         completedRolls={(rolls ?? []).filter(r => r.status === "completed").map(r => ({
           id: r.id, checkName: r.checkName, total: r.resultTotal ?? 0,
           detail: r.resultDetail ?? "", isMaster: !r.playerId,

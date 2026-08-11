@@ -119,62 +119,7 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  const brainDocs = await prisma.document.findMany({
-    where: { masterId: activeGame?.currentMasterId ?? "", category: "brain" },
-    select: { title: true, summary: true, content: true },
-    take: 10,
-  });
-
-  if (brainDocs.length > 0) {
-    systemPrompt += "\n\n## Brain (game instructions)\n";
-    for (const d of brainDocs) {
-      systemPrompt += `\n### ${d.title}\n${d.summary ?? d.content.slice(0, 300)}\n`;
-    }
-  }
-
-  const recentNotes = await prisma.document.findMany({
-    where: { masterId: activeGame?.currentMasterId ?? "", category: "game_hidden" },
-    select: { title: true, content: true },
-    orderBy: { updatedAt: "desc" },
-    take: 5,
-  });
-
-  if (recentNotes.length > 0) {
-    systemPrompt += "\n\n## Your recent notes (game_hidden)\n";
-    for (const n of recentNotes) {
-      systemPrompt += `\n### ${n.title}\n${n.content.slice(0, 500)}\n`;
-    }
-  }
-
-  const playerDocs = await prisma.document.findMany({
-    where: { masterId: activeGame?.currentMasterId ?? "", category: "game_visible" },
-    select: { title: true, playerId: true, summary: true, content: true, type: true },
-    take: 20,
-  });
-
-  if (playerDocs.length > 0) {
-    systemPrompt += "\n\n## Player character sheets and game documents (game_visible)\n";
-    for (const d of playerDocs) {
-      const label = d.playerId ? `[Player: ${d.playerId}]` : "[Common]";
-      systemPrompt += `\n### ${d.title} ${label}\n${d.summary ?? d.content.slice(0, 300)}\n`;
-    }
-
-    const charSheets = playerDocs.filter(d => d.type === "character_sheet" && d.playerId);
-    if (charSheets.length > 0) {
-      systemPrompt += "\n\n## Player-Character Mapping\n";
-      systemPrompt += "Address players by character name, NOT by login/userId. When mentioning a character, use **bold** formatting.\n";
-      for (const cs of charSheets) {
-        systemPrompt += `- senderId ${cs.playerId} → **${cs.title}**\n`;
-      }
-    }
-  }
-
-  const recent = await prisma.message.findMany({
-    where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
-    take: 30,
-    select: { role: true, content: true, senderId: true },
-  });
+  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results.`;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -184,6 +129,13 @@ async function buildGameContext(sessionId: string) {
   if (summary?.content) {
     systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
+
+  const recent = await prisma.message.findMany({
+    where: { sessionId, summarized: false },
+    orderBy: { createdAt: "asc" },
+    take: 30,
+    select: { role: true, content: true, senderId: true },
+  });
 
   const messages = recent.map((m) => ({
     role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",
@@ -212,44 +164,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
   systemPrompt += `\n- Player ID: ${playerId}\n`;
 
-  const brainDocs = await prisma.document.findMany({
-    where: { masterId: activeGame?.currentMasterId ?? "", category: "brain" },
-    select: { title: true, summary: true, content: true },
-    take: 10,
-  });
-
-  if (brainDocs.length > 0) {
-    systemPrompt += "\n\n## Brain (game instructions)\n";
-    for (const d of brainDocs) {
-      systemPrompt += `\n### ${d.title}\n${d.summary ?? d.content.slice(0, 300)}\n`;
-    }
-  }
-
-  const playerDocs = await prisma.document.findMany({
-    where: {
-      masterId: activeGame?.currentMasterId ?? "",
-      category: "game_visible",
-      playerId,
-    },
-    select: { title: true, summary: true, content: true },
-    take: 10,
-  });
-
-  if (playerDocs.length > 0) {
-    systemPrompt += "\n\n## This player's character sheets (game_visible)\n";
-    for (const d of playerDocs) {
-      systemPrompt += `\n### ${d.title}\n${d.summary ?? d.content.slice(0, 500)}\n`;
-    }
-  } else {
-    systemPrompt += "\n\n## This player has no character sheets yet. You can help them create one.\n";
-  }
-
-  const recent = await prisma.message.findMany({
-    where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
-    take: 20,
-    select: { role: true, content: true },
-  });
+  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check this player's roll results.`;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -259,6 +174,13 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (summary?.content) {
     systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
+
+  const recent = await prisma.message.findMany({
+    where: { sessionId, summarized: false },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+    select: { role: true, content: true },
+  });
 
   const messages = recent.map((m) => ({
     role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",

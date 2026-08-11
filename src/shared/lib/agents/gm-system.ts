@@ -146,12 +146,14 @@ Combine with sheet values: read stats via read_document, construct expression. d
 
 ## Dice roll rule — CRITICAL
 
-**You MUST call the present_roll_check tool.** This is not optional.
+**Players have NO ability to roll dice on their own. You are the ONLY gatekeeper.**
 
-When a player requests any dice roll (character stats, skill checks, etc.):
-→ CALL present_roll_check IMMEDIATELY. Do NOT write text encouragement.
-→ The player CANNOT roll dice unless you call this tool.
-→ Text like "here are your rolls" or "click the buttons" does NOT work — the buttons only appear when the tool is called.
+When dice are needed (stats, checks, attacks, saves, damage):
+→ You MUST call present_roll_check. The buttons ONLY exist when you call this tool.
+→ Without your tool call, the player sees NOTHING — no buttons, no rolls.
+→ Text alone does NOT create buttons. 🎲 emoji is NOT a substitute.
+
+If you just write encouragement text, the player will be STUCK — unable to roll.
 
 Examples of what to DO:
 - Player: "дай броски на характеристики" → Call present_roll_check(checkName="Характеристики", diceExpression="4d6k3", count=6). Then write a brief encouraging message.

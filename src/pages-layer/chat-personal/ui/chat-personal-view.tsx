@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, notification as antNotification } from "antd";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
@@ -88,7 +88,25 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
   });
 
-  const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];
+  const messages: IMessage[] = useMemo(() => {
+    const msgList: IPersonalMessage[] = msgData && "messages" in msgData ? msgData.messages : [];
+    const msgs: IMessage[] = msgList.map(mapMsg);
+    const rollEntries: IMessage[] = (rolls ?? []).map(r => ({
+      id: `roll-${r.id}`,
+      sender: "",
+      role: "roll",
+      text: "",
+      isRollEntry: true,
+      rollCheckName: r.checkName,
+      rollTotal: r.resultTotal ?? 0,
+      rollDetail: r.resultDetail ?? "",
+    }));
+    return [...msgs, ...rollEntries].sort((a, b) => {
+      const aCreated = new Date(a.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === a.id)?.createdAt ?? 0 : msgList.find(m => m.id === a.id)?.createdAt ?? 0);
+      const bCreated = new Date(b.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === b.id)?.createdAt ?? 0 : msgList.find(m => m.id === b.id)?.createdAt ?? 0);
+      return aCreated.getTime() - bCreated.getTime();
+    });
+  }, [msgData, rolls]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -178,10 +196,6 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
-        completedRolls={(rolls ?? []).filter(r => r.status === "completed").map(r => ({
-          id: r.id, checkName: r.checkName, total: r.resultTotal ?? 0,
-          detail: r.resultDetail ?? "", isMaster: !r.playerId,
-        }))}
       />
       <Modal
         title={t("chat.historyTitle")}

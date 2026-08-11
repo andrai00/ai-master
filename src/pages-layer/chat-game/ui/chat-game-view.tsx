@@ -92,7 +92,24 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
 
-  const messages: IMessage[] = rawMessages.map(mapMsg);
+  const messages: IMessage[] = useMemo(() => {
+    const msgs = rawMessages.map(mapMsg);
+    const rollEntries: IMessage[] = (rolls ?? []).map(r => ({
+      id: `roll-${r.id}`,
+      sender: "",
+      role: "roll",
+      text: "",
+      isRollEntry: true,
+      rollCheckName: r.checkName,
+      rollTotal: r.resultTotal ?? 0,
+      rollDetail: r.resultDetail ?? "",
+    }));
+    return [...msgs, ...rollEntries].sort((a, b) => {
+      const aCreated = new Date(a.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === a.id)?.createdAt ?? 0 : rawMessages.find(m => m.id === a.id)?.createdAt ?? 0);
+      const bCreated = new Date(b.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === b.id)?.createdAt ?? 0 : rawMessages.find(m => m.id === b.id)?.createdAt ?? 0);
+      return aCreated.getTime() - bCreated.getTime();
+    });
+  }, [rawMessages, rolls]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -196,10 +213,6 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] }); }}
         footerAction={requestBtn}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
-        completedRolls={(rolls ?? []).filter(r => r.status === "completed").map(r => ({
-          id: r.id, checkName: r.checkName, total: r.resultTotal ?? 0,
-          detail: r.resultDetail ?? "", isMaster: !r.playerId,
-        }))}
       />
       <Modal
         title={t("chat.historyTitle")}

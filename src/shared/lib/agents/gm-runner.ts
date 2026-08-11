@@ -1,4 +1,4 @@
-import { generateText, isStepCount } from "ai";
+import { generateText, isStepCount, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -67,6 +67,51 @@ async function createProvider() {
   const baseURL = config.baseUrl?.trim() || undefined;
   const openai = createOpenAI({ apiKey: config.apiKey, baseURL });
   return openai.chat(model);
+}
+
+const PROVIDER_DEFAULTS: Record<string, number> = {
+  openai: 128_000,
+  anthropic: 200_000,
+  google: 1_048_576,
+  ollama: 8_192,
+};
+
+async function getContextLimit(): Promise<number> {
+  const prisma = getPrisma();
+  const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
+  if (config?.contextLimit && config.contextLimit > 0) return config.contextLimit;
+  const provider = config?.provider?.trim() || "custom";
+  return PROVIDER_DEFAULTS[provider] ?? 128_000;
+}
+
+function makePrepareStep(sessionId: string, toolsCount: number, ctx: { activeGame?: { mode?: string; currentMasterId?: string } | null }) {
+  const contextLimit = getContextLimit().then(limit => limit);
+  let cachedLimit = 0;
+  let limitLoaded = false;
+
+  return async ({ messages: allMsgs }: { messages: ModelMessage[] }) => {
+    if (!limitLoaded) {
+      cachedLimit = await contextLimit;
+      limitLoaded = true;
+    }
+    const compressThreshold = cachedLimit * 0.7;
+    const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+    if (totalChars / 4 < compressThreshold) return {};
+
+    const systemMsg = allMsgs.find(m => m.role === "system");
+    const userMsgs = allMsgs.filter(m => m.role === "user");
+    const lastUser = userMsgs[userMsgs.length - 1];
+    const lastMsg = allMsgs[allMsgs.length - 1];
+
+    return {
+      messages: [
+        ...(systemMsg ? [systemMsg] : []),
+        ...(lastUser ? [lastUser] : []),
+        { role: "assistant" as const, content: `[Compressed — ${toolsCount} tools available. Use get_rolls/search_documents for context.]` },
+        ...(lastMsg && lastMsg !== lastUser ? [lastMsg] : []),
+      ].filter(Boolean) as ModelMessage[],
+    };
+  };
 }
 
 function getGameTools() {
@@ -282,6 +327,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       tools,
       stopWhen: isStepCount(40),
       abortSignal: ac.signal,
+      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length, ctx),
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
@@ -374,6 +420,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       tools,
       stopWhen: isStepCount(30),
       abortSignal: ac.signal,
+      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length, ctx),
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {

@@ -22,6 +22,7 @@ import {
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
+import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -91,7 +92,7 @@ In Brain mode: read/write glossary+brain. Memory mode: read all, write game_hidd
 ## Tools
 explore_archive, list_uploaded_files, bulk_import_to_glossary, read_file, search_documents, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, delete_uploaded_files, ask_admin, get_builder_guide.
 
-Use get_builder_guide(topic) for detailed reference on dice notation, file imports, brain document structure, formulas, document links, or memory mode migrations.
+Use get_builder_guide(topic) for detailed reference on dice notation, file imports, brain document structure, formulas, document links, or memory mode migrations. Use update_chat_summary to save your progress as a compact summary when the conversation gets long.
 
 ## Working with existing data
 - Never delete glossary/brain without admin confirmation
@@ -165,6 +166,8 @@ function getTools() {
     search_documents: searchDocumentsTool,
     validate_links: validateLinksTool,
     get_builder_guide: getBuilderGuideTool,
+    get_chat_summary: getChatSummaryTool,
+    update_chat_summary: updateChatSummaryTool,
   };
 }
 
@@ -476,26 +479,12 @@ export async function runBuilderAgent(
     });
     const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
     if (withText.length >= 20) {
-      emitStep(sessionId, "summarize");
-      throwIfCancelled();
-
       const toSummarize = withText.slice(0, 20);
-      const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
-
-      const existing = await prisma.chatSummary.findFirst({
-        where: { masterId },
+      await prisma.message.updateMany({
+        where: { id: { in: toSummarize.map(m => m.id) } },
+        data: { summarized: true },
       });
-      const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
-      const newContent = `📋 Chat Summary\n\n${prevContent}🆕 ${preview}`;
-
-      if (existing) {
-        await prisma.chatSummary.update({ where: { id: existing.id }, data: { content: newContent, preview } });
-      } else {
-        await prisma.chatSummary.create({
-          data: { masterId, content: newContent, preview },
-        });
-      }
-      await prisma.message.updateMany({ where: { id: { in: toSummarize.map(m => m.id) } }, data: { summarized: true } });
+      emitStep(sessionId, "summarize");
     }
 
     emitDone(sessionId);

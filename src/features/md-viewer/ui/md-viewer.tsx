@@ -10,8 +10,10 @@ import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-do
 import { MenuOutlined } from "@ant-design/icons";
 import { remarkWikiLink } from "../model/remark-wiki-link";
 import { remarkFormulaRef } from "../model/remark-formula-ref";
+import { remarkChatLink } from "../model/remark-chat-link";
 import { WikiLink } from "./wiki-link";
 import { FormulaBlock, FormulaInlineRef } from "./formula-block";
+import { ChatNavLink } from "./chat-nav-link";
 import type { Components } from "react-markdown";
 import { parseFormulaBlocks, evaluateFormulas, type IFormulaResult } from "@/src/shared/lib/formula";
 import styles from "./md-viewer.module.css";
@@ -146,6 +148,10 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
+        const chatLink = properties?.["data-chat-link"];
+        if (chatLink) {
+          return <ChatNavLink chatKey={chatLink} />;
+        }
         return <span {...rest}>{children}</span>;
       },
       code(props) {
@@ -276,7 +282,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       )}
       <div className={styles.content} ref={contentRef}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef]}
+          remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef, remarkChatLink]}
           rehypePlugins={[rehypeRaw, rehypeSlug]}
           components={components}
         >

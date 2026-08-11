@@ -33,6 +33,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
+import { remarkChatLink } from "@/src/features/md-viewer/model/remark-chat-link";
+import { ChatNavLink } from "@/src/features/md-viewer/ui/chat-nav-link";
 import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
@@ -65,6 +67,10 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
           {display}
         </button>
       );
+    }
+    const chatLink = properties?.["data-chat-link"];
+    if (chatLink) {
+      return <ChatNavLink chatKey={chatLink} />;
     }
     return <span {...rest}>{children}</span>;
   },
@@ -183,6 +189,8 @@ interface IChatPanelProps {
   inputPrefix?: ReactNode;
   /** Optional action rendered between messages area and input bar */
   footerAction?: ReactNode;
+  /** Optional roll strip rendered between messages area and input bar */
+  rollStrip?: ReactNode;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -271,7 +279,7 @@ export const ChatPanel = ({
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError,
   pendingCount,
-  inputPrefix, footerAction,
+  inputPrefix, footerAction, rollStrip,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -474,7 +482,7 @@ export const ChatPanel = ({
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkWikiLink]}
+              remarkPlugins={[remarkGfm, remarkWikiLink, remarkChatLink]}
                components={wikiComponents(handleWikiClick)}
             >
               {String(msg.text)}
@@ -629,6 +637,7 @@ export const ChatPanel = ({
           )}
         </div>
       </div>
+      {rollStrip}
       {footerAction && (
         <div className={styles.footerAction}>
           {footerAction}

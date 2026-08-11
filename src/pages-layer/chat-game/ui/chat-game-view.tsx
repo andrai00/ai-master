@@ -6,10 +6,12 @@ import { Modal, Table, App, Button, Tooltip } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
+import { RollStrip } from "@/src/features/roll-strip";
 import { useGameSession } from "@/src/shared/api/game-master/use-game-session";
 import { useGameMessages } from "@/src/shared/api/game-master/use-game-messages";
 import { useSendGameMessage } from "@/src/shared/api/game-master/use-send-game-message";
 import { useDeleteGameMessage } from "@/src/shared/api/game-master/use-delete-game-message";
+import { useSessionRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { requestMasterResponseAction } from "@/src/shared/actions/game-master/request-master-response";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
@@ -17,7 +19,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
+export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?: string }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -58,6 +60,8 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
   const { data: msgData } = useGameMessages(sessionId, page);
   const sendMutation = useSendGameMessage();
   const deleteMutation = useDeleteGameMessage();
+  const { data: rolls } = useSessionRolls(sessionId);
+  const executeRollMutation = useExecuteRoll();
 
   const requestMutation = useMutation({
     mutationFn: () => requestMasterResponseAction(sessionId!),
@@ -184,6 +188,7 @@ export const ChatGameView = ({ disabled }: { disabled?: boolean }) => {
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
         footerAction={requestBtn}
+        rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />
       <Modal
         title={t("chat.historyTitle")}

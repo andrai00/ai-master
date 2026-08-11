@@ -87,6 +87,7 @@ model Session {
   master      Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
   player      User?     @relation("SessionPlayer", fields: [playerId], references: [id])
   messages    Message[]
+  rolls       Roll[]
 }
 
 model Message {
@@ -158,4 +159,23 @@ model DocumentAccess {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([documentId, userId])
+}
+
+model Roll {
+  id              String   @id @default(uuid())
+  sessionId       String
+  playerId        String?                    // null = master's own roll
+  checkName       String                     // "Инициатива", "Скрытность"
+  diceExpression  String                     // "D20+5", "2d6+3"
+  status          String   @default("assigned") // assigned | completed | cancelled
+  resultTotal     Int?
+  resultDetail    String?                    // "[15, 3] + 5 = 23"
+  assignedBy      String?                    // userId of master/admin who assigned
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@index([sessionId, playerId])
 }

@@ -1,0 +1,11 @@
+.link {
+  color: var(--accent-color, #1677ff);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--accent-hover, #4096ff);
+}

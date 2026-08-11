@@ -2,30 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { rollDice, validateNotation } from "@/src/shared/lib/dice/roll";
-
-function rollSingle(notation: string): { total: number; detail: string } {
-  const result = rollDice(notation);
-  return { total: result.total, detail: result.output };
-}
-
-function rollExpression(diceExpression: string, count: number): { total: number; detail: string }[] {
-  const allResults: { total: number; detail: string }[] = [];
-
-  const compoundMatch = diceExpression.match(/^(\[\[[^\]]+\]\])(\[\[[^\]]+\]\])+$/);
-  if (compoundMatch) {
-    const parts = diceExpression.match(/\[\[[^\]]+\]\]/g) ?? [];
-    for (const part of parts) {
-      allResults.push(rollSingle(part));
-    }
-    return allResults;
-  }
-
-  for (let i = 0; i < count; i++) {
-    allResults.push(rollSingle(diceExpression));
-  }
-  return allResults;
-}
+import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export async function executeRollAction(
   rollId: string
@@ -35,7 +12,8 @@ export async function executeRollAction(
   if (!roll) return { success: false, error: "errors.rollNotFound" };
   if (roll.status !== "assigned") return { success: false, error: "errors.rollAlreadyCompleted" };
 
-  const allResults = rollExpression(roll.diceExpression, roll.count ?? 1);
+  const result = rollDice(roll.diceExpression);
+  const allResults = [{ total: result.total, detail: result.output }];
 
   const totalSum = allResults.reduce((s, r) => s + r.total, 0);
   const detailsStr = allResults.length > 1

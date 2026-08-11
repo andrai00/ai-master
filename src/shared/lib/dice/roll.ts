@@ -6,6 +6,14 @@ export interface IDiceRollResult {
 }
 
 export function rollDice(notation: string): IDiceRollResult {
+  const compound = notation.match(/^(\[\[[^\]]+\]\])(\[\[[^\]]+\]\])+$/);
+  if (compound) {
+    const parts = notation.match(/\[\[[^\]]+\]\]/g) ?? [];
+    const results = parts.map(p => new DiceRoll(p));
+    const total = results.reduce((s, r) => s + r.total, 0);
+    const output = results.map(r => r.output).join(" | ");
+    return { total, output };
+  }
   const roll = new DiceRoll(notation);
   return { total: roll.total, output: roll.output };
 }

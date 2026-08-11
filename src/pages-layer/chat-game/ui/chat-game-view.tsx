@@ -48,12 +48,6 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
   }, [sessionId]);
 
   useEffect(() => {
-    if (!typing) return;
-    const t = setTimeout(() => { setTyping(false); setStopping(false); }, 25_000);
-    return () => clearTimeout(t);
-  }, [typing]);
-
-  useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
         queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
@@ -79,6 +73,28 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
     onMutate: () => setStopping(true),
     onSettled: () => setStopping(false),
   });
+
+  const handleToolStep = useCallback((tool: string) => {
+    if (tool === "present_roll_check") queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
+  }, [queryClient, sessionId]);
+
+  const handleStepsStart = useCallback(() => {
+    setTyping(true);
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+  }, [queryClient, sessionId]);
+
+  const handleStepsDone = useCallback(() => {
+    setTyping(false); setStopping(false);
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
+  }, [queryClient, sessionId]);
+
+  const handleStepsError = useCallback((msg: string) => {
+    notification.error({ title: msg });
+    setTyping(false); setStopping(false);
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
+  }, [notification, queryClient, sessionId]);
 
   const mapMsg = (m: IGameMessage): IMessage => ({
     id: m.id,
@@ -218,10 +234,10 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         pendingCount={0}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
-        onToolStep={(tool) => { if (tool === "present_roll_check") queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });  } }
-        onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] }); }}
+        onToolStep={handleToolStep}
+        onStepsStart={handleStepsStart}
+        onStepsDone={handleStepsDone}
+        onStepsError={handleStepsError}
         footerAction={requestBtn}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />

@@ -84,16 +84,20 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep(sessionId: string, toolsCount: number, ctx: { activeGame?: { mode?: string; currentMasterId?: string } | null }) {
-  const contextLimit = getContextLimit().then(limit => limit);
-  let cachedLimit = 0;
+function makePrepareStep(sessionId: string, toolsCount: number, _ctx: { activeGame?: { mode?: string; currentMasterId?: string } | null }) {
+  let cachedLimit = 128_000;
   let limitLoaded = false;
 
   return async ({ messages: allMsgs }: { messages: ModelMessage[] }) => {
-    if (!limitLoaded) {
-      cachedLimit = await contextLimit;
-      limitLoaded = true;
+    try {
+      if (!limitLoaded) {
+        cachedLimit = await getContextLimit();
+        limitLoaded = true;
+      }
+    } catch {
+      return {};
     }
+
     const compressThreshold = cachedLimit * 0.7;
     const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
     if (totalChars / 4 < compressThreshold) return {};

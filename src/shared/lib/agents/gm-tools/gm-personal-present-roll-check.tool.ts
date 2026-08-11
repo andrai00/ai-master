@@ -4,7 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 
 export const gmPersonalPresentRollCheckTool = {
-  description: "Assign dice rolls to the current player in personal chat. Player sees separate roll buttons, one per roll. ALWAYS use this when a player needs to roll — never roll for them. Use count>1 for multiple identical rolls (e.g. 6 stat rolls → 6 separate labeled buttons).",
+  description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them roll buttons. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple rolls.",
   inputSchema: zodSchema(
     z.object({
       checkName: z.string().describe("What this check is: 'Характеристики', 'Проверка навыка', 'Бросок урона'"),
@@ -13,6 +13,7 @@ export const gmPersonalPresentRollCheckTool = {
     })
   ),
   execute: async (args: { checkName: string; diceExpression: string; count?: number }) => {
+    console.log("[gm-tool] present_roll_check called:", JSON.stringify(args));
     const currentUser = await getSession();
     if (!currentUser) throw new Error("errors.forbidden");
 
@@ -25,7 +26,6 @@ export const gmPersonalPresentRollCheckTool = {
     if (!personalSession) throw new Error("errors.sessionNotFound");
 
     const rollCount = args.count ?? 1;
-    const created: string[] = [];
 
     for (let i = 0; i < rollCount; i++) {
       const rollName = rollCount > 1 ? `${args.checkName} #${i + 1}` : args.checkName;
@@ -41,6 +41,7 @@ export const gmPersonalPresentRollCheckTool = {
       });
     }
 
+    console.log(`[gm-tool] present_roll_check done: ${rollCount} rolls created`);
     return {
       assigned: rollCount,
       checkName: args.checkName,

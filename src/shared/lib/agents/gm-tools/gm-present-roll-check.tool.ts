@@ -16,6 +16,7 @@ export const gmPresentRollCheckTool = {
     })
   ),
   execute: async (args: { checkName: string; diceExpression: string; targetPlayers: string[]; count?: number }) => {
+    console.log("[gm-tool] game present_roll_check called:", JSON.stringify(args));
     const activeGame = await getActiveGame();
     if (!activeGame || activeGame.mode !== "game") {
       throw new Error("errors.notInGameMode");

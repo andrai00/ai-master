@@ -257,6 +257,8 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     content: m.content,
   }));
 
+  console.log(`[gm-personal] buildContext — present_roll_check in prompt: ${systemPrompt.includes("present_roll_check")}, tools: ${Object.keys(getPersonalTools()).length}`);
+
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 

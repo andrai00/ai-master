@@ -327,50 +327,68 @@ export const ChatPanel = ({
   useEffect(() => {
     if (!stepsSessionId) return;
 
-    let started = false;
-    const es = new EventSource(`${stepsEndpoint ?? "/api/builder/steps"}?sessionId=${stepsSessionId}`);
+    let es: EventSource;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retries = 0;
+    let mounted = true;
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        switch (data.type) {
-          case "started":
-            started = true;
-            onStepsStart?.();
-            break;
-          case "step":
-            if (!started) { started = true; onStepsStart?.(); }
-            setLiveStep({ tool: data.tool, detail: data.detail });
-            onToolStep?.(data.tool);
-            queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
-            break;
-          case "stopping":
-            setLiveStep(null);
-            break;
-          case "done":
-            started = false;
-            onStepsDone?.();
-            break;
-          case "stopped":
-            started = false;
-            onStepsDone?.();
-            break;
-          case "error":
-            onStepsError?.(data.message ?? t("errors.unknownError"));
-            break;
+    const connect = () => {
+      if (!mounted) return;
+      let started = false;
+
+      es = new EventSource(`${stepsEndpoint ?? "/api/builder/steps"}?sessionId=${stepsSessionId}`);
+
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          switch (data.type) {
+            case "started":
+              started = true;
+              onStepsStart?.();
+              break;
+            case "step":
+              if (!started) { started = true; onStepsStart?.(); }
+              setLiveStep({ tool: data.tool, detail: data.detail });
+              onToolStep?.(data.tool);
+              queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
+              break;
+            case "stopping":
+              setLiveStep(null);
+              break;
+            case "done":
+              started = false;
+              onStepsDone?.();
+              break;
+            case "stopped":
+              started = false;
+              onStepsDone?.();
+              break;
+            case "error":
+              onStepsError?.(data.message ?? t("errors.unknownError"));
+              break;
+          }
+        } catch {
+          // ignore parse errors
         }
-      } catch {
-        // ignore parse errors
-      }
+      };
+
+      es.onerror = () => {
+        if (!mounted) return;
+        es.close();
+        if (retryTimer) clearTimeout(retryTimer);
+        const delay = Math.min(1000 * Math.pow(2, retries), 30_000);
+        retries++;
+        retryTimer = setTimeout(connect, delay);
+      };
     };
 
-    es.onerror = () => {
-      if (es.readyState === EventSource.CLOSED) {
-        console.warn("[ChatPanel] SSE connection lost for session", stepsSessionId);
-      }
-    };
+    connect();
 
-    return () => es.close();
+    return () => {
+      mounted = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      try { es?.close(); } catch { /* already closed */ }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
 

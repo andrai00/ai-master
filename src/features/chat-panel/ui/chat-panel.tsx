@@ -193,6 +193,8 @@ interface IChatPanelProps {
   footerAction?: ReactNode;
   /** Optional roll strip rendered between messages area and input bar */
   rollStrip?: ReactNode;
+  /** Completed rolls to show as lightweight badges in the messages area */
+  completedRolls?: { id: string; checkName: string; total: number; detail: string; isMaster: boolean }[];
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -281,7 +283,7 @@ export const ChatPanel = ({
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError, onToolStep,
   pendingCount,
-  inputPrefix, footerAction, rollStrip,
+  inputPrefix, footerAction, rollStrip, completedRolls,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -633,9 +635,18 @@ export const ChatPanel = ({
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                     </>
-                  )}
-                </div>
-              </div>
+            )}
+          {completedRolls && completedRolls.length > 0 && (
+            <div className={styles.rollHistory}>
+              {completedRolls.map((r) => (
+                <span key={r.id} className={styles.rollHistoryEntry} title={`${r.detail} = ${r.total}`}>
+                  🎲 {r.isMaster ? String(r.total) : `${r.checkName}: ${r.total}`}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
             </div>
           )}
         </div>

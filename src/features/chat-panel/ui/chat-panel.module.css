@@ -236,6 +236,28 @@
   flex-shrink: 0;
 }
 
+.rollHistory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 20px;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.rollHistoryEntry {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  font-size: 11px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  cursor: default;
+  white-space: nowrap;
+}
+
 .inputBar {
   display: flex;
   flex-direction: column;

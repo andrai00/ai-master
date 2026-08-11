@@ -35,18 +35,20 @@ export const gmPresentRollCheckTool = {
     const created: string[] = [];
 
     for (const playerId of args.targetPlayers) {
-      const roll = await prisma.roll.create({
-        data: {
-          sessionId: session.id,
-          playerId,
-          checkName: args.checkName,
-          diceExpression: args.diceExpression,
-          count: rollCount,
-          status: "assigned",
-          assignedBy,
-        },
-      });
-      created.push(roll.id);
+      for (let i = 0; i < rollCount; i++) {
+        const rollName = rollCount > 1 ? `${args.checkName} #${i + 1}` : args.checkName;
+        const roll = await prisma.roll.create({
+          data: {
+            sessionId: session.id,
+            playerId,
+            checkName: rollName,
+            diceExpression: args.diceExpression,
+            status: "assigned",
+            assignedBy,
+          },
+        });
+        created.push(roll.id);
+      }
     }
 
     broadcastGameEvent("roll_assigned", { sessionId: session.id });

@@ -172,6 +172,10 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] }); }}
         rollStrip={<RollStrip rolls={rolls ?? []} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
+        completedRolls={(rolls ?? []).filter(r => r.status === "completed").map(r => ({
+          id: r.id, checkName: r.checkName, total: r.resultTotal ?? 0,
+          detail: r.resultDetail ?? "", isMaster: !r.playerId,
+        }))}
       />
       <Modal
         title={t("chat.historyTitle")}

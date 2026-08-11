@@ -27,16 +27,19 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
         const isMine = roll.playerId === currentUserId;
         const isCompleted = roll.status === "completed";
         const isAssigned = roll.status === "assigned";
+        const isMaster = !roll.playerId;
         const label = roll.count > 1 ? `${roll.checkName} (×${roll.count})` : roll.checkName;
+        const displayLabel = isMaster ? undefined : label;
 
         if (isCompleted) {
+          const displayText = isMaster ? `${roll.resultTotal}` : `${label}: ${roll.resultTotal}`;
           return (
             <Tooltip
               key={roll.id}
-              title={`${roll.checkName}: ${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.resultDetail}`}
+              title={`${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.resultDetail}`}
             >
-              <span className={styles.badge} style={{ color: getColor(roll.resultTotal ?? 0) }}>
-                🎲 {label}: <strong>{roll.resultTotal}</strong>
+              <span className={styles.badge} style={{ color: getColor(roll.resultTotal ?? 0), opacity: isMaster ? 0.65 : 1 }}>
+                🎲 {displayText}
               </span>
             </Tooltip>
           );
@@ -50,15 +53,15 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
               disabled={executing}
               onClick={() => onExecuteRoll(roll.id)}
             >
-              🎲 {label}: {roll.diceExpression}
+              🎲 {displayLabel ?? roll.diceExpression}: {roll.diceExpression}
             </button>
           );
         }
 
         if (isAssigned) {
           return (
-            <Tooltip key={roll.id} title={`${roll.checkName}: ${roll.diceExpression}`}>
-              <span className={styles.waiting}>⏳ {label}</span>
+            <Tooltip key={roll.id} title={`${roll.diceExpression}`}>
+              <span className={styles.waiting}>⏳ {displayLabel ?? roll.diceExpression}</span>
             </Tooltip>
           );
         }

@@ -97,6 +97,7 @@ export const Shell = ({ user, children }: IShellProps) => {
       }
       if (type === "roll_assigned" || type === "roll_completed" || type === "roll_removed") {
         queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
+        queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
       }
     };
     eventSource.onerror = () => {

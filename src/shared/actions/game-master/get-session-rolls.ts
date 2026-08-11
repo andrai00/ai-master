@@ -18,7 +18,7 @@ export type TSessionRoll = {
 export async function getSessionRollsAction(sessionId: string): Promise<TSessionRoll[]> {
   const prisma = getPrisma();
   return prisma.roll.findMany({
-    where: { sessionId, status: { not: "cancelled" } },
+    where: { sessionId, status: { not: "cancelled" }, consumed: false },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,

@@ -292,6 +292,17 @@ async function autoSummarize(sessionId: string, masterId: string): Promise<void>
   });
 }
 
+async function markRollsConsumed(sessionId: string): Promise<void> {
+  const prisma = getPrisma();
+  const result = await prisma.roll.updateMany({
+    where: { sessionId, status: "completed", consumed: false },
+    data: { consumed: true },
+  });
+  if (result.count > 0) {
+    broadcastGameEvent("roll_completed", { sessionId });
+  }
+}
+
 export async function runGameMasterBatch(sessionId: string): Promise<void> {
   const ac = startProcessing(sessionId);
   if (!ac) return;
@@ -351,6 +362,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       broadcastGameEvent("game_message_sent", { sessionId });
     }
 
+    await markRollsConsumed(sessionId);
     await autoSummarize(sessionId, ctx.masterId);
     emitDone(sessionId);
 
@@ -443,6 +455,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       broadcastGameEvent("personal_message_sent", { sessionId });
     }
 
+    await markRollsConsumed(sessionId);
     await autoSummarize(sessionId, ctx.masterId);
     emitDone(sessionId);
 

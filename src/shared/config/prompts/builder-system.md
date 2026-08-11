@@ -86,8 +86,18 @@ The full notation reference is available as a skill at `src/shared/config/dice-n
 When writing the `mechanics` brain document for a game system, include:
 
 1. **Which dice the system uses** (d20, d6 pool, d100, dF, etc.)
-2. **Common roll formulas** translated to the platform's notation:
+2. **Common roll formulas** using `@dice-roller/rpg-dice-roller` library notation:
+   - Basic: `4d6`, `1d20`
+   - Keep/drop: `4d6kh3`, `4d6dl1`
+   - Modifier: `1d20+5`, `2d6+3`
+   - Reroll: `4d6ro<2` (once if <2), `4d6r<2` (until >=2)
+   - Exploding: `4d6!`, `4d6!>5`
+   - Compound: `2d20+1d6`, `1d20+1d4+3`
+   - Grouped multi-roll: `[[4d6dl1]][[4d6dl1]]`
    - Advantage → `2d20kh1`, Disadvantage → `2d20kl1`
+   - Fudge/Fate: `4dF`
+   - Dice pool vs target: `5d10>=8`
+   - Crit range: `1d20cs>18`
    - Exploding/accing → `1d6!`
    - Dice pool vs target → `5d10>=8`
    - Crit range → `1d20cs>18` (improved critical 19-20)

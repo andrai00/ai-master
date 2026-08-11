@@ -3,10 +3,10 @@ import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { rollDice, DICE_NOTATION_REFERENCE } from "@/src/shared/lib/dice/roll";
+import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export const gmRollDiceTool = {
-  description: `Roll dice for the Game Master. Saves the roll result to the session's roll history (visible to all players).${DICE_NOTATION_REFERENCE}`,
+  description: "Roll dice for yourself (GM only). Saves result to session roll strip.",
   inputSchema: zodSchema(
     z.object({
       expression: z.string().describe("Dice expression in standard RPG notation: '1d20+5', '4d6kh3', '4d6dl1', '2d20+1d6', '[[4d6dl1]][[4d6dl1]]'"),

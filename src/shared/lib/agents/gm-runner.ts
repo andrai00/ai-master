@@ -423,8 +423,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     const tools = getPersonalTools();
 
     emitStarted(sessionId);
-    console.log(`[gm-personal] generateText start — session=${sessionId} playerId=${playerId}`);
-
+    console.log(`[gm-personal] generateText start — session=${sessionId} playerId=${playerId} tools=${JSON.stringify(Object.keys(tools))} msgs=${existingMessages.length}`);
     const result = await generateText({
       model,
       system: ctx.system,
@@ -441,6 +440,9 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         }
       },
     });
+
+    const personalSteps = (result as unknown as { steps?: unknown[] }).steps;
+    console.log(`[gm-personal] generateText done — steps=${personalSteps?.length ?? "?"} textLen=${result.text?.length ?? 0}`);
 
     const gmText = result.text?.trim();
     const prisma = getPrisma();

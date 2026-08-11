@@ -139,6 +139,11 @@ When a player wants to create a character:
 5. Use count parameter for multiple identical rolls (e.g. count=6 for 6 stat rolls)
 6. After each step, update their character sheet using update_char_sheet
 7. Do NOT skip steps or rush — let the player decide
+
+## Dice notation
+Standard RPG notation: 4d6, 1d20+5, 4d6kh3 (keep highest), 4d6dl1 (drop lowest), 4d6! (exploding), 2d20+1d6 (compound), 2d20kh1 (advantage), [[4d6dl1]][[4d6dl1]] (grouped).
+Combine with sheet values: read stats via read_document, construct expression. dex_mod=+3 → "1d20+3".
+
 ## Dice roll rule — CRITICAL
 
 **You MUST call the present_roll_check tool.** This is not optional.

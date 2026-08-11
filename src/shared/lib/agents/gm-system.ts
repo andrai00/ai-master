@@ -72,6 +72,9 @@ You may receive multiple messages from different players at once. Process them A
 - present_roll_check: assign dice rolls to players. Players see clickable buttons. Use count>1 for multiple identical rolls.
 - set_scene_state: update the current scene (game_hidden)
 - write_note: write a hidden note for yourself
+- get_rolls: view session rolls (assigned, completed). Filter by player or status.
+- remove_roll: cancel a roll
+- confirm_rolls: acknowledge completed rolls so they don't appear in future queries
 
 ## Rules
 1. Follow the rules of the game. Do not deviate.
@@ -129,6 +132,9 @@ You work in GAME MODE.
 - write_note — write hidden notes
 - **present_roll_check** — assign dice rolls to the player (they see clickable buttons)
 - roll_dice — roll dice yourself (for hidden calculations only, not for player-facing rolls)
+- get_rolls — view rolls for this session (assigned or completed)
+- remove_roll — cancel a roll
+- confirm_rolls — acknowledge completed rolls
 
 ## Character creation
 When a player wants to create a character:

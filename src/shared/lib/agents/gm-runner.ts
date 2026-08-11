@@ -14,6 +14,8 @@ import { gmPersonalRollDiceTool } from "./gm-tools/gm-personal-roll-dice.tool";
 import { gmPersonalPresentRollCheckTool } from "./gm-tools/gm-personal-present-roll-check.tool";
 import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
 import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
+import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
+import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import {
   GM_GAME_SYSTEM,
   GM_PERSONAL_SYSTEM,
@@ -77,6 +79,9 @@ function getGameTools() {
     roll_dice: gmRollDiceTool,
     set_scene_state: gmSetSceneStateTool,
     present_roll_check: gmPresentRollCheckTool,
+    get_rolls: gmGetRollsTool,
+    remove_roll: gmRemoveRollTool,
+    confirm_rolls: gmConfirmRollsTool,
   };
 }
 
@@ -90,6 +95,9 @@ function getPersonalTools() {
     write_note: gmWriteNoteTool,
     roll_dice: gmPersonalRollDiceTool,
     present_roll_check: gmPersonalPresentRollCheckTool,
+    get_rolls: gmPersonalGetRollsTool,
+    remove_roll: gmRemoveRollTool,
+    confirm_rolls: gmConfirmRollsTool,
   };
 }
 
@@ -165,13 +173,7 @@ async function buildGameContext(sessionId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 30,
-    select: { role: true, content: true, senderId: true, createdAt: true },
-  });
-
-  const completedRolls = await prisma.roll.findMany({
-    where: { sessionId, status: "completed", consumed: false },
-    orderBy: { createdAt: "asc" },
-    select: { checkName: true, resultTotal: true, resultDetail: true, playerId: true, createdAt: true },
+    select: { role: true, content: true, senderId: true },
   });
 
   const summary = await prisma.chatSummary.findFirst({
@@ -186,24 +188,9 @@ async function buildGameContext(sessionId: string) {
   const messages = recent.map((m) => ({
     role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",
     content: m.content,
-    createdAt: m.createdAt,
   }));
 
-  if (completedRolls.length > 0) {
-    const rollSummary = completedRolls
-      .map(r => `${r.checkName}: ${r.resultTotal} (${r.resultDetail})`)
-      .join("\n");
-    messages.push({
-      role: "assistant" as const,
-      content: `🎲 Completed rolls:\n${rollSummary}`,
-      createdAt: completedRolls[completedRolls.length - 1].createdAt,
-    });
-  }
-
-  messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const result = messages.map(({ role, content }) => ({ role, content }));
-
-  return { messages: result, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
+  return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
 async function buildPersonalContext(sessionId: string, playerId: string) {
@@ -261,13 +248,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 20,
-    select: { role: true, content: true, createdAt: true },
-  });
-
-  const completedRolls = await prisma.roll.findMany({
-    where: { sessionId, status: "completed", consumed: false },
-    orderBy: { createdAt: "asc" },
-    select: { checkName: true, resultTotal: true, resultDetail: true, createdAt: true },
+    select: { role: true, content: true },
   });
 
   const summary = await prisma.chatSummary.findFirst({
@@ -282,24 +263,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   const messages = recent.map((m) => ({
     role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",
     content: m.content,
-    createdAt: m.createdAt,
   }));
 
-  if (completedRolls.length > 0) {
-    const rollSummary = completedRolls
-      .map(r => `${r.checkName}: ${r.resultTotal} (${r.resultDetail})`)
-      .join("\n");
-    messages.push({
-      role: "assistant" as const,
-      content: `🎲 Completed rolls:\n${rollSummary}`,
-      createdAt: completedRolls[completedRolls.length - 1].createdAt,
-    });
-  }
-
-  messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const result = messages.map(({ role, content }) => ({ role, content }));
-
-  return { messages: result, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
+  return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
 async function autoSummarize(sessionId: string, masterId: string): Promise<void> {

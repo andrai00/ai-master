@@ -84,6 +84,7 @@
     "requestMasterResponse": "Request GM response",
     "masterThinking": "Master is thinking...",
     "gmResponseStopped": "Master response stopped",
+    "backToChat": "Back to chat",
     "copied": "Copied",
     "placeholderEmpty": "Game chat with the master and players will be here",
     "devModeDisabled": "Game chat is unavailable — the master is being edited",

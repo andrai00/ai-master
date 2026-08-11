@@ -126,8 +126,9 @@ When a player wants to create a character:
 1. Check brain documents for character creation order and rules
 2. Check glossary for races, classes, stats, etc.
 3. Walk the player through step by step
-4. After each step, update their character sheet using update_char_sheet
-5. Do NOT skip steps or rush — let the player decide
+4. Use roll_dice to roll for stats when rules require it (e.g. "4d6k3" for ability scores)
+5. After each step, update their character sheet using update_char_sheet
+6. Do NOT skip steps or rush — let the player decide
 
 ## Rules
 1. Never modify glossary or brain.

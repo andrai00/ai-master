@@ -3,19 +3,20 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, notification as antNotification } from "antd";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { usePersonalSession } from "@/src/shared/api/game-master/use-personal-session";
 import { usePersonalMessages } from "@/src/shared/api/game-master/use-personal-messages";
 import { useSendPersonalMessage } from "@/src/shared/api/game-master/use-send-personal-message";
 import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delete-personal-message";
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
+import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getPersonalMessagesAction, type IPersonalMessage } from "@/src/shared/actions/game-master/get-personal-messages";
 import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
+export const ChatPersonalView = ({ disabled, isAdmin }: { disabled?: boolean; isAdmin?: boolean }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -27,6 +28,7 @@ export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   const { data: sessionData } = usePersonalSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -55,6 +57,17 @@ export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
   const sendMutation = useSendPersonalMessage();
   const deleteMutation = useDeletePersonalMessage();
   const shareMutation = useShareMessage();
+
+  const stopMutation = useMutation({
+    mutationFn: () => stopGameMasterResponseAction(sessionId!),
+    onMutate: () => setStopping(true),
+    onSettled: () => setStopping(false),
+  });
+
+  const handleStop = useCallback(async () => {
+    if (!sessionId) return;
+    await stopMutation.mutateAsync();
+  }, [sessionId, stopMutation]);
 
   const mapMsg = (m: IPersonalMessage): IMessage => ({
     id: m.id,
@@ -140,17 +153,19 @@ export const ChatPersonalView = ({ disabled }: { disabled?: boolean }) => {
         hideShare={false}
         disabled={disabled}
         disabledText={disabled ? t("chat.devModeDisabled") : undefined}
-        onDelete={handleDelete}
+        onDelete={isAdmin ? handleDelete : undefined}
         onShare={handleShare}
         onHistoryClick={openHistory}
         onSend={handleSend}
+        onStop={handleStop}
         sending={sendMutation.isPending}
         typing={typing}
+        stopping={stopping}
         stepsSessionId={sessionId}
         stepsEndpoint="/api/game-chat/steps"
         onStepsStart={() => { setTyping(true); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); }}
       />
       <Modal
         title={t("chat.historyTitle")}

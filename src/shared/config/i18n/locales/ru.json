@@ -84,6 +84,7 @@
     "requestMasterResponse": "Запросить ответ ИИ мастера",
     "masterThinking": "Мастер думает...",
     "gmResponseStopped": "Ответ мастера остановлен",
+    "backToChat": "Назад в чат",
     "copied": "Скопировано",
     "placeholderEmpty": "Здесь будет общение с мастером и игроками",
     "devModeDisabled": "Чат игры недоступен — идёт редактирование мастера",

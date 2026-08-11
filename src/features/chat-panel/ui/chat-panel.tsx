@@ -498,16 +498,34 @@ export const ChatPanel = ({
 
   const renderBubble = (msg: IMessage) => {
     if (msg.isRollEntry) {
-      const isMulti = msg.rollDetail?.startsWith("#1:");
-      const totals = isMulti
-        ? [...(msg.rollDetail?.matchAll(/= (\d+)/g) ?? [])].map(m => m[1]).join(", ")
-        : null;
+      const detail = msg.rollDetail ?? "";
+      const isMulti = detail.startsWith("#1:");
+      const isGroup = detail.startsWith("{");
+
+      let displayTotal: string = String(msg.rollTotal);
+      if (isMulti) {
+        displayTotal = [...(detail.matchAll(/= (\d+)/g))].map(m => m[1]).join(", ");
+      } else if (isGroup) {
+        const eqIdx = detail.lastIndexOf(" = ");
+        const arrays = eqIdx > 0 ? detail.slice(1, eqIdx) : detail.slice(1);
+        displayTotal = arrays
+          .replace(/\[([^\]]+)\]/g, (_, nums) => {
+            const vals = nums.split(",")
+              .map((s: string) => s.trim())
+              .filter((s: string) => !s.endsWith("d"))
+              .map(Number)
+              .sort((a: number, b: number) => b - a);
+            const dropped = nums.split(",").filter((s: string) => s.trim().endsWith("d")).length;
+            const kept = vals.slice(0, vals.length - dropped);
+            return String(kept.reduce((a: number, b: number) => a + b, 0));
+          });
+      }
 
       return (
         <div key={msg.id} className={styles.rollEntry}>
-          <Tooltip title={msg.rollDetail}>
+          <Tooltip title={detail}>
             <span className={styles.rollEntryBadge}>
-              🎲 {msg.rollCheckName}: <strong>{totals ?? msg.rollTotal}</strong>
+              🎲 {msg.rollCheckName}: <strong>{displayTotal}</strong>
             </span>
           </Tooltip>
         </div>

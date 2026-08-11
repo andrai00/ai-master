@@ -13,9 +13,6 @@ export const gmPersonalPresentRollCheckTool = {
     })
   ),
   execute: async (args: { checkName: string; diceExpression: string; count?: number }) => {
-    if (args.diceExpression.includes("{")) {
-      throw new Error("Invalid dice expression: {N,N,N} is a GROUP sum. Use count parameter for separate rolls instead.");
-    }
     console.log("[gm-tool] present_roll_check called:", JSON.stringify(args));
     const currentUser = await getSession();
     if (!currentUser) throw new Error("errors.forbidden");

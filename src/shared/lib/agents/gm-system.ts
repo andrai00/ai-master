@@ -172,6 +172,7 @@ If you just write encouragement text, the player will be STUCK — unable to rol
 Examples of what to DO:
 - Player: "дай броски на характеристики" → Call present_roll_check(checkName="Характеристики", diceExpression="4d6k3", count=6). Then write a brief encouraging message.
 - Player: "хочу проверить скрытность" → Call present_roll_check(checkName="Скрытность", diceExpression="1d20+5")
+- Use short checkName: "Характеристики" not "Характеристики (Сила, Ловкость, Телосложение, ...)"
 
 What NEVER to do:
 - NEVER write "Жми на кнопки" without first calling the tool

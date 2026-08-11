@@ -21,8 +21,8 @@ export async function getSessionRollsAction(sessionId: string): Promise<TSession
   const prisma = getPrisma();
   const rolls = await prisma.roll.findMany({
     where: { sessionId, status: { not: "cancelled" } },
-    orderBy: { createdAt: "asc" },
-    take: 200,
+    orderBy: { createdAt: "desc" },
+    take: 50,
     select: {
       id: true,
       playerId: true,

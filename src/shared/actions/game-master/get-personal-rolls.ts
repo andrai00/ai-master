@@ -32,8 +32,8 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
 
   return prisma.roll.findMany({
     where: { sessionId: personalSession.id, status: { not: "cancelled" } },
-    orderBy: { createdAt: "asc" },
-    take: 200,
+    orderBy: { createdAt: "desc" },
+    take: 50,
     select: {
       id: true,
       playerId: true,

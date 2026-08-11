@@ -4,7 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmRemoveRollTool = {
-  description: "Cancel/remove an assigned or completed roll. The roll will disappear from the player's UI.",
+  description: "Cancel/remove an ASSIGNED (unrolled) roll. Cannot remove completed rolls — they are immutable history. To change a completed roll, assign a new one via present_roll_check.",
   inputSchema: zodSchema(
     z.object({
       rollId: z.string().describe("ID of the roll to remove"),
@@ -14,6 +14,7 @@ export const gmRemoveRollTool = {
     const prisma = getPrisma();
     const roll = await prisma.roll.findUnique({ where: { id: args.rollId }, select: { id: true, sessionId: true, status: true } });
     if (!roll) throw new Error("errors.rollNotFound");
+    if (roll.status !== "assigned") throw new Error("errors.cannotRemoveCompleted");
 
     await prisma.roll.update({ where: { id: args.rollId }, data: { status: "cancelled" } });
     broadcastGameEvent("roll_removed", { sessionId: roll.sessionId, rollId: args.rollId });

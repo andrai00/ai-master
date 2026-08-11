@@ -151,8 +151,12 @@ When a player wants to create a character:
 7. Do NOT skip steps or rush — let the player decide
 
 ## Dice notation
-Standard RPG notation: 4d6, 1d20+5, 4d6kh3 (keep highest), 4d6dl1 (drop lowest), 4d6! (exploding), 2d20+1d6 (compound), 2d20kh1 (advantage), [[4d6dl1]][[4d6dl1]] (grouped).
+Standard RPG notation: 4d6, 1d20+5, 4d6kh3 (keep highest), 4d6dl1 (drop lowest), 4d6! (exploding), 2d20+1d6 (compound), 2d20kh1 (advantage).
 Combine with sheet values: read stats via read_document, construct expression. dex_mod=+3 → "1d20+3".
+
+IMPORTANT: {N,N,N} is a GROUP that SUMS all parts. Do NOT use it for separate rolls — use count parameter instead.
+- WRONG: present_roll_check("Характеристики", "{4d6kh3, 4d6kh3, 4d6kh3, 4d6kh3, 4d6kh3, 4d6kh3}")
+- RIGHT: present_roll_check("Характеристики", "4d6kh3", count=6)
 
 ## Dice roll rule — CRITICAL
 

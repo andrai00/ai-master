@@ -114,7 +114,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
 
     const msgTimes = rawMessages.map(m => new Date(m.createdAt).getTime());
     const minTs = Math.min(...msgTimes);
-    const maxTs = Math.max(...msgTimes);
+    const maxTs = Math.max(...msgTimes) + 30_000;
 
     const rollEntries: IMessage[] = (rolls ?? [])
       .filter(r => r.status === "completed" && r.completedAt)

@@ -12,8 +12,14 @@ export async function executeRollAction(
   if (!roll) return { success: false, error: "errors.rollNotFound" };
   if (roll.status !== "assigned") return { success: false, error: "errors.rollAlreadyCompleted" };
 
-  const result = rollDice(roll.diceExpression);
-  const allResults = [{ total: result.total, detail: result.output }];
+  const isCompound = roll.diceExpression.startsWith("[[") || roll.diceExpression.startsWith("{");
+  const rollCount = isCompound ? 1 : (roll.count ?? 1);
+  const allResults: { total: number; detail: string }[] = [];
+
+  for (let i = 0; i < rollCount; i++) {
+    const result = rollDice(roll.diceExpression);
+    allResults.push({ total: result.total, detail: result.output });
+  }
 
   const totalSum = allResults.reduce((s, r) => s + r.total, 0);
   const detailsStr = allResults.length > 1

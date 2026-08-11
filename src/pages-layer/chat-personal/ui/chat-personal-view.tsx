@@ -111,7 +111,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
 
     const msgTimes = msgList.map(m => new Date(m.createdAt).getTime());
     const minTs = Math.min(...msgTimes);
-    const maxTs = Math.max(...msgTimes);
+    const maxTs = Math.max(...msgTimes) + 30_000; // 30s buffer for rolls completed right after last message
 
     const rollEntries: IMessage[] = (rolls ?? [])
       .filter(r => r.status === "completed" && r.completedAt)

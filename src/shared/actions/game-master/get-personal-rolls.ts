@@ -15,6 +15,7 @@ export type TSessionRoll = {
   resultDetail: string | null;
   assignedBy: string | null;
   createdAt: Date;
+  completedAt: Date | null;
 };
 
 export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
@@ -30,7 +31,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
   if (!personalSession) return [];
 
   return prisma.roll.findMany({
-    where: { sessionId: personalSession.id, status: "completed" },
+    where: { sessionId: personalSession.id, status: { not: "cancelled" } },
     orderBy: { createdAt: "asc" },
     take: 200,
     select: {
@@ -44,6 +45,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       resultDetail: true,
       assignedBy: true,
       createdAt: true,
+      completedAt: true,
     },
   }).then(rolls => rolls.map(r => ({ ...r, playerName: null })));
 }

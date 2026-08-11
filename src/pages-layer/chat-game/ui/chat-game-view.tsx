@@ -101,22 +101,24 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
     const maxTs = Math.max(...msgTimes);
 
     const rollEntries: IMessage[] = (rolls ?? [])
-      .filter(r => { const ts = new Date(r.createdAt).getTime(); return ts >= minTs && ts <= maxTs; })
+      .filter(r => r.status === "completed" && r.completedAt)
+      .filter(r => { const ts = new Date(r.completedAt!).getTime(); return ts >= minTs && ts <= maxTs; })
       .map(r => ({
-      id: `roll-${r.id}`,
-      sender: "",
-      role: "roll",
-      text: "",
-      isRollEntry: true,
-      rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : r.checkName,
-      rollTotal: r.resultTotal ?? 0,
-      rollDetail: r.resultDetail ?? "",
-      rollExpression: r.diceExpression,
-    }));
+        id: `roll-${r.id}`,
+        sender: "",
+        role: "roll",
+        text: "",
+        isRollEntry: true,
+        rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : r.checkName,
+        rollTotal: r.resultTotal ?? 0,
+        rollDetail: r.resultDetail ?? "",
+        rollExpression: r.diceExpression,
+        rollTimestamp: new Date(r.completedAt!).getTime(),
+      }));
     return [...msgs, ...rollEntries].sort((a, b) => {
-      const aCreated = new Date(a.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === a.id)?.createdAt ?? 0 : rawMessages.find(m => m.id === a.id)?.createdAt ?? 0);
-      const bCreated = new Date(b.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === b.id)?.createdAt ?? 0 : rawMessages.find(m => m.id === b.id)?.createdAt ?? 0);
-      return aCreated.getTime() - bCreated.getTime();
+      const aCreated = a.isRollEntry ? (a.rollTimestamp ?? 0) : new Date(rawMessages.find(m => m.id === a.id)?.createdAt ?? 0).getTime();
+      const bCreated = b.isRollEntry ? (b.rollTimestamp ?? 0) : new Date(rawMessages.find(m => m.id === b.id)?.createdAt ?? 0).getTime();
+      return aCreated - bCreated;
     });
   }, [rawMessages, rolls]);
 

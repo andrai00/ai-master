@@ -36,7 +36,7 @@ export function useExecuteRoll() {
       const prevPersonal = qc.getQueryData<TSessionRoll[]>(["personal", "rolls"]);
 
       const update = (rolls: TSessionRoll[] | undefined): TSessionRoll[] | undefined =>
-        rolls?.map(r => r.id === rollId ? { ...r, status: "completed", resultTotal: 0, resultDetail: "..." } : r);
+        rolls?.map(r => r.id === rollId ? { ...r, status: "completed", resultTotal: 0, resultDetail: "...", completedAt: new Date() } : r);
 
       for (const [key] of prevGame) {
         qc.setQueryData<TSessionRoll[]>(key, update(qc.getQueryData<TSessionRoll[]>(key)));

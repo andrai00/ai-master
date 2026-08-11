@@ -151,6 +151,7 @@ export interface IMessage {
   rollTotal?: number;
   rollDetail?: string;
   rollExpression?: string;
+  rollTimestamp?: number;
 }
 
 interface IChatPanelProps {

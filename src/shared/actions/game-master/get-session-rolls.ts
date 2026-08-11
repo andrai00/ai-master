@@ -14,12 +14,13 @@ export type TSessionRoll = {
   resultDetail: string | null;
   assignedBy: string | null;
   createdAt: Date;
+  completedAt: Date | null;
 };
 
 export async function getSessionRollsAction(sessionId: string): Promise<TSessionRoll[]> {
   const prisma = getPrisma();
   const rolls = await prisma.roll.findMany({
-    where: { sessionId, status: "completed" },
+    where: { sessionId, status: { not: "cancelled" } },
     orderBy: { createdAt: "asc" },
     take: 200,
     select: {
@@ -33,6 +34,7 @@ export async function getSessionRollsAction(sessionId: string): Promise<TSession
       resultDetail: true,
       assignedBy: true,
       createdAt: true,
+      completedAt: true,
     },
   });
 

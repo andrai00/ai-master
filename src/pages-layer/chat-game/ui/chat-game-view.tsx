@@ -100,9 +100,10 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
       role: "roll",
       text: "",
       isRollEntry: true,
-      rollCheckName: r.checkName,
+      rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : r.checkName,
       rollTotal: r.resultTotal ?? 0,
       rollDetail: r.resultDetail ?? "",
+      rollExpression: r.diceExpression,
     }));
     return [...msgs, ...rollEntries].sort((a, b) => {
       const aCreated = new Date(a.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === a.id)?.createdAt ?? 0 : rawMessages.find(m => m.id === a.id)?.createdAt ?? 0);

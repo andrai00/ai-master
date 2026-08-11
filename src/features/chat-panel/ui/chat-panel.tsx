@@ -150,6 +150,7 @@ export interface IMessage {
   rollCheckName?: string;
   rollTotal?: number;
   rollDetail?: string;
+  rollExpression?: string;
 }
 
 interface IChatPanelProps {
@@ -480,9 +481,11 @@ export const ChatPanel = ({
     if (msg.isRollEntry) {
       return (
         <div key={msg.id} className={styles.rollEntry}>
-          <span className={styles.rollEntryBadge} title={`${msg.rollDetail}`}>
-            🎲 {msg.rollCheckName}: <strong>{msg.rollTotal}</strong>
-          </span>
+          <Tooltip title={<><span>{msg.rollExpression}</span><br/><span style={{ opacity: 0.7 }}>{msg.rollDetail}</span></>}>
+            <span className={styles.rollEntryBadge}>
+              🎲 {msg.rollCheckName}: <strong>{msg.rollTotal}</strong>
+            </span>
+          </Tooltip>
         </div>
       );
     }

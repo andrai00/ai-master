@@ -6,6 +6,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 export type TSessionRoll = {
   id: string;
   playerId: string | null;
+  playerName: string | null;
   checkName: string;
   diceExpression: string;
   count: number;
@@ -43,5 +44,5 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       assignedBy: true,
       createdAt: true,
     },
-  });
+  }).then(rolls => rolls.map(r => ({ ...r, playerName: null })));
 }

@@ -100,6 +100,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
       rollCheckName: r.checkName,
       rollTotal: r.resultTotal ?? 0,
       rollDetail: r.resultDetail ?? "",
+      rollExpression: r.diceExpression,
     }));
     return [...msgs, ...rollEntries].sort((a, b) => {
       const aCreated = new Date(a.isRollEntry ? (rolls ?? []).find(r => `roll-${r.id}` === a.id)?.createdAt ?? 0 : msgList.find(m => m.id === a.id)?.createdAt ?? 0);

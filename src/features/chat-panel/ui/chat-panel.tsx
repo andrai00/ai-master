@@ -481,7 +481,7 @@ export const ChatPanel = ({
     if (msg.isRollEntry) {
       return (
         <div key={msg.id} className={styles.rollEntry}>
-          <Tooltip title={<><span>{msg.rollExpression}</span><br/><span style={{ opacity: 0.7 }}>{msg.rollDetail}</span></>}>
+          <Tooltip title={msg.rollDetail}>
             <span className={styles.rollEntryBadge}>
               🎲 {msg.rollCheckName}: <strong>{msg.rollTotal}</strong>
             </span>

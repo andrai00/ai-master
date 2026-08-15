@@ -3,6 +3,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getEvents, onStep } from "@/src/shared/lib/agents/step-tracker";
 import type { IStepEvent } from "@/src/shared/lib/agents/step-tracker";
+import { debugLog } from "@/src/shared/lib/debug-log";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(": connected\n\n"));
+      debugLog("steps-sse", "connection opened", { sessionId: sessionId.slice(0, 8) });
 
       unsubscribe = onStep(sessionId, (ev: IStepEvent) => {
         if (closed) return;
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
     cancel() {
       closed = true;
       unsubscribe?.();
+      debugLog("steps-sse", "connection cancelled (client disconnected)", { sessionId: sessionId.slice(0, 8) });
     },
   });
 

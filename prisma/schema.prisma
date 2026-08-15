@@ -170,8 +170,7 @@ model Roll {
   count           Int      @default(1)
   status          String   @default("assigned")
   consumed        Boolean  @default(false)
-  resultTotal     Int?
-  resultDetail    String?
+  result          String?
   assignedBy      String?
   createdAt       DateTime @default(now())
   completedAt     DateTime?

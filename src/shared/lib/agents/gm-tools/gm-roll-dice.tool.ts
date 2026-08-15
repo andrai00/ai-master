@@ -3,6 +3,7 @@ import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { debugLog } from "@/src/shared/lib/debug-log";
 import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export const gmRollDiceTool = {
@@ -33,10 +34,10 @@ export const gmRollDiceTool = {
             checkName: args.reason,
             diceExpression: args.expression,
             status: "completed",
-            resultTotal: result.total,
-            resultDetail: result.output,
+            result: result.output,
           },
         });
+        debugLog("gm-tool:roll-dice", "roll saved", { sessionId: session.id.slice(0, 8), reason: args.reason, total: result.total });
         broadcastGameEvent("roll_completed", { sessionId: session.id });
       }
     }

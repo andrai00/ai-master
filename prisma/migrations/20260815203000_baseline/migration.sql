@@ -94,11 +94,8 @@ CREATE TABLE "UploadedFile" (
     "filename" TEXT NOT NULL,
     "text" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'parsing',
-    "lastReadOffset" INTEGER NOT NULL DEFAULT 0,
-    "lastReadAt" DATETIME,
-    "summary" TEXT NOT NULL DEFAULT '',
-    "glossarySummary" TEXT NOT NULL DEFAULT '',
+    "path" TEXT NOT NULL DEFAULT '',
+    "status" TEXT NOT NULL DEFAULT 'pending',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "UploadedFile_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -127,6 +124,43 @@ CREATE TABLE "BuilderJob" (
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- CreateTable
+CREATE TABLE "ChatSummary" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "masterId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "preview" TEXT NOT NULL DEFAULT '',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ChatSummary_masterId_fkey" FOREIGN KEY ("masterId") REFERENCES "Master" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "DocumentAccess" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "documentId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    CONSTRAINT "DocumentAccess_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "DocumentAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Roll" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "sessionId" TEXT NOT NULL,
+    "playerId" TEXT,
+    "checkName" TEXT NOT NULL,
+    "diceExpression" TEXT NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 1,
+    "status" TEXT NOT NULL DEFAULT 'assigned',
+    "consumed" BOOLEAN NOT NULL DEFAULT false,
+    "result" TEXT,
+    "assignedBy" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" DATETIME,
+    CONSTRAINT "Roll_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_login_key" ON "User"("login");
 
@@ -135,3 +169,12 @@ CREATE UNIQUE INDEX "GameAccess_userId_masterId_key" ON "GameAccess"("userId", "
 
 -- CreateIndex
 CREATE INDEX "BuilderJob_status_createdAt_idx" ON "BuilderJob"("status", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DocumentAccess_documentId_userId_key" ON "DocumentAccess"("documentId", "userId");
+
+-- CreateIndex
+CREATE INDEX "Roll_sessionId_status_idx" ON "Roll"("sessionId", "status");
+
+-- CreateIndex
+CREATE INDEX "Roll_sessionId_playerId_idx" ON "Roll"("sessionId", "playerId");

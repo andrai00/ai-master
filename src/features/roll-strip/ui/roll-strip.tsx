@@ -11,13 +11,6 @@ interface IRollStripProps {
   executing?: boolean;
 }
 
-const getColor = (total: number): string => {
-  const maxD20 = 20;
-  if (total >= maxD20 * 0.9) return "var(--success)";
-  if (total <= maxD20 * 0.15) return "var(--danger)";
-  return "var(--text-primary)";
-};
-
 export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IRollStripProps) => {
   if (rolls.length === 0) return null;
 
@@ -32,13 +25,14 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
         const displayLabel = isMaster ? undefined : label;
 
         if (isCompleted) {
-          const displayText = isMaster ? `${roll.resultTotal}` : `${label}: ${roll.resultTotal}`;
+          const value = roll.result ?? "";
+          const displayText = isMaster ? value : `${label}${value ? `: ${value}` : ""}`;
           return (
             <Tooltip
               key={roll.id}
-              title={`${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.resultDetail}`}
+              title={`${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.result ?? ""}`}
             >
-              <span className={styles.badge} style={{ color: getColor(roll.resultTotal ?? 0), opacity: isMaster ? 0.65 : 1 }}>
+              <span className={styles.badge} style={{ opacity: isMaster ? 0.65 : 1 }}>
                 🎲 {displayText}
               </span>
             </Tooltip>

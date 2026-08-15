@@ -1,5 +1,6 @@
 import "server-only";
 import { EventEmitter } from "events";
+import { debugLog } from "@/src/shared/lib/debug-log";
 
 export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped";
 
@@ -46,10 +47,14 @@ export function ensureSession(sessionId: string): void {
 
 function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
   const s = getMap().get(sessionId);
-  if (!s) return;
+  if (!s) {
+    debugLog("step-tracker", "emit DROPPED (no session state)", { sessionId, type: event.type, tool: event.tool });
+    return;
+  }
   s.seq++;
   const full: IStepEvent = { ...event, seq: s.seq };
   s.events.push(full);
+  debugLog("step-tracker", "emit", { sessionId: sessionId.slice(0, 8), type: full.type, tool: full.tool, detail: full.detail, seq: full.seq });
   getEmitter().emit("step", sessionId, full);
 }
 

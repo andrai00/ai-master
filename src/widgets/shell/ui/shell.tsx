@@ -6,6 +6,7 @@ import { Sidebar } from "@/src/widgets/sidebar";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MobileMenuProvider } from "@/src/shared/ui/page-header";
+import { clientLog } from "@/src/shared/lib/debug-log-client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
 
@@ -91,9 +92,11 @@ export const Shell = ({ user, children }: IShellProps) => {
           queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
         }
         if (type === "game_message_sent" || type === "game_message_deleted") {
+          clientLog("shell-sse", "game message event -> invalidate messages", { type, payload });
           queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
         }
         if (type === "personal_message_sent" || type === "personal_message_deleted") {
+          clientLog("shell-sse", "personal message event -> invalidate messages", { type, payload });
           queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
         }
         if (type === "profile_updated") {
@@ -104,6 +107,7 @@ export const Shell = ({ user, children }: IShellProps) => {
           queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
         }
         if (type === "roll_assigned" || type === "roll_completed" || type === "roll_removed") {
+          clientLog("shell-sse", "roll event -> invalidate rolls", { type, payload });
           queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
           queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
         }

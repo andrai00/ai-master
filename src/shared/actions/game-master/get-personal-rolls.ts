@@ -11,8 +11,7 @@ export type TSessionRoll = {
   diceExpression: string;
   count: number;
   status: string;
-  resultTotal: number | null;
-  resultDetail: string | null;
+  result: string | null;
   assignedBy: string | null;
   createdAt: Date;
   completedAt: Date | null;
@@ -41,8 +40,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       diceExpression: true,
       count: true,
       status: true,
-      resultTotal: true,
-      resultDetail: true,
+      result: true,
       assignedBy: true,
       createdAt: true,
       completedAt: true,

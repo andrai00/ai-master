@@ -27,7 +27,7 @@ export const TOOL_DESCRIPTIONS = {
     "Roll dice using standard RPG notation. Full syntax supports: basic (4d6, 1d20), modifier (1d20+5), keep/drop (4d6kh3, 4d6dl1), reroll (4d6ro<2), exploding (4d6!), compound (2d20+1d6), grouped ([[4d6dl1]][[4d6dl1]]). Returns total and detailed output.",
 
   present_roll_check:
-    "Assign dice rolls to specific player(s). They see clickable roll buttons. Use count>1 for multiple identical rolls. Each roll appears as a separate labeled button (#1, #2, etc).",
+    "Assign dice rolls to specific player(s). Each player sees ONE clickable button per check. Use count>1 for multiple identical rolls — all rolled from that single button.",
 
   validate_links:
     "Validate all /doc/ID links in glossary documents. Returns a list of broken links: source document, target ID that doesn't exist, and display text. Use this after import to verify index integrity, or when the admin asks to check links.",

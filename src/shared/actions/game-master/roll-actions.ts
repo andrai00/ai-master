@@ -2,11 +2,12 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { debugLog } from "@/src/shared/lib/debug-log";
 import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export async function executeRollAction(
   rollId: string
-): Promise<{ success: boolean; error?: string; results?: { total: number; detail: string }[] }> {
+): Promise<{ success: boolean; error?: string; result?: string }> {
   const prisma = getPrisma();
   const roll = await prisma.roll.findUnique({ where: { id: rollId } });
   if (!roll) return { success: false, error: "errors.rollNotFound" };
@@ -14,26 +15,27 @@ export async function executeRollAction(
 
   const isCompound = roll.diceExpression.startsWith("[[") || roll.diceExpression.startsWith("{");
   const rollCount = isCompound ? 1 : (roll.count ?? 1);
-  const allResults: { total: number; detail: string }[] = [];
 
-  for (let i = 0; i < rollCount; i++) {
-    const result = rollDice(roll.diceExpression);
-    allResults.push({ total: result.total, detail: result.output });
+  let result: string;
+  if (rollCount > 1) {
+    const outputs: string[] = [];
+    for (let i = 0; i < rollCount; i++) {
+      outputs.push(`#${i + 1}: ${rollDice(roll.diceExpression).output}`);
+    }
+    result = outputs.join(" | ");
+  } else {
+    result = rollDice(roll.diceExpression).output;
   }
-
-  const totalSum = allResults.reduce((s, r) => s + r.total, 0);
-  const detailsStr = allResults.length > 1
-    ? allResults.map((r, i) => `#${i + 1}: ${r.detail}`).join(" | ")
-    : allResults[0].detail;
 
   await prisma.roll.update({
     where: { id: rollId },
-    data: { status: "completed", resultTotal: totalSum, resultDetail: detailsStr, completedAt: new Date() },
+    data: { status: "completed", result, completedAt: new Date() },
   });
 
+  debugLog("roll-actions", "executeRoll completed", { sessionId: roll.sessionId.slice(0, 8), rollId, result });
   broadcastGameEvent("roll_completed", { sessionId: roll.sessionId, rollId });
 
-  return { success: true, results: allResults };
+  return { success: true, result };
 }
 
 export async function removeRollAction(

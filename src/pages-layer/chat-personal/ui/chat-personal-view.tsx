@@ -14,6 +14,7 @@ import { useShareMessage } from "@/src/shared/api/game-master/use-share-message"
 import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getPersonalMessagesAction, type IPersonalMessage } from "@/src/shared/actions/game-master/get-personal-messages";
+import { clientLog } from "@/src/shared/lib/debug-log-client";
 import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -74,21 +75,25 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   }, [sessionId, stopMutation]);
 
   const handleToolStep = useCallback((tool: string) => {
+    clientLog("personal-view", "onToolStep", { tool, sessionId: sessionId?.slice(0, 8) });
     if (tool === "present_roll_check") queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
-  }, [queryClient]);
+  }, [queryClient, sessionId]);
 
   const handleStepsStart = useCallback(() => {
+    clientLog("personal-view", "onStepsStart (typing=true)", { sessionId: sessionId?.slice(0, 8) });
     setTyping(true);
     queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsDone = useCallback(() => {
+    clientLog("personal-view", "onStepsDone (typing=false)", { sessionId: sessionId?.slice(0, 8) });
     setTyping(false); setStopping(false);
     queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [queryClient, sessionId]);
 
   const handleStepsError = useCallback((msg: string) => {
+    clientLog("personal-view", "onStepsError", { msg, sessionId: sessionId?.slice(0, 8) });
     notification.error({ title: msg });
     setTyping(false); setStopping(false);
     queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
@@ -122,8 +127,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         text: "",
         isRollEntry: true,
         rollCheckName: r.checkName,
-        rollTotal: r.resultTotal ?? 0,
-        rollDetail: r.resultDetail ?? "",
+        rollResult: r.result ?? "",
         rollExpression: r.diceExpression,
         rollTimestamp: new Date(r.completedAt!).getTime(),
       }));

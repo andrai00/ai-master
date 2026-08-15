@@ -39,6 +39,7 @@ import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
+import { clientLog } from "@/src/shared/lib/debug-log-client";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -148,8 +149,7 @@ export interface IMessage {
   prefix?: ReactNode;
   isRollEntry?: boolean;
   rollCheckName?: string;
-  rollTotal?: number;
-  rollDetail?: string;
+  rollResult?: string;
   rollExpression?: string;
   rollTimestamp?: number;
 }
@@ -338,9 +338,12 @@ export const ChatPanel = ({
 
       es = new EventSource(`${stepsEndpoint ?? "/api/builder/steps"}?sessionId=${stepsSessionId}`);
 
+      clientLog("chat-panel-sse", "connect", { sessionId: stepsSessionId?.slice(0, 8), endpoint: stepsEndpoint });
+
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
+          clientLog("chat-panel-sse", "event", { type: data.type, tool: data.tool, seq: data.seq, detail: data.detail, message: data.message });
           switch (data.type) {
             case "started":
               started = true;
@@ -374,6 +377,7 @@ export const ChatPanel = ({
 
       es.onerror = () => {
         if (!mounted) return;
+        clientLog("chat-panel-sse", "onerror (reconnect scheduled)", { sessionId: stepsSessionId?.slice(0, 8), retries });
         es.close();
         if (retryTimer) clearTimeout(retryTimer);
         const delay = Math.min(1000 * Math.pow(2, retries), 30_000);
@@ -498,37 +502,11 @@ export const ChatPanel = ({
 
   const renderBubble = (msg: IMessage) => {
     if (msg.isRollEntry) {
-      const detail = msg.rollDetail ?? "";
-      const isSimple = !detail.includes("#1:") && !detail.startsWith("{") && !detail.includes(" | ");
-
-      let displayTotal: string = String(msg.rollTotal);
-      if (isSimple) {
-        // single roll — show the total
-      } else if (detail.startsWith("{")) {
-        const resultStart = detail.indexOf("}: {");
-        const arrays = resultStart > 0 ? detail.slice(resultStart + 4, detail.lastIndexOf("}")) : "";
-        if (arrays) {
-          displayTotal = arrays
-            .split("], [")
-            .map((sub: string) => {
-              const trimmed = sub.replace(/[\[\]]/g, "").split(",").map((s: string) => s.trim());
-              const vals = trimmed.filter((s: string) => !s.endsWith("d")).map(Number).sort((a: number, b: number) => b - a);
-              const dropped = trimmed.filter((s: string) => s.endsWith("d")).length;
-              const kept = vals.slice(0, vals.length - dropped);
-              return kept.reduce((a: number, b: number) => a + b, 0);
-            })
-            .join(", ");
-        }
-      } else {
-        // #1: or compound — extract = N values
-        displayTotal = [...(detail.matchAll(/= (\d+)/g))].map(m => m[1]).join(", ");
-      }
-
       return (
         <div key={msg.id} className={styles.rollEntry}>
-          <Tooltip title={detail}>
+          <Tooltip title={msg.rollExpression ?? msg.rollResult ?? ""}>
             <span className={styles.rollEntryBadge}>
-              🎲 {msg.rollCheckName}: <strong>{displayTotal}</strong>
+              🎲 {msg.rollCheckName}: <strong>{msg.rollResult ?? ""}</strong>
             </span>
           </Tooltip>
         </div>

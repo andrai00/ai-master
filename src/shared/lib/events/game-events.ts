@@ -1,5 +1,6 @@
 import "server-only";
 import { EventEmitter } from "events";
+import { debugLog } from "@/src/shared/lib/debug-log";
 
 export type TGameEvent =
   | "mode_switch"
@@ -51,6 +52,7 @@ function getEmitter(): EventEmitter {
 
 /** Server Actions call this to broadcast an event to all SSE-connected clients. */
 export function broadcastGameEvent(type: TGameEvent, payload?: unknown): void {
+  debugLog("game-events", "broadcast", { type, payload });
   getEmitter().emit("event", { type, payload } as IGameEvent);
 }
 

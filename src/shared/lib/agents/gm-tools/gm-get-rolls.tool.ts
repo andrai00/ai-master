@@ -30,10 +30,10 @@ export const gmGetRollsTool = {
 
     const rolls = await prisma.roll.findMany({
       where, orderBy: { createdAt: "asc" }, take: 50,
-      select: { id: true, checkName: true, diceExpression: true, status: true, resultTotal: true, resultDetail: true, playerId: true, count: true },
+      select: { id: true, checkName: true, diceExpression: true, status: true, result: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.resultTotal, detail: r.resultDetail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, playerId: r.playerId, count: r.count }));
   },
 };
 
@@ -62,9 +62,9 @@ export const gmPersonalGetRollsTool = {
 
     const rolls = await prisma.roll.findMany({
       where, orderBy: { createdAt: "asc" }, take: 50,
-      select: { id: true, checkName: true, diceExpression: true, status: true, resultTotal: true, resultDetail: true, playerId: true, count: true },
+      select: { id: true, checkName: true, diceExpression: true, status: true, result: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.resultTotal, detail: r.resultDetail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, playerId: r.playerId, count: r.count }));
   },
 };

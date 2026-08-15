@@ -289,6 +289,7 @@ If a `.zip` archive is uploaded:
 4. After admin confirms → `bulk_import_to_glossary(typeMap)` with ONLY the confirmed folders.
    - `bulk_import_to_glossary` automatically deletes uploaded files after creating documents.
    - No manual cleanup needed for bulk import.
+   - If a glossary document with the same title (folder path + filename) already exists, it is OVERWRITTEN. Re-importing the same archive is safe — no duplicates are created for the same path+name.
 
 5. After import completes:
     - Run `scan_wiki_links()` → `replace_wiki_links()` — silently fix links

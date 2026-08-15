@@ -43,7 +43,7 @@ export async function bulkImportToGlossaryAction(
     return { success: true, imported: 0, byType: {} };
   }
 
-  // --- Phase 2: build titles — always include path for cross-reference matching ---
+  // --- Phase 2: glossary-only dedup by (masterId, title) — overwrite when path+name match ---
   const byType: Record<string, number> = {};
   let totalImported = 0;
 
@@ -51,21 +51,28 @@ export async function bulkImportToGlossaryAction(
     const folderFiles = allFiles.filter((f) => f.type === docType && f.path === folderPath);
     if (folderFiles.length === 0) continue;
 
-    const documents = folderFiles.map((f) => {
+    for (const f of folderFiles) {
       const base = stripMd(f.filename);
       const title = f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
-      return {
-        masterId,
-        title,
+      const data = {
         content: f.text,
         category: "glossary" as const,
         type: docType,
         tags: JSON.stringify([f.path.split("/").filter(Boolean).pop() ?? ""]),
         summary: null as string | null,
       };
-    });
 
-    await prisma.document.createMany({ data: documents });
+      const existing = await prisma.document.findFirst({
+        where: { masterId, title, category: "glossary" },
+        select: { id: true },
+      });
+
+      if (existing) {
+        await prisma.document.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.document.create({ data: { masterId, title, ...data } });
+      }
+    }
 
     byType[docType] = (byType[docType] || 0) + folderFiles.length;
     totalImported += folderFiles.length;

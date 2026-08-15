@@ -56,21 +56,21 @@ export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) =>
         });
         if (!importRes.ok) {
           const err = await importRes.json().catch(() => ({ error: "errors.unknownError" }));
-          notification.error({ message: t(err.error) });
+          notification.error({ title: t(err.error) });
           setImporting(false);
           return;
         }
         const importData = await importRes.json();
-        notification.success({ message: t("documents.importSuccess", { count: importData.imported }) });
+        notification.success({ title: t("documents.importSuccess", { count: importData.imported }) });
       } else if (checkRes.ok) {
         const data = await checkRes.json();
-        notification.success({ message: t("documents.importSuccess", { count: data.imported }) });
+        notification.success({ title: t("documents.importSuccess", { count: data.imported }) });
       } else {
         const err = await checkRes.json().catch(() => ({ error: "errors.unknownError" }));
-        notification.error({ message: t(err.error) });
+        notification.error({ title: t(err.error) });
       }
     } catch {
-      notification.error({ message: t("errors.unknownError") });
+      notification.error({ title: t("errors.unknownError") });
     }
 
     setImporting(false);

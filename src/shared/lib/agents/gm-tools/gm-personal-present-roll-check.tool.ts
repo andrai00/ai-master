@@ -2,7 +2,6 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
-import { debugLog } from "@/src/shared/lib/debug-log";
 
 export const gmPersonalPresentRollCheckTool = {
   description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them a roll button. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple identical rolls — all rolled from ONE button.",
@@ -41,7 +40,6 @@ export const gmPersonalPresentRollCheckTool = {
     });
 
     console.log(`[gm-tool] present_roll_check done: one button for ${rollCount} rolls`);
-    debugLog("gm-tool:present-roll-check(personal)", "roll created (NO broadcast)", { sessionId: personalSession.id.slice(0, 8), count: rollCount, checkName: args.checkName });
     return {
       assigned: rollCount,
       checkName: args.checkName,

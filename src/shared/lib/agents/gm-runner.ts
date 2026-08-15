@@ -26,7 +26,6 @@ import {
   emitStopped,
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { debugLog } from "@/src/shared/lib/debug-log";
 
 export { emitStopped } from "./step-tracker";
 
@@ -293,19 +292,14 @@ async function markRollsConsumed(sessionId: string): Promise<void> {
     where: { sessionId, status: "completed", consumed: false },
     data: { consumed: true },
   });
-  debugLog("gm-runner", "markRollsConsumed", { sessionId: sessionId.slice(0, 8), count: result.count });
   if (result.count > 0) {
     broadcastGameEvent("roll_completed", { sessionId });
   }
 }
 
 export async function runGameMasterBatch(sessionId: string): Promise<void> {
-  debugLog("gm-runner:game", "batch start", { sessionId: sessionId.slice(0, 8) });
   const ac = startProcessing(sessionId);
-  if (!ac) {
-    debugLog("gm-runner:game", "batch SKIPPED (already processing)", { sessionId: sessionId.slice(0, 8) });
-    return;
-  }
+  if (!ac) return;
 
   initSession(sessionId);
 
@@ -342,19 +336,14 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
           for (const call of calls) {
-            debugLog("gm-runner:game", "onStepFinish toolCall", { tool: call.toolName });
             emitStep(sessionId, call.toolName as string);
           }
-        } else {
-          debugLog("gm-runner:game", "onStepFinish (no toolCalls)", { finishReason: (event as Record<string, unknown>).finishReason, text: String((event as Record<string, unknown>).text ?? "").slice(0, 80) });
         }
       },
     });
 
     const gmText = result.text?.trim();
     const prisma = getPrisma();
-
-    debugLog("gm-runner:game", "generateText finished", { sessionId: sessionId.slice(0, 8), hasText: !!gmText, textLen: gmText?.length ?? 0 });
 
     if (gmText) {
       await prisma.message.create({
@@ -382,7 +371,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     );
 
     if (hasNewPlayerMessages) {
-      debugLog("gm-runner:game", "recursive re-run (new player messages)", { sessionId: sessionId.slice(0, 8) });
       endProcessing(sessionId);
       runGameMasterBatch(sessionId).catch((e) => {
         console.error("[gm-game] recursive batch failed:", e);
@@ -400,17 +388,12 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     emitError(sessionId, message.startsWith("errors.") ? message : "errors.unknownError");
   } finally {
     endProcessing(sessionId);
-    debugLog("gm-runner:game", "batch end", { sessionId: sessionId.slice(0, 8) });
   }
 }
 
 export async function runGameMasterPersonal(sessionId: string, playerId: string): Promise<void> {
-  debugLog("gm-runner:personal", "batch start", { sessionId: sessionId.slice(0, 8), playerId });
   const ac = startProcessing(sessionId);
-  if (!ac) {
-    debugLog("gm-runner:personal", "batch SKIPPED (already processing)", { sessionId: sessionId.slice(0, 8) });
-    return;
-  }
+  if (!ac) return;
 
   initSession(sessionId);
 
@@ -444,11 +427,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
           for (const call of calls) {
-            debugLog("gm-runner:personal", "onStepFinish toolCall", { tool: call.toolName });
             emitStep(sessionId, call.toolName as string);
           }
-        } else {
-          debugLog("gm-runner:personal", "onStepFinish (no toolCalls)", { finishReason: (event as Record<string, unknown>).finishReason, text: String((event as Record<string, unknown>).text ?? "").slice(0, 80) });
         }
       },
     });
@@ -458,8 +438,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     const gmText = result.text?.trim();
     const prisma = getPrisma();
-
-    debugLog("gm-runner:personal", "generateText finished", { sessionId: sessionId.slice(0, 8), hasText: !!gmText, textLen: gmText?.length ?? 0 });
 
     if (gmText) {
       await prisma.message.create({
@@ -487,6 +465,5 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     emitError(sessionId, message.startsWith("errors.") ? message : "errors.unknownError");
   } finally {
     endProcessing(sessionId);
-    debugLog("gm-runner:personal", "batch end", { sessionId: sessionId.slice(0, 8) });
   }
 }

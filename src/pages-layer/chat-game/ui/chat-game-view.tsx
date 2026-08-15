@@ -15,7 +15,6 @@ import { useSessionRolls, useExecuteRoll } from "@/src/shared/api/game-master/us
 import { requestMasterResponseAction } from "@/src/shared/actions/game-master/request-master-response";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
-import { clientLog } from "@/src/shared/lib/debug-log-client";
 import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -76,25 +75,21 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
   });
 
   const handleToolStep = useCallback((tool: string) => {
-    clientLog("game-view", "onToolStep", { tool, sessionId: sessionId?.slice(0, 8) });
     if (tool === "present_roll_check") queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsStart = useCallback(() => {
-    clientLog("game-view", "onStepsStart (typing=true)", { sessionId: sessionId?.slice(0, 8) });
     setTyping(true);
     queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsDone = useCallback(() => {
-    clientLog("game-view", "onStepsDone (typing=false)", { sessionId: sessionId?.slice(0, 8) });
     setTyping(false); setStopping(false);
     queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsError = useCallback((msg: string) => {
-    clientLog("game-view", "onStepsError", { msg, sessionId: sessionId?.slice(0, 8) });
     notification.error({ title: msg });
     setTyping(false); setStopping(false);
     queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
@@ -102,7 +97,6 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
   }, [notification, queryClient, sessionId]);
 
   const handleStepsResync = useCallback(() => {
-    clientLog("game-view", "onStepsResync", { sessionId: sessionId?.slice(0, 8) });
     setTyping(false); setStopping(false);
     queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });

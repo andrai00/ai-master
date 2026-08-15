@@ -2,7 +2,6 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { debugLog } from "@/src/shared/lib/debug-log";
 import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export async function executeRollAction(
@@ -32,7 +31,6 @@ export async function executeRollAction(
     data: { status: "completed", result, detail, completedAt: new Date() },
   });
 
-  debugLog("roll-actions", "executeRoll completed", { sessionId: roll.sessionId.slice(0, 8), rollId, result, detail });
   broadcastGameEvent("roll_completed", { sessionId: roll.sessionId, rollId });
 
   return { success: true, result, detail };

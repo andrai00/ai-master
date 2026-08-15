@@ -39,7 +39,6 @@ import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
-import { clientLog } from "@/src/shared/lib/debug-log-client";
 import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import styles from "./chat-panel.module.css";
@@ -333,7 +332,6 @@ export const ChatPanel = ({
     let started = false;
 
     const handleStep = (data: IRealtimeStepEvent) => {
-      clientLog("chat-panel-step", "event", { sessionId: stepsSessionId?.slice(0, 8), type: data.type, tool: data.tool, detail: data.detail, message: data.message });
       switch (data.type) {
         case "started":
           started = true;
@@ -364,7 +362,6 @@ export const ChatPanel = ({
 
     const unsubStep = subscribeStep(stepsSessionId, handleStep);
     const unsubReconnect = subscribeReconnect(() => {
-      clientLog("chat-panel-step", "reconnect (reset)", { sessionId: stepsSessionId?.slice(0, 8) });
       started = false;
       setLiveStep(null);
       onStepsResync?.();

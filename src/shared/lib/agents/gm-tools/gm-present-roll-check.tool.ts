@@ -4,7 +4,6 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { debugLog } from "@/src/shared/lib/debug-log";
 
 export const gmPresentRollCheckTool = {
   description: "Assign dice rolls to specific players. Each player sees ONE roll button per check. Use count>1 for multiple identical rolls (e.g. 6 stat rolls) — all are rolled from that single button.",
@@ -51,7 +50,6 @@ export const gmPresentRollCheckTool = {
       created.push(roll.id);
     }
 
-    debugLog("gm-tool:present-roll-check(game)", "rolls created", { sessionId: session.id.slice(0, 8), players: created.length, count: rollCount, checkName: args.checkName, playerIds: args.targetPlayers });
     broadcastGameEvent("roll_assigned", { sessionId: session.id });
 
     return {

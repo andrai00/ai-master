@@ -4,7 +4,6 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { onGameEvent, onUserEvent } from "@/src/shared/lib/events/game-events";
 import { onStep, getSnapshot } from "@/src/shared/lib/agents/step-tracker";
 import type { IStepEvent } from "@/src/shared/lib/agents/step-tracker";
-import { debugLog } from "@/src/shared/lib/debug-log";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -67,7 +66,6 @@ export async function GET() {
   const stream = new ReadableStream({
     start(controller) {
       enqueue(controller, "retry: 2000\n\n");
-      debugLog("stream-sse", "connection opened", { userId: session.userId.slice(0, 8), stepSessions: stepSessionIds.length });
 
       // Global broadcast events.
       unsubscribers.push(onGameEvent((event) => {
@@ -104,7 +102,6 @@ export async function GET() {
     cancel() {
       closed = true;
       for (const u of unsubscribers) u();
-      debugLog("stream-sse", "connection cancelled", { userId: session.userId.slice(0, 8) });
     },
   });
 

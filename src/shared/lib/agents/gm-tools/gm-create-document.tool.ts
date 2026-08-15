@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmCreateDocumentTool = {
   description: "Create a new document. Can create game_hidden (notes, plans) and game_visible (character sheets, public info).",
@@ -61,6 +62,7 @@ export const gmCreateDocumentTool = {
         tags: JSON.stringify(args.tags ?? []),
       },
     });
+    broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
     return { id: doc.id, title: doc.title, created: true };
   },
 };

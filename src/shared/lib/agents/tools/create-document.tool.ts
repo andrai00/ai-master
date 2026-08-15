@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
@@ -72,6 +73,7 @@ export const createDocumentTool = {
         summary: args.summary ?? null,
       },
     });
+    broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
     return { id: doc.id, title: doc.title, category: doc.category, created: true };
   },
 };

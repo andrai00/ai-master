@@ -6,7 +6,7 @@ import { Sidebar } from "@/src/widgets/sidebar";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MobileMenuProvider } from "@/src/shared/ui/page-header";
-import { emitStep, emitReconnect } from "@/src/shared/lib/realtime/client";
+import { emitStep, emitReconnect, emitDocumentDeleted } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
@@ -55,7 +55,7 @@ export const Shell = ({ user, children }: IShellProps) => {
 
     es.onmessage = (e) => {
         let type = "";
-        let payload: { sessionId?: string } | undefined;
+        let payload: { sessionId?: string; documentId?: string } | undefined;
         try {
           const parsed = JSON.parse(e.data);
           if (parsed.ns === "steps") {
@@ -118,6 +118,15 @@ export const Shell = ({ user, children }: IShellProps) => {
         if (type === "roll_assigned" || type === "roll_completed" || type === "roll_removed") {
           queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
           queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
+        }
+        if (type === "document_created" || type === "document_updated") {
+          queryClient.invalidateQueries({ queryKey: ["game", "playerDocuments"] });
+          queryClient.invalidateQueries({ queryKey: ["admin", "documents"] });
+        }
+        if (type === "document_deleted") {
+          queryClient.invalidateQueries({ queryKey: ["game", "playerDocuments"] });
+          queryClient.invalidateQueries({ queryKey: ["admin", "documents"] });
+          if (payload?.documentId) emitDocumentDeleted(payload.documentId);
         }
       };
 

@@ -3,6 +3,7 @@ import { zodSchema } from "ai";
 import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { assertCanWrite } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
@@ -37,6 +38,7 @@ export const deleteDocumentTool = {
 
     await prisma.document.delete({ where: { id: resolvedId } });
 
+    broadcastGameEvent("document_deleted", { masterId, documentId: resolvedId });
     return { deleted: true, title: doc.title, category: doc.category };
   },
 };

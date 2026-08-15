@@ -28,7 +28,10 @@ export type TGameEvent =
   | "gm_response_stopped"
   | "roll_assigned"
   | "roll_completed"
-  | "roll_removed";
+  | "roll_removed"
+  | "document_created"
+  | "document_updated"
+  | "document_deleted";
 
 interface IGameEvent {
   type: TGameEvent;

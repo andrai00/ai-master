@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmUpdateCharSheetTool = {
   description: "Update a player's character sheet (game_visible document). Find the sheet by searching for the player's documents, then update it.",
@@ -43,6 +44,7 @@ export const gmUpdateCharSheetTool = {
           summary: args.summary ?? null,
         },
       });
+      broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: created.id });
       return { id: created.id, title: created.title, created: true };
     }
 
@@ -51,6 +53,7 @@ export const gmUpdateCharSheetTool = {
     if (args.title !== undefined) updateData.title = args.title;
 
     await prisma.document.update({ where: { id: doc.id }, data: updateData });
+    broadcastGameEvent("document_updated", { masterId: activeGame.currentMasterId, documentId: doc.id });
     return { id: doc.id, title: doc.title, updated: true };
   },
 };

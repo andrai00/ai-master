@@ -39,7 +39,7 @@ import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
-import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
+import { subscribeStep, subscribeReconnect, subscribeDocumentDeleted } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import styles from "./chat-panel.module.css";
 
@@ -373,6 +373,18 @@ export const ChatPanel = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
+
+  // Close the preview modal only when the document it shows is deleted.
+  // Updates/creates and deletions of other documents leave it open (no flicker).
+  useEffect(() => {
+    const unsub = subscribeDocumentDeleted((deletedId) => {
+      if (previewDocId === deletedId) {
+        setPreviewDocId(null);
+        setPreviewAnchor(undefined);
+      }
+    });
+    return unsub;
+  }, [previewDocId]);
 
   useEffect(() => {
     if (scrollRef.current) {

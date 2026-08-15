@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmSetSceneStateTool = {
   description: "Update the current scene state. Saves to a game_hidden document called 'Current Scene'. Use this to track scene location, NPCs present, active effects, etc.",
@@ -31,6 +32,7 @@ export const gmSetSceneStateTool = {
         where: { id: existing.id },
         data: { content: args.content },
       });
+      broadcastGameEvent("document_updated", { masterId: activeGame.currentMasterId, documentId: existing.id });
       return { id: existing.id, updated: true };
     }
 
@@ -43,6 +45,7 @@ export const gmSetSceneStateTool = {
         type: "scene",
       },
     });
+    broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
     return { id: doc.id, created: true };
   },
 };

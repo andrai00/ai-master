@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
@@ -40,6 +41,7 @@ export const updateDocumentTool = {
       where: { id: resolvedId },
       data,
     });
+    broadcastGameEvent("document_updated", { masterId: updated.masterId, documentId: updated.id });
     return { id: updated.id, title: updated.title, category: updated.category };
   },
 };

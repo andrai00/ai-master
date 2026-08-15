@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 
 function stripMd(name: string): string {
@@ -83,6 +84,10 @@ export async function bulkImportToGlossaryAction(
     await prisma.uploadedFile.deleteMany({
       where: { masterId, path: folderPath },
     });
+  }
+
+  if (totalImported > 0) {
+    broadcastGameEvent("document_updated", { masterId });
   }
 
   return { success: true, imported: totalImported, byType };

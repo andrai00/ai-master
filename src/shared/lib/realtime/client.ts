@@ -78,3 +78,18 @@ export function subscribeReconnect(handler: ReconnectHandler): () => void {
 export function emitReconnect(): void {
   for (const h of [...reconnectListeners]) h();
 }
+
+type DocDeletedHandler = (documentId: string) => void;
+
+const docDeletedListeners = new Set<DocDeletedHandler>();
+
+export function subscribeDocumentDeleted(handler: DocDeletedHandler): () => void {
+  docDeletedListeners.add(handler);
+  return () => {
+    docDeletedListeners.delete(handler);
+  };
+}
+
+export function emitDocumentDeleted(documentId: string): void {
+  for (const h of [...docDeletedListeners]) h(documentId);
+}

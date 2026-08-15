@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export interface IUserGameAccess {
@@ -19,6 +20,9 @@ export interface IUserListItem {
 }
 
 export async function listUsersAction(): Promise<IUserListItem[]> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return [];
+
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
 

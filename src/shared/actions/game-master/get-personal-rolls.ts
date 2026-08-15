@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export type TSessionRoll = {
   id: string;
@@ -22,7 +23,17 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
   const session = await getSession();
   if (!session) return [];
 
+  const activeGame = await getActiveGame();
+  if (!activeGame) return [];
+
   const prisma = getPrisma();
+
+  if (session.role !== "admin") {
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: activeGame.currentMasterId } },
+    });
+    if (!access) return [];
+  }
 
   const personalSession = await prisma.session.findFirst({
     where: { playerId: session.userId, type: "personal" },

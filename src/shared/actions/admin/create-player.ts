@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 import { hashPassword } from "@/src/shared/lib/auth/password";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
@@ -15,6 +16,8 @@ export async function createPlayerAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
   if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
   if (password.length < 4) return { success: false, error: "errors.passwordTooShort" };
 

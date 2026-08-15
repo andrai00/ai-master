@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 
 export type TSessionRoll = {
   id: string;
@@ -18,7 +19,24 @@ export type TSessionRoll = {
 };
 
 export async function getSessionRollsAction(sessionId: string): Promise<TSessionRoll[]> {
+  const session = await getSession();
+  if (!session) return [];
+
   const prisma = getPrisma();
+
+  const s = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { masterId: true },
+  });
+  if (!s) return [];
+
+  if (session.role !== "admin") {
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: s.masterId } },
+    });
+    if (!access) return [];
+  }
+
   const rolls = await prisma.roll.findMany({
     where: { sessionId, status: { not: "cancelled" } },
     orderBy: { createdAt: "desc" },

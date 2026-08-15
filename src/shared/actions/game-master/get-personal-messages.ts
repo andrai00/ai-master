@@ -37,8 +37,14 @@ export async function getPersonalMessagesAction(
   });
   if (!s || s.type !== "personal") return { error: "errors.sessionNotFound" };
 
-  if (session.role !== "admin" && s.playerId !== session.userId) {
-    return { error: "errors.forbidden" };
+  if (session.role !== "admin") {
+    if (s.playerId !== session.userId) {
+      return { error: "errors.forbidden" };
+    }
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: s.masterId } },
+    });
+    if (!access) return { error: "errors.noGameAccess" };
   }
 
   const [messages, total] = await Promise.all([

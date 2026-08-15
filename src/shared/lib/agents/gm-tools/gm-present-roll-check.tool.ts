@@ -35,7 +35,15 @@ export const gmPresentRollCheckTool = {
     const rollCount = args.count ?? 1;
     const created: string[] = [];
 
+    const accesses = await prisma.gameAccess.findMany({
+      where: { masterId: activeGame.currentMasterId, userId: { in: args.targetPlayers } },
+      select: { userId: true },
+    });
+    const allowedPlayers = new Set(accesses.map((a) => a.userId));
+
     for (const playerId of args.targetPlayers) {
+      if (!allowedPlayers.has(playerId)) continue;
+
       const roll = await prisma.roll.create({
         data: {
           sessionId: session.id,

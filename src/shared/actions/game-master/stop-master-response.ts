@@ -15,11 +15,16 @@ export async function stopGameMasterResponseAction(
     const prisma = getPrisma();
     const s = await prisma.session.findUnique({
       where: { id: sessionId },
-      select: { playerId: true, type: true },
+      select: { playerId: true, type: true, masterId: true },
     });
-    if (!s || (s.type === "personal" && s.playerId !== session.userId)) {
+    if (!s) return { success: false, error: "errors.forbidden" };
+    if (s.type === "personal" && s.playerId !== session.userId) {
       return { success: false, error: "errors.forbidden" };
     }
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: s.masterId } },
+    });
+    if (!access) return { success: false, error: "errors.forbidden" };
   }
 
   stopProcessing(sessionId);

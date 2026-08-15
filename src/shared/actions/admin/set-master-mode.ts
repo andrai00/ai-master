@@ -36,6 +36,9 @@ export async function setMasterModeAction(
 }
 
 export async function getActiveModeAction(): Promise<{ mode: string } | null> {
+  const session = await getSession();
+  if (!session) return null;
+
   const activeGame = await getActiveGame();
   if (!activeGame) return null;
   return { mode: activeGame.mode };

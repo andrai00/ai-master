@@ -1,6 +1,7 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 
 export interface IResolvedWikiLink {
   docId: string;
@@ -15,7 +16,8 @@ export interface IResolvedWikiLink {
 export async function resolveWikiLinksAction(
   ids: string[]
 ): Promise<IResolvedWikiLink[]> {
-  if (ids.length === 0) return [];
+  const session = await getSession();
+  if (!session || ids.length === 0) return [];
 
   const uniqueIds = [...new Set(ids)];
   const prisma = getPrisma();

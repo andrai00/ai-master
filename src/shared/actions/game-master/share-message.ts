@@ -39,8 +39,14 @@ export async function shareMessageAction(
     return { success: false, error: "errors.wrongGame" };
   }
 
-  if (session.role !== "admin" && personalSession.playerId !== session.userId) {
-    return { success: false, error: "errors.forbidden" };
+  if (session.role !== "admin") {
+    if (personalSession.playerId !== session.userId) {
+      return { success: false, error: "errors.forbidden" };
+    }
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: personalSession.masterId } },
+    });
+    if (!access) return { success: false, error: "errors.noGameAccess" };
   }
 
   const gameSession = await prisma.session.findFirst({

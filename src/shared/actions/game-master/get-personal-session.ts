@@ -13,6 +13,13 @@ export async function getPersonalSessionAction(): Promise<{ id: string; name: st
 
   const prisma = getPrisma();
 
+  if (session.role !== "admin") {
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId: activeGame.currentMasterId } },
+    });
+    if (!access) return null;
+  }
+
   let s = await prisma.session.findFirst({
     where: {
       masterId: activeGame.currentMasterId,

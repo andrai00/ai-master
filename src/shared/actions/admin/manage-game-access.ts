@@ -1,12 +1,16 @@
 "use server";
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
+import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastToUser } from "@/src/shared/lib/events/game-events";
 
 export async function setUserGameAccessAction(
   userId: string,
   masterIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
+
   const prisma = getPrisma();
 
   const prevAccess = await prisma.gameAccess.findMany({
@@ -41,6 +45,9 @@ export async function setUserGameAccessAction(
 export async function getUserGameAccessAction(
   userId: string
 ): Promise<string[]> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return [];
+
   const prisma = getPrisma();
   const accesses = await prisma.gameAccess.findMany({
     where: { userId },

@@ -22,6 +22,7 @@ import { GameSelector, GameSelectorCollapsed } from "@/src/features/game-selecto
 import { AdminSection } from "@/src/features/admin-section";
 import { useActiveMode } from "@/src/shared/api/admin/useActiveMode";
 import { useUserAvatar } from "@/src/shared/api/profile/useUserAvatar";
+import { usePlayerDocuments } from "@/src/shared/api/game-master/use-player-documents";
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
@@ -91,6 +92,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   const modeQuery = useActiveMode();
   const { data: modeData } = isAdmin ? modeQuery : { data: null };
   const isDev = modeData?.mode === "development";
+  const { data: playerDocs } = usePlayerDocuments();
   const { data: avatarUri } = useUserAvatar(user?.userId);
   const name = displayName;
   const role = user?.role === "admin" ? t("profile.role_admin") : t("profile.role_player");
@@ -164,7 +166,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         <div className={styles.divider} />
 
         <div className={styles.tree}>
-          <FileTree isAdmin={isAdmin} />
+          <FileTree isAdmin={isAdmin} documents={playerDocs} />
         </div>
 
         <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>

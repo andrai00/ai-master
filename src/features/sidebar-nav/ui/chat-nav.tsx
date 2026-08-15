@@ -33,7 +33,8 @@ export const ChatNav = ({ collapsed, isDev }: IChatNavProps) => {
     ? allItems.filter((i) => i.key !== "personal")
     : allItems;
 
-  const isActive = (item: IChatNavItem) => (item.route ? pathname.startsWith(item.route) : pathname === "/");
+  const isActive = (item: IChatNavItem) =>
+    item.route === "/" ? pathname === "/" : item.route ? pathname.startsWith(item.route) : pathname === "/";
 
   if (collapsed) {
     return (

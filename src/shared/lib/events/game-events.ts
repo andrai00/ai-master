@@ -18,7 +18,20 @@ export type TGameEvent =
   | "user_created"
   | "user_updated"
   | "user_deleted"
-  | "ai_config_updated";
+  | "ai_config_updated"
+  | "game_message_sent"
+  | "game_message_deleted"
+  | "personal_message_sent"
+  | "personal_message_deleted"
+  | "profile_updated"
+  | "gm_response_requested"
+  | "gm_response_stopped"
+  | "roll_assigned"
+  | "roll_completed"
+  | "roll_removed"
+  | "document_created"
+  | "document_updated"
+  | "document_deleted";
 
 interface IGameEvent {
   type: TGameEvent;

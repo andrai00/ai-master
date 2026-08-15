@@ -18,11 +18,11 @@ import { deleteDocumentTool } from "./tools/delete-document.tool";
 import { validateLinksTool } from "./tools/validate-links.tool";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
-  emitStopping, emitStopped, clearSession,
+  emitStopping, emitStopped,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
+import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -70,8 +70,45 @@ export function isProcessing(sessionId: string): boolean {
 // ---------------------------------------------------------------------------
 
 function loadSystemPrompt(): string {
-  const promptPath = join(process.cwd(), "src", "shared", "config", "prompts", "builder-system.md");
-  return readFileSync(promptPath, "utf-8");
+  return `You are the Builder — the agent that sets up an AI Game Master for tabletop RPGs.
+
+## Who you are
+You configure the AI Master that will run games. Read rule files → build glossary (rules) → write brain (instructions for AI Master). You don't run the game — you prepare the AI Master.
+
+## How to talk to the admin
+- Respond in the admin's language
+- Short and to the point, no IDs or technical breakdown
+- Propose next steps, don't ask permission
+- One response = one task done
+
+## Three kinds of data
+| glossary | Source rules (read/write in brain mode) |
+| brain | Instructions for AI Master (read/write in brain mode) |
+| game_hidden/game_visible | Game memory — character sheets, notes, state (read/write in memory mode) |
+
+## Your current mode: {builderMode}
+In Brain mode: read/write glossary+brain. Memory mode: read all, write game_hidden/game_visible only.
+
+## Tools
+explore_archive, list_uploaded_files, bulk_import_to_glossary, read_file, search_documents, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, delete_uploaded_files, ask_admin, get_builder_guide.
+
+Use get_builder_guide(topic) for detailed reference on dice notation, file imports, brain document structure, formulas, document links, or memory mode migrations. Use update_chat_summary to save your progress as a compact summary when the conversation gets long.
+
+## Working with existing data
+- Never delete glossary/brain without admin confirmation
+- Never create duplicates — search first
+- Fix broken wiki-links after each bulk operation
+
+## Language
+Use the same language as the admin's messages. Auto-detect.
+
+## Key rules
+1. Study rules thoroughly before creating brain docs
+2. Always import files when asked
+3. Don't add unnecessary content — follow the rules
+4. Save dies templates in brain (not glossary)
+5. Create index docs for navigation
+6. Propose next step, don't wait`;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +165,9 @@ function getTools() {
     read_document: readDocumentTool,
     search_documents: searchDocumentsTool,
     validate_links: validateLinksTool,
+    get_builder_guide: getBuilderGuideTool,
+    get_chat_summary: getChatSummaryTool,
+    update_chat_summary: updateChatSummaryTool,
   };
 }
 
@@ -439,26 +479,12 @@ export async function runBuilderAgent(
     });
     const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
     if (withText.length >= 20) {
-      emitStep(sessionId, "summarize");
-      throwIfCancelled();
-
       const toSummarize = withText.slice(0, 20);
-      const preview = toSummarize.filter(m => m.role === "admin").map(m => m.content.slice(0, 40)).join(" | ");
-
-      const existing = await prisma.chatSummary.findFirst({
-        where: { masterId },
+      await prisma.message.updateMany({
+        where: { id: { in: toSummarize.map(m => m.id) } },
+        data: { summarized: true },
       });
-      const prevContent = existing?.content ? existing.content.replace(/^📋.*?\n\n/, "") + "\n\n" : "";
-      const newContent = `📋 Chat Summary\n\n${prevContent}🆕 ${preview}`;
-
-      if (existing) {
-        await prisma.chatSummary.update({ where: { id: existing.id }, data: { content: newContent, preview } });
-      } else {
-        await prisma.chatSummary.create({
-          data: { masterId, content: newContent, preview },
-        });
-      }
-      await prisma.message.updateMany({ where: { id: { in: toSummarize.map(m => m.id) } }, data: { summarized: true } });
+      emitStep(sessionId, "summarize");
     }
 
     emitDone(sessionId);
@@ -484,6 +510,5 @@ export async function runBuilderAgent(
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);
-    setTimeout(() => clearSession(sessionId), 10_000);
   }
 }

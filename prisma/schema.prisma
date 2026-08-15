@@ -18,6 +18,7 @@ model User {
   updatedAt    DateTime     @default(now()) @updatedAt
   ownedMasters Master[]     @relation("MasterOwner")
   gameAccess   GameAccess[]
+  documentAccess DocumentAccess[]
   messages     Message[]
   sessions     Session[]    @relation("SessionPlayer")
 }
@@ -72,6 +73,7 @@ model Document {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
   master      Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  access      DocumentAccess[]
 }
 
 model Session {
@@ -85,6 +87,7 @@ model Session {
   master      Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
   player      User?     @relation("SessionPlayer", fields: [playerId], references: [id])
   messages    Message[]
+  rolls       Roll[]
 }
 
 model Message {
@@ -146,4 +149,35 @@ model ChatSummary {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
+}
+
+model DocumentAccess {
+  id         String   @id @default(uuid())
+  documentId String
+  userId     String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([documentId, userId])
+}
+
+model Roll {
+  id              String   @id @default(uuid())
+  sessionId       String
+  playerId        String?
+  checkName       String
+  diceExpression  String
+  count           Int      @default(1)
+  status          String   @default("assigned")
+  consumed        Boolean  @default(false)
+  result          String?
+  detail          String?
+  assignedBy      String?
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@index([sessionId, playerId])
 }

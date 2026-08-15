@@ -1,1 +1,1 @@
-export { ChatGamePlaceholder } from "./ui/chat-game-placeholder";
+export { ChatGameView } from "./ui/chat-game-view";

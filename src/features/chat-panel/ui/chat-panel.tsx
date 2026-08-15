@@ -25,6 +25,7 @@ import {
   MenuOutlined,
   StopOutlined,
   LoadingOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,10 +33,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
+import { remarkChatLink } from "@/src/features/md-viewer/model/remark-chat-link";
+import { ChatNavLink } from "@/src/features/md-viewer/ui/chat-nav-link";
 import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
+import { subscribeStep, subscribeReconnect, subscribeDocumentDeleted } from "@/src/shared/lib/realtime/client";
+import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -64,6 +69,10 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
           {display}
         </button>
       );
+    }
+    const chatLink = properties?.["data-chat-link"];
+    if (chatLink) {
+      return <ChatNavLink chatKey={chatLink} />;
     }
     return <span {...rest}>{children}</span>;
   },
@@ -139,6 +148,12 @@ export interface IMessage {
   summarized?: boolean;
   attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
+  isRollEntry?: boolean;
+  rollCheckName?: string;
+  rollResult?: string;
+  rollDetail?: string;
+  rollExpression?: string;
+  rollTimestamp?: number;
 }
 
 interface IChatPanelProps {
@@ -149,6 +164,7 @@ interface IChatPanelProps {
   hideShare?: boolean;
   title?: string;
   onDelete?: (id: string) => void;
+  onShare?: (id: string) => void;
   onHistoryClick?: () => void;
   onClearChat?: () => void;
   onSend?: (text: string, files: File[]) => void;
@@ -163,7 +179,7 @@ interface IChatPanelProps {
   maxFiles?: number;
   /** Max single file size in bytes (default 50MB) */
   maxFileSize?: number;
-  /** Session ID for real-time step tracking via SSE (builder chat) */
+  /** Session ID for real-time step tracking (game/personal/builder chat) */
   stepsSessionId?: string;
   /** Called when first step event arrives (processing started) */
   onStepsStart?: () => void;
@@ -171,10 +187,22 @@ interface IChatPanelProps {
   onStepsDone?: () => void;
   /** Called when SSE reports an error */
   onStepsError?: (message: string) => void;
+  /** Called every time the SSE connection (re)opens — used to resync state */
+  onStepsResync?: () => void;
+  /** Called for each SSE step event (individual tool call during processing) */
+  onToolStep?: (tool: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
+  /** Number of player messages awaiting AI response (game chat batch mode) */
+  pendingCount?: number;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
+  /** Optional action rendered between messages area and input bar */
+  footerAction?: ReactNode;
+  /** Optional roll strip rendered between messages area and input bar */
+  rollStrip?: ReactNode;
+  /** Completed rolls to show as lightweight badges in the messages area */
+  completedRolls?: { id: string; checkName: string; total: number; detail: string; isMaster: boolean }[];
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -258,11 +286,12 @@ function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: bo
 
 export const ChatPanel = ({
   messages, placeholder, disabled, disabledText, hideShare, title,
-  onDelete, onHistoryClick, onClearChat, onSend, onStop,
+  onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError,
-  inputPrefix,
+  stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
+  pendingCount,
+  inputPrefix, footerAction, rollStrip,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -296,53 +325,66 @@ export const ChatPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveStep]);
 
-  // Subscribe to SSE for real-time step tracking (always connected on builder page)
+  // Subscribe to step events from the unified realtime stream (owned by Shell).
   useEffect(() => {
     if (!stepsSessionId) return;
 
     let started = false;
-    const es = new EventSource(`/api/builder/steps?sessionId=${stepsSessionId}`);
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        switch (data.type) {
-          case "started":
-            started = true;
-            onStepsStart?.();
-            break;
-          case "step":
-            if (!started) { started = true; onStepsStart?.(); }
-            setLiveStep({ tool: data.tool, detail: data.detail });
-            queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
-            break;
-          case "stopping":
-            setLiveStep(null);
-            break;
-          case "done":
-            started = false;
-            onStepsDone?.();
-            break;
-          case "stopped":
-            started = false;
-            onStepsDone?.();
-            break;
-          case "error":
-            onStepsError?.(data.message ?? t("errors.unknownError"));
-            break;
+    const handleStep = (data: IRealtimeStepEvent) => {
+      switch (data.type) {
+        case "started":
+          started = true;
+          onStepsStart?.();
+          break;
+        case "step": {
+          const tool = data.tool ?? "";
+          if (!started) { started = true; onStepsStart?.(); }
+          setLiveStep({ tool, detail: data.detail });
+          onToolStep?.(tool);
+          queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
+          break;
         }
-      } catch {
-        // ignore parse errors
+        case "stopping":
+          setLiveStep(null);
+          break;
+        case "done":
+        case "stopped":
+          started = false;
+          setLiveStep(null);
+          onStepsDone?.();
+          break;
+        case "error":
+          onStepsError?.(data.message ?? t("errors.unknownError"));
+          break;
       }
     };
 
-    es.onerror = () => {
-      // EventSource auto-reconnects on its own — don't close it
-    };
+    const unsubStep = subscribeStep(stepsSessionId, handleStep);
+    const unsubReconnect = subscribeReconnect(() => {
+      started = false;
+      setLiveStep(null);
+      onStepsResync?.();
+    });
 
-    return () => es.close();
+    return () => {
+      unsubStep();
+      unsubReconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
+
+  // Close the preview modal only when the document it shows is deleted.
+  // Updates/creates and deletions of other documents leave it open (no flicker).
+  useEffect(() => {
+    const unsub = subscribeDocumentDeleted((deletedId) => {
+      if (previewDocId === deletedId) {
+        setPreviewDocId(null);
+        setPreviewAnchor(undefined);
+      }
+    });
+    return unsub;
+  }, [previewDocId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -448,7 +490,19 @@ export const ChatPanel = ({
     return <UserOutlined />;
   };
 
-  const renderBubble = (msg: IMessage) => (
+  const renderBubble = (msg: IMessage) => {
+    if (msg.isRollEntry) {
+      return (
+        <div key={msg.id} className={styles.rollEntry}>
+          <Tooltip title={msg.rollDetail ?? msg.rollResult ?? ""}>
+            <span className={styles.rollEntryBadge}>
+              🎲 {msg.rollCheckName}: <strong>{msg.rollResult ?? ""}</strong>
+            </span>
+          </Tooltip>
+        </div>
+      );
+    }
+    return (
     <div
       key={msg.id}
       className={`${styles.messageRow} ${(msg.role === "master" || msg.role === "builder") ? styles.masterRow : styles.playerRow}`}
@@ -465,7 +519,7 @@ export const ChatPanel = ({
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkWikiLink]}
+              remarkPlugins={[remarkGfm, remarkWikiLink, remarkChatLink]}
                components={wikiComponents(handleWikiClick)}
             >
               {String(msg.text)}
@@ -477,9 +531,9 @@ export const ChatPanel = ({
                 <CopyOutlined />
               </button>
             </Tooltip>
-            {!hideShare && (
+            {!hideShare && onShare && (
               <Tooltip title={t("chat.share")} placement="top">
-                <button className={styles.actionBtn}>
+                <button className={styles.actionBtn} onClick={() => onShare(msg.id)}>
                   <ShareAltOutlined />
                 </button>
               </Tooltip>
@@ -516,6 +570,7 @@ export const ChatPanel = ({
       </div>
     </div>
   );
+  };
 
   const grouped = groupMessages(messages);
 
@@ -613,14 +668,26 @@ export const ChatPanel = ({
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                     </>
-                  )}
-                </div>
-              </div>
+            )}
+        </div>
+      </div>
             </div>
           )}
         </div>
       </div>
+      {rollStrip}
+      {footerAction && (
+        <div className={styles.footerAction}>
+          {footerAction}
+        </div>
+      )}
       <div className={styles.inputBar}>
+        {typing && pendingCount !== undefined && pendingCount > 0 && (
+          <div className={styles.pendingBanner}>
+            <ClockCircleOutlined className={styles.pendingIcon} />
+            <span>{t("chat.messagesPending", { count: pendingCount })}</span>
+          </div>
+        )}
         {disabled && disabledText && (
           <div className={styles.devBanner}>{disabledText}</div>
         )}

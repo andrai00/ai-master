@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -83,6 +84,8 @@ export async function POST(request: NextRequest) {
   if (documents.length > 0) {
     await prisma.document.createMany({ data: documents });
   }
+
+  broadcastGameEvent("document_updated", { masterId });
 
   return NextResponse.json({
     success: true,

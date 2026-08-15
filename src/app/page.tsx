@@ -3,7 +3,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { Shell } from "@/src/widgets/shell";
-import { ChatGamePlaceholder } from "@/src/pages-layer/chat-game";
+import { ChatGameView } from "@/src/pages-layer/chat-game";
 
 export default async function Home() {
   const prisma = getPrisma();
@@ -20,10 +20,9 @@ export default async function Home() {
 
   const activeGame = await getActiveGame();
   const isDev = activeGame?.mode === "development";
-  const noGame = !activeGame;
 
   if (session.role === "player") {
-    if (noGame) {
+    if (!activeGame) {
       redirect("/api/logout?redirect=/login");
     }
     const hasAccess =
@@ -37,7 +36,7 @@ export default async function Home() {
 
   return (
     <Shell user={session}>
-      <ChatGamePlaceholder disabled={isDev} noGame={noGame} />
+      <ChatGameView disabled={isDev} userId={session.userId} />
     </Shell>
   );
 }

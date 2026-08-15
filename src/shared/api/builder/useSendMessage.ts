@@ -23,6 +23,8 @@ export function useSendBuilderMessage() {
         role: "admin",
         content,
         senderId: "",
+        senderDisplayName: "",
+        senderAvatar: "",
         summarized: false,
         hasFiles: (fileIds?.length ?? 0) > 0,
         attachedFiles,

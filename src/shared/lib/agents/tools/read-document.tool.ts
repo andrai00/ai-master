@@ -5,6 +5,8 @@ import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanRead } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
+import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
+import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 
 interface ITocEntry {
   heading: string;
@@ -76,6 +78,14 @@ export const readDocumentTool = {
 
     const toc = extractToc(doc.content);
 
+    const blocks = parseFormulaBlocks(doc.content);
+    const { results, errors } = evaluateFormulas(blocks);
+    const formulaValues: Record<string, number> = {};
+    results.forEach((v) => { if (v.value !== null) formulaValues[v.name] = v.value; });
+    const formulaData = Object.keys(formulaValues).length > 0
+      ? { formulaValues, formulaErrors: errors.length > 0 ? errors : undefined }
+      : {};
+
     if (args.offset !== undefined || args.limit !== undefined) {
       const offset = args.offset ?? 0;
       const limit = args.limit ?? 5000;
@@ -95,9 +105,10 @@ export const readDocumentTool = {
         totalSize,
         hasMore,
         toc,
+        ...formulaData,
       };
     }
 
-    return { ...doc, toc };
+    return { ...doc, toc, ...formulaData };
   },
 };

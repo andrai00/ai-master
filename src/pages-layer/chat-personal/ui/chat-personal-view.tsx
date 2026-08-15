@@ -128,6 +128,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         isRollEntry: true,
         rollCheckName: r.checkName,
         rollResult: r.result ?? "",
+        rollDetail: r.detail ?? "",
         rollExpression: r.diceExpression,
         rollTimestamp: new Date(r.completedAt!).getTime(),
       }));

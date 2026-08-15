@@ -34,10 +34,11 @@ export const gmRollDiceTool = {
             checkName: args.reason,
             diceExpression: args.expression,
             status: "completed",
-            result: result.output,
+            result: result.totals.join(", "),
+            detail: result.output,
           },
         });
-        debugLog("gm-tool:roll-dice", "roll saved", { sessionId: session.id.slice(0, 8), reason: args.reason, total: result.total });
+        debugLog("gm-tool:roll-dice", "roll saved", { sessionId: session.id.slice(0, 8), reason: args.reason, totals: result.totals });
         broadcastGameEvent("roll_completed", { sessionId: session.id });
       }
     }
@@ -45,7 +46,7 @@ export const gmRollDiceTool = {
     return {
       expression: args.expression,
       reason: args.reason,
-      total: result.total,
+      total: result.totals.reduce((a, b) => a + b, 0),
       detail: result.output,
       savedToSession: !!sessionId,
     };

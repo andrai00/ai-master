@@ -7,7 +7,7 @@ import { rollDice } from "@/src/shared/lib/dice/roll";
 
 export async function executeRollAction(
   rollId: string
-): Promise<{ success: boolean; error?: string; result?: string }> {
+): Promise<{ success: boolean; error?: string; result?: string; detail?: string }> {
   const prisma = getPrisma();
   const roll = await prisma.roll.findUnique({ where: { id: rollId } });
   if (!roll) return { success: false, error: "errors.rollNotFound" };
@@ -16,26 +16,26 @@ export async function executeRollAction(
   const isCompound = roll.diceExpression.startsWith("[[") || roll.diceExpression.startsWith("{");
   const rollCount = isCompound ? 1 : (roll.count ?? 1);
 
-  let result: string;
-  if (rollCount > 1) {
-    const outputs: string[] = [];
-    for (let i = 0; i < rollCount; i++) {
-      outputs.push(`#${i + 1}: ${rollDice(roll.diceExpression).output}`);
-    }
-    result = outputs.join(" | ");
-  } else {
-    result = rollDice(roll.diceExpression).output;
+  const totals: number[] = [];
+  const outputs: string[] = [];
+  for (let i = 0; i < rollCount; i++) {
+    const r = rollDice(roll.diceExpression);
+    totals.push(...r.totals);
+    outputs.push(rollCount > 1 ? `#${i + 1}: ${r.output}` : r.output);
   }
+
+  const result = totals.join(", ");
+  const detail = outputs.join(" | ");
 
   await prisma.roll.update({
     where: { id: rollId },
-    data: { status: "completed", result, completedAt: new Date() },
+    data: { status: "completed", result, detail, completedAt: new Date() },
   });
 
-  debugLog("roll-actions", "executeRoll completed", { sessionId: roll.sessionId.slice(0, 8), rollId, result });
+  debugLog("roll-actions", "executeRoll completed", { sessionId: roll.sessionId.slice(0, 8), rollId, result, detail });
   broadcastGameEvent("roll_completed", { sessionId: roll.sessionId, rollId });
 
-  return { success: true, result };
+  return { success: true, result, detail };
 }
 
 export async function removeRollAction(

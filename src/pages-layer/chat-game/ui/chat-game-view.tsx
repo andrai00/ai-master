@@ -131,6 +131,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         isRollEntry: true,
         rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : r.checkName,
         rollResult: r.result ?? "",
+        rollDetail: r.detail ?? "",
         rollExpression: r.diceExpression,
         rollTimestamp: new Date(r.completedAt!).getTime(),
       }));

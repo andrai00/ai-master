@@ -15,7 +15,7 @@ export const gmPersonalRollDiceTool = {
     return {
       expression: args.expression,
       reason: args.reason,
-      total: result.total,
+      total: result.totals.reduce((a, b) => a + b, 0),
       detail: result.output,
     };
   },

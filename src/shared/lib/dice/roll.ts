@@ -1,7 +1,7 @@
 import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 
 export interface IDiceRollResult {
-  total: number;
+  totals: number[];
   output: string;
 }
 
@@ -10,12 +10,13 @@ export function rollDice(notation: string): IDiceRollResult {
   if (compound) {
     const parts = notation.match(/\[\[[^\]]+\]\]/g) ?? [];
     const results = parts.map(p => new DiceRoll(p));
-    const total = results.reduce((s, r) => s + r.total, 0);
-    const output = results.map(r => r.output).join(" | ");
-    return { total, output };
+    return {
+      totals: results.map(r => r.total),
+      output: results.map(r => r.output).join(" | "),
+    };
   }
   const roll = new DiceRoll(notation);
-  return { total: roll.total, output: roll.output };
+  return { totals: [roll.total], output: roll.output };
 }
 
 export function validateNotation(notation: string): boolean {

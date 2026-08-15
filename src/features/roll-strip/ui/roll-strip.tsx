@@ -30,7 +30,7 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
           return (
             <Tooltip
               key={roll.id}
-              title={`${roll.diceExpression}${roll.count > 1 ? ` ×${roll.count}` : ""} → ${roll.result ?? ""}`}
+              title={roll.detail ?? roll.result ?? ""}
             >
               <span className={styles.badge} style={{ opacity: isMaster ? 0.65 : 1 }}>
                 🎲 {displayText}

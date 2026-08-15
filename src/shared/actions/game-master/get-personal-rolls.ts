@@ -12,6 +12,7 @@ export type TSessionRoll = {
   count: number;
   status: string;
   result: string | null;
+  detail: string | null;
   assignedBy: string | null;
   createdAt: Date;
   completedAt: Date | null;
@@ -41,6 +42,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       count: true,
       status: true,
       result: true,
+      detail: true,
       assignedBy: true,
       createdAt: true,
       completedAt: true,

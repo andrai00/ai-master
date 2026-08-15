@@ -171,6 +171,7 @@ model Roll {
   status          String   @default("assigned")
   consumed        Boolean  @default(false)
   result          String?
+  detail          String?
   assignedBy      String?
   createdAt       DateTime @default(now())
   completedAt     DateTime?

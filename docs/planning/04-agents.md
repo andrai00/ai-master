@@ -20,7 +20,7 @@
 
 ## SSE-протокол (Builder Chat)
 
-События отправляются через `/api/builder/steps?sessionId=...`:
+События отправляются через `/api/stream` (step-события):
 
 | Тип | Данные | Что делает клиент |
 |---|---|---|
@@ -207,7 +207,7 @@ Read 25 file chunks. Created 12 documents. Updated 3 documents. Searched 5 times
 | `send-message.ts` | Server Action: сохраняет сообщение, запускает фон |
 | `stop-builder.ts` | Server Action: cancelAll + stopProcessing |
 | `/api/builder/upload/route.ts` | API Route: приём и парсинг файлов |
-| `/api/builder/steps/route.ts` | SSE endpoint: события обработки |
+| `/api/stream/route.ts` | SSE endpoint: события обработки |
 
 ---
 

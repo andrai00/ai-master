@@ -19,7 +19,7 @@
 - `src/shared/lib/agents/file-parser.ts` — парсинг PDF/текст
 - `src/shared/lib/agents/tools/` — все инструменты агента
 - `src/shared/actions/builder/` — server actions (send-message, stop-builder, clear-chat)
-- `src/app/api/builder/steps/route.ts` — SSE endpoint
+- `src/app/api/stream/route.ts` — единый SSE endpoint (глобальные + step-события)
 - `src/app/api/builder/upload/route.ts` — загрузка файлов
 - `docs/GOLDEN-RULES.md` — G19 (fire-and-forget), G18 (SSE-push)
 - `docs/ANTI-PATTERNS.md` — Builder Agent секция
@@ -36,7 +36,7 @@
 
 ### Изменение builder-runner
 1. **Fire-and-forget:** server action сохраняет сообщение → `runBuilderAgent()` без await → return `{ success: true }`
-2. **SSE:** прогресс через `/api/builder/steps`, типы: `started`, `step`, `stopping`, `done`, `stopped`, `error`
+2. **SSE:** прогресс через `/api/stream` (step-события), типы: `started`, `step`, `stopping`, `done`, `stopped`, `error`
 3. **Контекст:** `prepareStep` проверяет токены → при превышении `contextLimit × 0.7` — саммаризация
 4. **Ретраи:** до 5 попыток, exponential backoff, только transient ошибки
 5. **Остановка:** `cancelAll()` + `stopProcessing(sessionId)` — два слоя одновременно

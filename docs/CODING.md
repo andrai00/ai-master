@@ -96,7 +96,7 @@ const { data: games } = useListGames();
 - **Prisma 7 + SQLite** — все данные
 - Файл: `data/ai-master.db` (DATABASE_URL в `.env`)
 - Синглтон: `src/shared/lib/db/prisma.ts` через `globalThis`
-- Миграции: `npx prisma migrate dev --name <name>`
+- Схема БД: `npx prisma db push` (миграции-файлы не используются)
 - Схема: `prisma/schema.prisma`
 - Клиент: `import { getPrisma } from "@/src/shared/lib/db/prisma"`
 
@@ -208,8 +208,8 @@ Public API слайса только через `index.ts`.
 ### Нотификации и заголовки — только через i18n
 Все `notification.success({ title: ... })`, `Modal title`, `placeholder`, `Tooltip title` — через `t()`. Исключение: динамические данные из БД.
 
-### Миграция Prisma — до перезапуска dev-сервера
-`npx prisma migrate dev --name <name> && npx prisma generate` до тестирования. Иначе `globalThis` + старый клиент = баги.
+### Схема Prisma — до перезапуска dev-сервера
+`npx prisma db push && npx prisma generate` до тестирования. Иначе `globalThis` + старый клиент = баги.
 
 ### Нашёл повторяющуюся проблему → предложи записать как правило
 Если замечаешь паттерн ошибок — предложи в чате добавить правило. НЕ добавляй без подтверждения.
@@ -235,18 +235,18 @@ sqlite3 data/ai-master.db ".schema Document"
 Если фича меняет состояние которое должны увидеть все подключённые пользователи (смена игры, смена режима, потеря доступа, глобальные события) — делаем SSE-push, а не полагаемся на опрос каждым клиентом.
 
 Паттерн:
-1. **API Route** `src/app/api/{event}-events/route.ts` — `ReadableStream`, `text/event-stream`, пушит события
-2. **Клиент** — `EventSource` в `useEffect`, слушает события и реагирует (редирект, `queryClient.invalidateQueries`, обновление UI)
-3. **Триггер** — Server Action при мутации дополнительно вызывает broadcast через глобальный EventEmitter или общую очередь
+1. **API Route** `src/app/api/stream/route.ts` — единый SSE: `ReadableStream`, `text/event-stream`, мультиплексирует глобальные события + step-события (`ns: "events" | "steps"`)
+2. **Клиент** — `EventSource` в `useEffect`, слушает события и реагирует (редирект, `queryClient.invalidateQueries`, обновление UI). Нативный авто-реконнект — `onerror` пустой
+3. **Триггер** — Server Action при мутации вызывает `broadcastGameEvent` через глобальный EventEmitter
 
-Пример существующей реализации: `src/app/api/game-events/route.ts` + подписка в `src/widgets/shell/ui/shell.tsx`.
+Пример существующей реализации: `src/app/api/stream/route.ts` + подписка в `src/widgets/shell/ui/shell.tsx` + шина `src/shared/lib/realtime/client.ts`.
 
 ### Builder Agent: fire-and-forget + SSE
 
 Сообщение AI — долгий процесс (до 2 мин). Нельзя заставлять Server Action ждать. Паттерн:
 
 1. **Отправка:** Server Action сохраняет сообщение в БД → запускает `runBuilderAgent()` **без await** → сразу возвращает `{ success: true }`
-2. **Получение:** ответ AI и прогресс — через SSE (`/api/builder/steps`). Все клиенты (включая отправителя) получают одинаково
+2. **Получение:** ответ AI и прогресс — через SSE (`/api/stream`, step-события). Все клиенты (включая отправителя) получают одинаково
 3. **SSE всегда подключён** — клиент подключается при заходе на страницу, не только при отправке
 4. **Типы SSE-событий:** `started`, `step`, `stopping`, `done`, `stopped`, `error`
 

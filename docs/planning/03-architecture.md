@@ -37,9 +37,8 @@
 
 ## Схема БД (Prisma + SQLite)
 
-> **Правило миграций:** `prisma migrate reset` **ЗАПРЕЩЁН** — он дропает всю базу.  
-> При drift (расхождение БД с историей миграций) использовать `prisma db push` — синхронизирует схему без потери данных.  
-> Нормальный workflow: `schema.prisma → migrate dev → generate`.
+> **Правило БД:** `prisma migrate reset` **ЗАПРЕЩЁН** — он дропает всю базу.  
+> Нормальный workflow: `schema.prisma → prisma db push → prisma generate`. Миграции-файлы не используются (нет прода).
 
 ### Users
 ```prisma
@@ -348,7 +347,7 @@ model Message {
 Когда админ убирает игрока из `GameAccess`:
 - Игрок теряет доступ мгновенно (проверка при следующем запросе)
 - **SSE-push** события `kick` этому игроку → `EventSource` закрывается → редирект на `/login`
-- Существующая реализация: `src/app/api/game-events/route.ts`
+- Существующая реализация: `src/app/api/stream/route.ts`
 
 ### Данные изолированы по играм
 
@@ -459,7 +458,7 @@ JSON-колонках. Игроку не показываются. Рендер�
 6. Инструменты для агентов: read, write, search, semantic_search, send_chat
 7. Next.js: серверные экшены, SSR, i18n, темы, адаптив
 8. Экспорт/импорт дампов мастеров
-9. SSE-подсистема: game-events (mode_switch, kick, builder_mode_change, game_deleted) — push всем клиентам
+9. SSE-подсистема: `/api/stream` (mode_switch, kick, builder_mode_change, game_deleted, document_*) — push всем клиентам
 10. ActiveGame + switchGame / setMasterMode: глобальное состояние игры и режима
 
 Всё остальное — зона нейронки.

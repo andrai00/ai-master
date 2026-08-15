@@ -163,11 +163,11 @@ const { data: games } = useListGames();
 
 ---
 
-## G17 — Миграция Prisma до перезапуска dev-сервера
+## G17 — Схема БД синхронизирована до перезапуска dev-сервера
 
-**Суть:** `npx prisma migrate dev --name <name> && npx prisma generate` до тестирования.
+**Суть:** `npx prisma db push && npx prisma generate` до тестирования. Миграции-файлы не используются — схема применяется через `db push` (иначе старый клиент в `globalThis` = баги).
 
-**Нарушение:** изменение схемы без `migrate dev` + `generate`.
+**Нарушение:** изменение схемы без `db push` + `generate`.
 
 ---
 

@@ -40,6 +40,8 @@ import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import { clientLog } from "@/src/shared/lib/debug-log-client";
+import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
+import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -178,16 +180,16 @@ interface IChatPanelProps {
   maxFiles?: number;
   /** Max single file size in bytes (default 50MB) */
   maxFileSize?: number;
-  /** Session ID for real-time step tracking via SSE (builder chat) */
+  /** Session ID for real-time step tracking (game/personal/builder chat) */
   stepsSessionId?: string;
-  /** SSE endpoint path for step events (default: /api/builder/steps) */
-  stepsEndpoint?: string;
   /** Called when first step event arrives (processing started) */
   onStepsStart?: () => void;
   /** Called when SSE reports processing is done */
   onStepsDone?: () => void;
   /** Called when SSE reports an error */
   onStepsError?: (message: string) => void;
+  /** Called every time the SSE connection (re)opens — used to resync state */
+  onStepsResync?: () => void;
   /** Called for each SSE step event (individual tool call during processing) */
   onToolStep?: (tool: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
@@ -288,7 +290,7 @@ export const ChatPanel = ({
   onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
-  stepsSessionId, stepsEndpoint, stopping, onStepsDone, onStepsStart, onStepsError, onToolStep,
+  stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
   pendingCount,
   inputPrefix, footerAction, rollStrip,
 }: IChatPanelProps) => {
@@ -324,75 +326,53 @@ export const ChatPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveStep]);
 
-  // Subscribe to SSE for real-time step tracking (always connected on builder page)
+  // Subscribe to step events from the unified realtime stream (owned by Shell).
   useEffect(() => {
     if (!stepsSessionId) return;
 
-    let es: EventSource;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let retries = 0;
-    let mounted = true;
+    let started = false;
 
-    const connect = () => {
-      if (!mounted) return;
-      let started = false;
-
-      es = new EventSource(`${stepsEndpoint ?? "/api/builder/steps"}?sessionId=${stepsSessionId}`);
-
-      clientLog("chat-panel-sse", "connect", { sessionId: stepsSessionId?.slice(0, 8), endpoint: stepsEndpoint });
-
-      es.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          clientLog("chat-panel-sse", "event", { type: data.type, tool: data.tool, seq: data.seq, detail: data.detail, message: data.message });
-          switch (data.type) {
-            case "started":
-              started = true;
-              onStepsStart?.();
-              break;
-            case "step":
-              if (!started) { started = true; onStepsStart?.(); }
-              setLiveStep({ tool: data.tool, detail: data.detail });
-              onToolStep?.(data.tool);
-              queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
-              break;
-            case "stopping":
-              setLiveStep(null);
-              break;
-            case "done":
-              started = false;
-              onStepsDone?.();
-              break;
-            case "stopped":
-              started = false;
-              onStepsDone?.();
-              break;
-            case "error":
-              onStepsError?.(data.message ?? t("errors.unknownError"));
-              break;
-          }
-        } catch {
-          // ignore parse errors
+    const handleStep = (data: IRealtimeStepEvent) => {
+      clientLog("chat-panel-step", "event", { sessionId: stepsSessionId?.slice(0, 8), type: data.type, tool: data.tool, detail: data.detail, message: data.message });
+      switch (data.type) {
+        case "started":
+          started = true;
+          onStepsStart?.();
+          break;
+        case "step": {
+          const tool = data.tool ?? "";
+          if (!started) { started = true; onStepsStart?.(); }
+          setLiveStep({ tool, detail: data.detail });
+          onToolStep?.(tool);
+          queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
+          break;
         }
-      };
-
-      es.onerror = () => {
-        if (!mounted) return;
-        clientLog("chat-panel-sse", "onerror (reconnect scheduled)", { sessionId: stepsSessionId?.slice(0, 8), retries });
-        es.close();
-        if (retryTimer) clearTimeout(retryTimer);
-        const delay = Math.min(1000 * Math.pow(2, retries), 30_000);
-        retries++;
-        retryTimer = setTimeout(connect, delay);
-      };
+        case "stopping":
+          setLiveStep(null);
+          break;
+        case "done":
+        case "stopped":
+          started = false;
+          setLiveStep(null);
+          onStepsDone?.();
+          break;
+        case "error":
+          onStepsError?.(data.message ?? t("errors.unknownError"));
+          break;
+      }
     };
 
-    connect();
+    const unsubStep = subscribeStep(stepsSessionId, handleStep);
+    const unsubReconnect = subscribeReconnect(() => {
+      clientLog("chat-panel-step", "reconnect (reset)", { sessionId: stepsSessionId?.slice(0, 8) });
+      started = false;
+      setLiveStep(null);
+      onStepsResync?.();
+    });
 
     return () => {
-      mounted = false;
-      if (retryTimer) clearTimeout(retryTimer);
-      try { es?.close(); } catch { /* already closed */ }
+      unsubStep();
+      unsubReconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);

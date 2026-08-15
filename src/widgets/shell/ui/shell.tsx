@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MobileMenuProvider } from "@/src/shared/ui/page-header";
 import { clientLog } from "@/src/shared/lib/debug-log-client";
+import { emitStep, emitReconnect } from "@/src/shared/lib/realtime/client";
+import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./shell.module.css";
 
@@ -37,23 +39,34 @@ export const Shell = ({ user, children }: IShellProps) => {
   }, []);
 
   useEffect(() => {
-    let es: EventSource;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let retries = 0;
     let mounted = true;
 
-    const connect = () => {
-      if (!mounted) return;
-      es = new EventSource("/api/game-events");
+    const es = new EventSource("/api/stream");
 
-      es.onmessage = (e) => {
-        let type: string = e.data;
+    es.onopen = () => {
+      if (!mounted) return;
+      clientLog("shell-sse", "open (resync)", {});
+      emitReconnect();
+      queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["builder", "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["game", "rolls"] });
+      queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
+      queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
+    };
+
+    es.onmessage = (e) => {
+        let type = "";
         let payload: { sessionId?: string } | undefined;
         try {
           const parsed = JSON.parse(e.data);
-          type = parsed.type ?? e.data;
+          if (parsed.ns === "steps") {
+            if (parsed.sessionId) emitStep(parsed.sessionId, parsed as IRealtimeStepEvent);
+            return;
+          }
+          type = parsed.type ?? "";
           payload = parsed.payload;
-        } catch { /* legacy format */ }
+        } catch { return; }
 
         if (type === "kick") {
           es.close();
@@ -113,21 +126,13 @@ export const Shell = ({ user, children }: IShellProps) => {
         }
       };
 
-      es.onerror = () => {
-        if (!mounted) return;
-        es.close();
-        if (retryTimer) clearTimeout(retryTimer);
-        const delay = Math.min(1000 * Math.pow(2, retries), 30_000);
-        retries++;
-        retryTimer = setTimeout(connect, delay);
-      };
+    es.onerror = () => {
+      // EventSource reconnects natively; no manual close/reconnect needed.
+      clientLog("shell-sse", "error (native reconnect)", {});
     };
-
-    connect();
 
     return () => {
       mounted = false;
-      if (retryTimer) clearTimeout(retryTimer);
       try { es?.close(); } catch { /* already closed */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

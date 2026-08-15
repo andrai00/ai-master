@@ -101,6 +101,13 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [notification, queryClient, sessionId]);
 
+  const handleStepsResync = useCallback(() => {
+    clientLog("game-view", "onStepsResync", { sessionId: sessionId?.slice(0, 8) });
+    setTyping(false); setStopping(false);
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
+  }, [queryClient, sessionId]);
+
   const mapMsg = (m: IGameMessage): IMessage => ({
     id: m.id,
     sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
@@ -237,11 +244,11 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         stopping={stopping}
         pendingCount={0}
         stepsSessionId={sessionId}
-        stepsEndpoint="/api/game-chat/steps"
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}
         onStepsDone={handleStepsDone}
         onStepsError={handleStepsError}
+        onStepsResync={handleStepsResync}
         footerAction={requestBtn}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />

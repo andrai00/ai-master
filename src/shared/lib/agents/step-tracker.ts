@@ -12,17 +12,19 @@ export interface IStepEvent {
   seq: number;
 }
 
-interface ISessionState {
-  events: IStepEvent[];
+export interface ISessionSnapshot {
+  processing: boolean;
+  tool?: string;
+  detail?: string;
   seq: number;
 }
 
 const globalState = globalThis as unknown as {
-  sessions: Map<string, ISessionState> | undefined;
+  sessions: Map<string, ISessionSnapshot> | undefined;
   emitter: EventEmitter | undefined;
 };
 
-function getMap(): Map<string, ISessionState> {
+function getMap(): Map<string, ISessionSnapshot> {
   if (!globalState.sessions) globalState.sessions = new Map();
   return globalState.sessions;
 }
@@ -36,13 +38,7 @@ function getEmitter(): EventEmitter {
 }
 
 export function initSession(sessionId: string): void {
-  getMap().set(sessionId, { events: [], seq: 0 });
-}
-
-export function ensureSession(sessionId: string): void {
-  if (!getMap().has(sessionId)) {
-    getMap().set(sessionId, { events: [], seq: 0 });
-  }
+  getMap().set(sessionId, { processing: false, seq: 0 });
 }
 
 function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
@@ -53,9 +49,35 @@ function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
   }
   s.seq++;
   const full: IStepEvent = { ...event, seq: s.seq };
-  s.events.push(full);
+
+  switch (event.type) {
+    case "started":
+      s.processing = true;
+      s.tool = undefined;
+      break;
+    case "step":
+      s.processing = true;
+      s.tool = event.tool;
+      s.detail = event.detail;
+      break;
+    case "stopping":
+      s.processing = true;
+      s.tool = undefined;
+      break;
+    case "done":
+    case "stopped":
+    case "error":
+      s.processing = false;
+      break;
+  }
+
   debugLog("step-tracker", "emit", { sessionId: sessionId.slice(0, 8), type: full.type, tool: full.tool, detail: full.detail, seq: full.seq });
   getEmitter().emit("step", sessionId, full);
+
+  // Deterministic cleanup: terminal states remove the snapshot.
+  if (event.type === "done" || event.type === "stopped" || event.type === "error") {
+    getMap().delete(sessionId);
+  }
 }
 
 export function emitStarted(sessionId: string): void {
@@ -82,12 +104,8 @@ export function emitStopped(sessionId: string): void {
   emit(sessionId, { type: "stopped" });
 }
 
-export function getEvents(sessionId: string): ISessionState | undefined {
+export function getSnapshot(sessionId: string): ISessionSnapshot | undefined {
   return getMap().get(sessionId);
-}
-
-export function clearSession(sessionId: string): void {
-  getMap().delete(sessionId);
 }
 
 /** Subscribe to step events for real-time push. Returns unsubscribe function. */

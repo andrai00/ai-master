@@ -23,7 +23,7 @@ import {
 } from "./gm-system";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
-  emitStopped, clearSession,
+  emitStopped,
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { debugLog } from "@/src/shared/lib/debug-log";
@@ -384,7 +384,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     if (hasNewPlayerMessages) {
       debugLog("gm-runner:game", "recursive re-run (new player messages)", { sessionId: sessionId.slice(0, 8) });
       endProcessing(sessionId);
-      setTimeout(() => clearSession(sessionId), 1_000);
       runGameMasterBatch(sessionId).catch((e) => {
         console.error("[gm-game] recursive batch failed:", e);
       });
@@ -401,8 +400,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     emitError(sessionId, message.startsWith("errors.") ? message : "errors.unknownError");
   } finally {
     endProcessing(sessionId);
-    debugLog("gm-runner:game", "batch end (clearSession scheduled 10s)", { sessionId: sessionId.slice(0, 8) });
-    setTimeout(() => clearSession(sessionId), 10_000);
+    debugLog("gm-runner:game", "batch end", { sessionId: sessionId.slice(0, 8) });
   }
 }
 
@@ -489,7 +487,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     emitError(sessionId, message.startsWith("errors.") ? message : "errors.unknownError");
   } finally {
     endProcessing(sessionId);
-    debugLog("gm-runner:personal", "batch end (clearSession scheduled 10s)", { sessionId: sessionId.slice(0, 8) });
-    setTimeout(() => clearSession(sessionId), 10_000);
+    debugLog("gm-runner:personal", "batch end", { sessionId: sessionId.slice(0, 8) });
   }
 }

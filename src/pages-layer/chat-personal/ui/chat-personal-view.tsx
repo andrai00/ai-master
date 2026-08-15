@@ -100,6 +100,13 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [notification, queryClient, sessionId]);
 
+  const handleStepsResync = useCallback(() => {
+    clientLog("personal-view", "onStepsResync", { sessionId: sessionId?.slice(0, 8) });
+    setTyping(false); setStopping(false);
+    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
+  }, [queryClient, sessionId]);
+
   const mapMsg = (m: IPersonalMessage): IMessage => ({
     id: m.id,
     sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
@@ -221,11 +228,11 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId}
-        stepsEndpoint="/api/game-chat/steps"
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}
         onStepsDone={handleStepsDone}
         onStepsError={handleStepsError}
+        onStepsResync={handleStepsResync}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />
       <Modal

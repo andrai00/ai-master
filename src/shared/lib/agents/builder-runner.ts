@@ -18,7 +18,7 @@ import { deleteDocumentTool } from "./tools/delete-document.tool";
 import { validateLinksTool } from "./tools/validate-links.tool";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
-  emitStopping, emitStopped, clearSession,
+  emitStopping, emitStopped,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
@@ -510,6 +510,5 @@ export async function runBuilderAgent(
     emitError(sessionId, message);
   } finally {
     endProcessing(sessionId);
-    setTimeout(() => clearSession(sessionId), 10_000);
   }
 }

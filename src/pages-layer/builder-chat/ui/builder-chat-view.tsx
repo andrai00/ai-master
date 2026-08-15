@@ -284,6 +284,7 @@ export const BuilderChatView = () => {
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsResync={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
       />
       <Modal
         title={t("chat.historyTitle")}

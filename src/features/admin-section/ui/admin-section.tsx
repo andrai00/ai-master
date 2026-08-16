@@ -72,6 +72,13 @@ export const AdminSection = () => {
         </button>
       </div>
 
+      <Link
+        href="/admin/documents"
+        className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
+      >
+        <FileTextOutlined className={styles.rowIcon} />
+        <span className={styles.rowLabel}>{t("mode.documents")}</span>
+      </Link>
       {isDev && (
         <>
           <Link href="/admin/builder" className={`${styles.row} ${isActive("/admin/builder") ? styles.rowActive : ""}`}>
@@ -89,14 +96,6 @@ export const AdminSection = () => {
             </button>
           </div>
         </>
-      )}
-      {isDev && (
-        <Link href="/admin/documents"
-          className={`${styles.row} ${isActive("/admin/documents") ? styles.rowActive : ""}`}
-        >
-          <FileTextOutlined className={styles.rowIcon} />
-          <span className={styles.rowLabel}>{t("mode.documents")}</span>
-        </Link>
       )}
       <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />

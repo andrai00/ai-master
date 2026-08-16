@@ -17,7 +17,6 @@ export default async function DocumentsPage() {
       </Shell>
     );
   }
-  if (activeGame.mode !== "development") redirect("/");
 
   return (
     <Shell user={session}>

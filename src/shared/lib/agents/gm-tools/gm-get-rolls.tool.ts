@@ -4,10 +4,10 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmGetRollsTool = {
-  description: "View session rolls for game chat. Returns assigned (unrolled) and completed (unconsumed) rolls. Use to check results or pending rolls.",
+  description: "View session rolls for game chat. Returns assigned (unrolled) and completed (unconsumed) rolls by default. Use filter='history' to see ALL completed rolls including already confirmed ones (e.g. for disputes or re-checking old results).",
   inputSchema: zodSchema(
     z.object({
-      filter: z.enum(["assigned", "completed", "all"]).optional().describe("'assigned', 'completed', 'all' (default)"),
+      filter: z.enum(["assigned", "completed", "all", "history"]).optional().describe("'assigned', 'completed', 'all' (default), or 'history' for all completed incl. confirmed"),
       playerId: z.string().optional().describe("Filter by player. Omit for all."),
     })
   ),
@@ -26,6 +26,7 @@ export const gmGetRollsTool = {
     if (args.playerId) where.playerId = args.playerId;
     if (args.filter === "assigned") where.status = "assigned";
     else if (args.filter === "completed") { where.status = "completed"; where.consumed = false; }
+    else if (args.filter === "history") where.status = "completed";
     else where.OR = [{ status: "assigned" }, { status: "completed", consumed: false }];
 
     const rolls = await prisma.roll.findMany({
@@ -38,10 +39,10 @@ export const gmGetRollsTool = {
 };
 
 export const gmPersonalGetRollsTool = {
-  description: "View personal session rolls. Returns assigned and completed (unconsumed) rolls for this player.",
+  description: "View personal session rolls. Returns assigned and completed (unconsumed) rolls by default. Use filter='history' to see all completed rolls including already confirmed ones.",
   inputSchema: zodSchema(
     z.object({
-      filter: z.enum(["assigned", "completed", "all"]).optional().describe("'assigned', 'completed', 'all' (default)"),
+      filter: z.enum(["assigned", "completed", "all", "history"]).optional().describe("'assigned', 'completed', 'all' (default), or 'history' for all completed incl. confirmed"),
     })
   ),
   execute: async (args: { filter?: string }) => {
@@ -58,6 +59,7 @@ export const gmPersonalGetRollsTool = {
     const where: Record<string, unknown> = { sessionId: personalSession.id };
     if (args.filter === "assigned") where.status = "assigned";
     else if (args.filter === "completed") { where.status = "completed"; where.consumed = false; }
+    else if (args.filter === "history") where.status = "completed";
     else where.OR = [{ status: "assigned" }, { status: "completed", consumed: false }];
 
     const rolls = await prisma.roll.findMany({

@@ -171,7 +171,10 @@ function getPersonalTools() {
   };
 }
 
-async function buildRollsContext(prisma: ReturnType<typeof getPrisma>, sessionId: string): Promise<string> {
+async function buildRollsContext(
+  prisma: ReturnType<typeof getPrisma>,
+  sessionId: string
+): Promise<{ completed: Array<{ role: "user"; content: string }>; note: string }> {
   const completedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
     select: { id: true, checkName: true, diceExpression: true, result: true, playerId: true, completedAt: true },
@@ -185,8 +188,6 @@ async function buildRollsContext(prisma: ReturnType<typeof getPrisma>, sessionId
     take: 20,
   });
 
-  if (completedRolls.length === 0 && assignedRolls.length === 0) return "";
-
   const ids = [
     ...new Set(
       [...completedRolls.map((r) => r.playerId), ...assignedRolls.map((r) => r.playerId)].filter(
@@ -199,30 +200,29 @@ async function buildRollsContext(prisma: ReturnType<typeof getPrisma>, sessionId
     : [];
   const nameById = new Map(users.map((u) => [u.id, u.displayName || u.login]));
 
-  let out = "";
+  // Completed (unconsumed) rolls become the latest user turn — the model must
+  // answer them, not re-assign. They stay unconsumed until the GM calls
+  // confirm_rolls, so a result is never silently lost.
+  const completed = completedRolls.map((r) => {
+    const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+    return {
+      role: "user" as const,
+      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}`,
+    };
+  });
 
-  if (completedRolls.length > 0) {
-    out += `\n\n## Latest player action — completed rolls (respond to these)\n`
-      + `The following rolls were completed and are the player's most recent action — treat them as the input that continues the conversation. Acknowledge each result, interpret it, and move the scene forward. Do NOT re-assign a roll that is already completed; do NOT ask to roll again. If no new chat text was written, the completed roll IS the message.\n`;
-    out += completedRolls
-      .map((r) => {
-        const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
-        return `- ${who} rolled "${r.checkName}" (${r.diceExpression}) → ${r.result}`;
-      })
-      .join("\n");
-  }
-
+  let note = "";
   if (assignedRolls.length > 0) {
-    out += `\n\n⚠️ WAITING FOR ROLLS (assigned, not yet rolled):\n`;
-    out += assignedRolls
-      .map((r) => {
-        const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
-        return `- "${r.checkName}" (${r.diceExpression}) — ${who}`;
-      })
-      .join("\n");
+    note = `\n\n⚠️ WAITING FOR ROLLS (assigned, not yet rolled):\n`
+      + assignedRolls
+        .map((r) => {
+          const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+          return `- "${r.checkName}" (${r.diceExpression}) — ${who}`;
+        })
+        .join("\n");
   }
 
-  return out;
+  return { completed, note };
 }
 
 async function buildGameContext(sessionId: string) {
@@ -245,17 +245,8 @@ async function buildGameContext(sessionId: string) {
 
   systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
 
-  const unseenRolls = await prisma.roll.findMany({
-    where: { sessionId, status: "completed", consumed: false },
-    select: { id: true },
-  });
-  const unseenAssigned = await prisma.roll.findMany({
-    where: { sessionId, status: "assigned" },
-    select: { id: true },
-  });
-  if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
-    systemPrompt += await buildRollsContext(prisma, sessionId);
-  }
+  const rollsCtx = await buildRollsContext(prisma, sessionId);
+  if (rollsCtx.note) systemPrompt += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -302,6 +293,9 @@ async function buildGameContext(sessionId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
+  // Completed rolls are the player's latest action — append as the last user turns.
+  messages.push(...rollsCtx.completed);
+
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
@@ -326,17 +320,8 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
 
-  const unseenRolls = await prisma.roll.findMany({
-    where: { sessionId, status: "completed", consumed: false },
-    select: { id: true },
-  });
-  const unseenAssigned = await prisma.roll.findMany({
-    where: { sessionId, status: "assigned" },
-    select: { id: true },
-  });
-  if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
-    systemPrompt += await buildRollsContext(prisma, sessionId);
-  }
+  const rollsCtx = await buildRollsContext(prisma, sessionId);
+  if (rollsCtx.note) systemPrompt += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -374,6 +359,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
+  // Completed rolls are the player's latest action — append as the last user turns.
+  messages.push(...rollsCtx.completed);
+
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
@@ -393,17 +381,6 @@ async function autoSummarize(sessionId: string): Promise<void> {
     where: { id: { in: toSummarize.map(m => m.id) } },
     data: { summarized: true },
   });
-}
-
-async function markRollsConsumed(sessionId: string): Promise<void> {
-  const prisma = getPrisma();
-  const result = await prisma.roll.updateMany({
-    where: { sessionId, status: "completed", consumed: false },
-    data: { consumed: true },
-  });
-  if (result.count > 0) {
-    broadcastGameEvent("roll_completed", { sessionId });
-  }
 }
 
 export async function runGameMasterBatch(sessionId: string): Promise<void> {
@@ -466,7 +443,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       broadcastGameEvent("game_message_sent", { sessionId });
     }
 
-    await markRollsConsumed(sessionId);
     await autoSummarize(sessionId);
     emitDone(sessionId);
 
@@ -560,7 +536,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       broadcastGameEvent("personal_message_sent", { sessionId });
     }
 
-    await markRollsConsumed(sessionId);
     await autoSummarize(sessionId);
     emitDone(sessionId);
 

@@ -4,7 +4,11 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { gmReadDocumentTool } from "./gm-tools/gm-read-document.tool";
-import { gmSearchDocumentsTool } from "./gm-tools/gm-search-documents.tool";
+import { gmSearchRulesTool } from "./gm-tools/gm-search-rules.tool";
+import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
+import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
+import { gmGetSceneStateTool } from "./gm-tools/gm-get-scene-state.tool";
+import { gmGetPlayerSheetTool } from "./gm-tools/gm-get-player-sheet.tool";
 import { gmCreateDocumentTool } from "./gm-tools/gm-create-document.tool";
 import { gmUpdateDocumentTool } from "./gm-tools/gm-update-document.tool";
 import { gmUpdateCharSheetTool } from "./gm-tools/gm-update-char-sheet.tool";
@@ -113,7 +117,7 @@ function makePrepareStep(sessionId: string, toolsCount: number) {
       messages: [
         ...(systemMsg ? [systemMsg] : []),
         ...(lastUser ? [lastUser] : []),
-        { role: "assistant" as const, content: `[Compressed — ${toolsCount} tools available. Use get_rolls/search_documents for context.]` },
+        { role: "assistant" as const, content: `[Compressed — ${toolsCount} tools available. Use get_rolls, search_rules, get_brain and get_player_sheet for context.]` },
         ...(lastMsg && lastMsg !== lastUser ? [lastMsg] : []),
       ].filter(Boolean) as ModelMessage[],
     };
@@ -122,8 +126,12 @@ function makePrepareStep(sessionId: string, toolsCount: number) {
 
 function getGameTools() {
   return {
+    search_rules: gmSearchRulesTool,
+    get_brain: gmGetBrainTool,
+    get_gm_notes: gmGetGmNotesTool,
+    get_scene_state: gmGetSceneStateTool,
+    get_player_sheet: gmGetPlayerSheetTool,
     read_document: gmReadDocumentTool,
-    search_documents: gmSearchDocumentsTool,
     create_document: gmCreateDocumentTool,
     update_document: gmUpdateDocumentTool,
     update_char_sheet: gmUpdateCharSheetTool,
@@ -143,8 +151,11 @@ function getGameTools() {
 
 function getPersonalTools() {
   return {
+    search_rules: gmSearchRulesTool,
+    get_brain: gmGetBrainTool,
+    get_gm_notes: gmGetGmNotesTool,
+    get_player_sheet: gmGetPlayerSheetTool,
     read_document: gmReadDocumentTool,
-    search_documents: gmSearchDocumentsTool,
     create_document: gmCreateDocumentTool,
     update_document: gmUpdateDocumentTool,
     update_char_sheet: gmUpdateCharSheetTool,
@@ -178,7 +189,7 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
+  systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
 
   const unseenRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
@@ -235,7 +246,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
   systemPrompt += `\n- Player ID: ${playerId}\n`;
 
-  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
+  systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
 
   const unseenRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },

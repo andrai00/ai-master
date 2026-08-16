@@ -8,7 +8,7 @@ export const gmResolveGlossaryLinkTool = {
     "Resolve a glossary document title to its document ID (UUID) so you can create a wiki-link. Call it BEFORE writing [[...]] in a chat message or document content — wiki-links only work with the raw UUID, never with a title. Only glossary documents (rules) can be referenced this way.",
   inputSchema: zodSchema(
     z.object({
-      title: z.string().describe("Glossary document title, exact or partial (e.g. 'Огненный шар')"),
+      title: z.string().describe("A glossary document title, exact or partial"),
     })
   ),
   execute: async (args: { title: string }) => {

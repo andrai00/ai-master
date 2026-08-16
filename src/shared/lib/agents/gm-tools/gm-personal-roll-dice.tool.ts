@@ -6,7 +6,7 @@ export const gmPersonalRollDiceTool = {
   description: "Roll dice for yourself (GM only, not for player-facing rolls).",
   inputSchema: zodSchema(
     z.object({
-      expression: z.string().describe("Dice expression in standard RPG notation: '1d20+5', '4d6kh3', '4d6dl1', '2d20+1d6'"),
+      expression: z.string().describe("Dice expression in standard RPG notation, e.g. '1d20+5', '4d6kh3', '2d20+1d6'"),
       reason: z.string().describe("What this roll is for: 'Определение характеристик', 'Проверка удачи'"),
     })
   ),

@@ -7,9 +7,9 @@ export const gmPersonalPresentRollCheckTool = {
   description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them a roll button. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple identical rolls — all rolled from ONE button.",
   inputSchema: zodSchema(
     z.object({
-      checkName: z.string().describe("What this check is: 'Характеристики', 'Проверка навыка', 'Бросок урона'"),
-      diceExpression: z.string().describe("Dice expression: '1d20+5', '4d6k3', '2d6+3'"),
-      count: z.number().optional().describe("Number of identical rolls from one button (default 1). Use for 6 stat rolls, multiple attacks, etc."),
+      checkName: z.string().describe("Short label for the check (it becomes the button text)"),
+      diceExpression: z.string().describe("Dice expression in standard RPG notation, e.g. '1d20+5', '2d6', '4d6kh3'"),
+      count: z.number().optional().describe("Number of identical rolls from one button (default 1). Use for several identical rolls (e.g. multiple values from a table)."),
     })
   ),
   execute: async (args: { checkName: string; diceExpression: string; count?: number }) => {

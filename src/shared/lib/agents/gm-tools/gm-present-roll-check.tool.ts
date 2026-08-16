@@ -9,10 +9,10 @@ export const gmPresentRollCheckTool = {
   description: "Assign dice rolls to specific players. Each player sees ONE roll button per check. Use count>1 for multiple identical rolls (e.g. 6 stat rolls) — all are rolled from that single button.",
   inputSchema: zodSchema(
     z.object({
-      checkName: z.string().describe("What this check is: 'Инициатива', 'Скрытность', 'Спасбросок Ловкости', 'Характеристики'"),
-      diceExpression: z.string().describe("Dice expression: '1d20+5', '2d6+3', '4d6k3'"),
+      checkName: z.string().describe("Short label for the check (it becomes the button text)"),
+      diceExpression: z.string().describe("Dice expression in standard RPG notation, e.g. '1d20+5', '2d6', '4d6kh3'"),
       targetPlayers: z.array(z.string()).describe("Array of player IDs (senderId/userId) who need to roll"),
-      count: z.number().optional().describe("Number of identical rolls per player from one button (default 1). Use for stat rolls, multiple attacks, etc."),
+      count: z.number().optional().describe("Number of identical rolls from one button (default 1). Use for several identical rolls (e.g. multiple values from a table)."),
     })
   ),
   execute: async (args: { checkName: string; diceExpression: string; targetPlayers: string[]; count?: number }) => {

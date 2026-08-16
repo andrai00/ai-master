@@ -26,6 +26,10 @@ import {
   StopOutlined,
   LoadingOutlined,
   ClockCircleOutlined,
+  BookOutlined,
+  PictureOutlined,
+  LinkOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -201,8 +205,8 @@ interface IChatPanelProps {
   footerAction?: ReactNode;
   /** Optional roll strip rendered between messages area and input bar */
   rollStrip?: ReactNode;
-  /** Completed rolls to show as lightweight badges in the messages area */
-  completedRolls?: { id: string; checkName: string; total: number; detail: string; isMaster: boolean }[];
+  /** Sender name shown on the typing bubble (defaults to Builder label) */
+  typingSender?: string;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -259,8 +263,20 @@ function getStepIcon(tool: string): ReactNode {
       return <EditOutlined style={iconStyle} />;
     case "read_document":
       return <ReadOutlined style={iconStyle} />;
-    case "search_documents":
+    case "search_rules":
       return <SearchOutlined style={iconStyle} />;
+    case "get_brain":
+      return <BookOutlined style={iconStyle} />;
+    case "get_gm_notes":
+      return <CommentOutlined style={iconStyle} />;
+    case "get_scene_state":
+      return <PictureOutlined style={iconStyle} />;
+    case "get_player_sheet":
+      return <UserOutlined style={iconStyle} />;
+    case "get_players":
+      return <TeamOutlined style={iconStyle} />;
+    case "resolve_glossary_link":
+      return <LinkOutlined style={iconStyle} />;
     case "update_file_summary":
       return <CommentOutlined style={iconStyle} />;
     case "file_parsing":
@@ -291,7 +307,7 @@ export const ChatPanel = ({
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
   pendingCount,
-  inputPrefix, footerAction, rollStrip,
+  inputPrefix, footerAction, rollStrip, typingSender,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -635,7 +651,7 @@ export const ChatPanel = ({
             <div className={`${styles.messageRow} ${styles.masterRow}`}>
               <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
               <div className={styles.msgContent}>
-                <div className={styles.sender}>{t("chat.builderLabel")}</div>
+                <div className={styles.sender}>{typingSender || t("chat.builderLabel")}</div>
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
                   {stopping ? (
                     <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>

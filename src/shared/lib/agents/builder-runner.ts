@@ -249,13 +249,28 @@ async function buildContext(sessionId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 20,
-    select: { role: true, content: true },
+    select: { role: true, content: true, createdAt: true },
   });
 
-  const messages = recent.map((m) => ({
-    role: (m.role === "admin" ? "user" : "assistant") as "user" | "assistant",
-    content: m.content,
-  }));
+  // Admin messages newer than the last builder reply are NEW (unanswered).
+  let lastBuilderAt: Date | null = null;
+  for (const m of recent) {
+    if (m.role === "builder" && (!lastBuilderAt || m.createdAt > lastBuilderAt)) lastBuilderAt = m.createdAt;
+  }
+  const newCount = recent.filter(
+    (m) => m.role === "admin" && (!lastBuilderAt || m.createdAt > lastBuilderAt)
+  ).length;
+
+  if (newCount > 0) {
+    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+  }
+
+  const messages = recent.map((m) => {
+    const role = (m.role === "admin" ? "user" : "assistant") as "user" | "assistant";
+    const isNew = role === "user" && (!lastBuilderAt || m.createdAt > lastBuilderAt);
+    const content = role === "user" ? `${isNew ? "🆕 " : ""}${m.content}` : m.content;
+    return { role, content };
+  });
 
   // Prepend summary as a system context message if it exists
   if (summary?.content) {

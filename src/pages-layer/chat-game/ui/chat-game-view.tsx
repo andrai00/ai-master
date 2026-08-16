@@ -11,6 +11,7 @@ import { useGameSession } from "@/src/shared/api/game-master/use-game-session";
 import { useGameMessages } from "@/src/shared/api/game-master/use-game-messages";
 import { useSendGameMessage } from "@/src/shared/api/game-master/use-send-game-message";
 import { useDeleteGameMessage } from "@/src/shared/api/game-master/use-delete-game-message";
+import { useClearGameChat } from "@/src/shared/api/game-master/useClearGameChat";
 import { useSessionRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { requestMasterResponseAction } from "@/src/shared/actions/game-master/request-master-response";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
@@ -20,7 +21,7 @@ import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
 
-export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?: string }) => {
+export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean; userId?: string; isAdmin?: boolean }) => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
@@ -58,8 +59,30 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
   const { data: msgData } = useGameMessages(sessionId, page);
   const sendMutation = useSendGameMessage();
   const deleteMutation = useDeleteGameMessage();
+  const clearMutation = useClearGameChat();
   const { data: rolls } = useSessionRolls(sessionId);
   const executeRollMutation = useExecuteRoll();
+
+  // Messages from players newer than the last master reply are pending (unanswered).
+  const pendingCount = useMemo(() => {
+    if (!msgData || !("messages" in msgData)) return 0;
+    const msgs = msgData.messages;
+    let lastMasterAt: number | null = null;
+    for (const m of msgs) {
+      if (m.role === "master") {
+        const ts = new Date(m.createdAt).getTime();
+        if (lastMasterAt === null || ts > lastMasterAt) lastMasterAt = ts;
+      }
+    }
+    return msgs.filter(
+      (m) => (m.role === "admin" || m.role === "player") &&
+        (lastMasterAt === null || new Date(m.createdAt).getTime() > lastMasterAt)
+    ).length;
+  }, [msgData]);
+
+  const handleClearChat = useCallback(() => {
+    if (sessionId) clearMutation.mutate(sessionId);
+  }, [sessionId, clearMutation]);
 
   const requestMutation = useMutation({
     mutationFn: () => requestMasterResponseAction(sessionId!),
@@ -224,16 +247,19 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         messages={messages}
         placeholder={t("chat.placeholder")}
         title={t("chat.gameChat")}
-        hideShare={false}
+        hideShare
         disabled={disabled || typing}
-        onDelete={handleDelete}
+        disabledText={disabled ? t("chat.devModeDisabled") : undefined}
+        typingSender={t("chat.master")}
+        onDelete={isAdmin ? handleDelete : undefined}
         onHistoryClick={openHistory}
+        onClearChat={isAdmin ? handleClearChat : undefined}
         onSend={handleSend}
         onStop={handleStopMaster}
         sending={sendMutation.isPending}
         typing={typing}
         stopping={stopping}
-        pendingCount={0}
+        pendingCount={pendingCount}
         stepsSessionId={sessionId}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}

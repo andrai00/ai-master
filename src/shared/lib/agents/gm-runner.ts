@@ -270,13 +270,35 @@ async function buildGameContext(sessionId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 30,
-    select: { role: true, content: true, senderId: true, sender: { select: { displayName: true } } },
+    select: {
+      role: true,
+      content: true,
+      senderId: true,
+      createdAt: true,
+      sender: { select: { displayName: true } },
+    },
   });
+
+  // Messages from players newer than the last master reply are NEW (unanswered).
+  let lastMasterAt: Date | null = null;
+  for (const m of recent) {
+    if (m.role === "master" && (!lastMasterAt || m.createdAt > lastMasterAt)) lastMasterAt = m.createdAt;
+  }
+  const newCount = recent.filter(
+    (m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt)
+  ).length;
+
+  if (newCount > 0) {
+    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+  }
 
   const messages = recent.map((m) => {
     const role = (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant";
-    const prefix =
-      role === "user" ? `[${m.sender?.displayName || m.senderId} (id: ${m.senderId})]: ` : "";
+    const isNew =
+      role === "user" && (!lastMasterAt || m.createdAt > lastMasterAt);
+    const prefix = role === "user"
+      ? `${isNew ? "🆕 " : ""}[${m.sender?.displayName || m.senderId} (id: ${m.senderId})]: `
+      : "";
     return { role, content: `${prefix}${m.content}` };
   });
 
@@ -329,13 +351,28 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 20,
-    select: { role: true, content: true },
+    select: { role: true, content: true, senderId: true, createdAt: true },
   });
 
-  const messages = recent.map((m) => ({
-    role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",
-    content: m.content,
-  }));
+  // The player's messages newer than the last master reply are NEW (unanswered).
+  let lastMasterAt: Date | null = null;
+  for (const m of recent) {
+    if (m.role === "master" && (!lastMasterAt || m.createdAt > lastMasterAt)) lastMasterAt = m.createdAt;
+  }
+  const newCount = recent.filter(
+    (m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt)
+  ).length;
+
+  if (newCount > 0) {
+    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+  }
+
+  const messages = recent.map((m) => {
+    const role = (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant";
+    const isNew = role === "user" && (!lastMasterAt || m.createdAt > lastMasterAt);
+    const prefix = role === "user" ? `${isNew ? "🆕 " : ""}[${m.senderId}]: ` : "";
+    return { role, content: `${prefix}${m.content}` };
+  });
 
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }

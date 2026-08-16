@@ -36,7 +36,7 @@ export default async function Home() {
 
   return (
     <Shell user={session}>
-      <ChatGameView disabled={isDev} userId={session.userId} />
+      <ChatGameView disabled={isDev} userId={session.userId} isAdmin={session.role === "admin"} />
     </Shell>
   );
 }

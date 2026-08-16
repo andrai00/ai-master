@@ -11,6 +11,7 @@ import { usePersonalSession } from "@/src/shared/api/game-master/use-personal-se
 import { usePersonalMessages } from "@/src/shared/api/game-master/use-personal-messages";
 import { useSendPersonalMessage } from "@/src/shared/api/game-master/use-send-personal-message";
 import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delete-personal-message";
+import { useClearPersonalChat } from "@/src/shared/api/game-master/useClearPersonalChat";
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
 import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
@@ -58,9 +59,31 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   const { data: msgData } = usePersonalMessages(sessionId, page);
   const sendMutation = useSendPersonalMessage();
   const deleteMutation = useDeletePersonalMessage();
+  const clearMutation = useClearPersonalChat();
   const shareMutation = useShareMessage();
   const { data: rolls } = usePersonalRolls();
   const executeRollMutation = useExecuteRoll();
+
+  // The player's messages newer than the last master reply are pending (unanswered).
+  const pendingCount = useMemo(() => {
+    if (!msgData || !("messages" in msgData)) return 0;
+    const msgs = msgData.messages;
+    let lastMasterAt: number | null = null;
+    for (const m of msgs) {
+      if (m.role === "master") {
+        const ts = new Date(m.createdAt).getTime();
+        if (lastMasterAt === null || ts > lastMasterAt) lastMasterAt = ts;
+      }
+    }
+    return msgs.filter(
+      (m) => (m.role === "admin" || m.role === "player") &&
+        (lastMasterAt === null || new Date(m.createdAt).getTime() > lastMasterAt)
+    ).length;
+  }, [msgData]);
+
+  const handleClearChat = useCallback(() => {
+    if (sessionId) clearMutation.mutate(sessionId);
+  }, [sessionId, clearMutation]);
 
   const stopMutation = useMutation({
     mutationFn: () => stopGameMasterResponseAction(sessionId!),
@@ -237,14 +260,17 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         hideShare={false}
         disabled={disabled}
         disabledText={disabled ? t("chat.devModeDisabled") : undefined}
+        typingSender={t("chat.master")}
         onDelete={isAdmin ? handleDelete : undefined}
         onShare={handleShare}
         onHistoryClick={openHistory}
+        onClearChat={isAdmin ? handleClearChat : undefined}
         onSend={handleSend}
         onStop={handleStop}
         sending={sendMutation.isPending}
         typing={typing}
         stopping={stopping}
+        pendingCount={pendingCount}
         stepsSessionId={sessionId}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}

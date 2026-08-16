@@ -16,6 +16,7 @@ import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
 import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
+import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -136,6 +137,7 @@ function getGameTools() {
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
     get_players: gmGetPlayersTool,
+    resolve_glossary_link: gmResolveGlossaryLinkTool,
   };
 }
 
@@ -154,6 +156,7 @@ function getPersonalTools() {
     confirm_rolls: gmConfirmRollsTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
+    resolve_glossary_link: gmResolveGlossaryLinkTool,
   };
 }
 

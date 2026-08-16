@@ -3,8 +3,6 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
-import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
-import { enqueueBuilderJob } from "@/src/shared/lib/queue";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function sendBuilderMessageAction(
@@ -43,17 +41,6 @@ export async function sendBuilderMessageAction(
   });
 
   broadcastGameEvent("builder_message_sent", { sessionId });
-
-  // File processing is separate from chat messages. Only run the agent when
-  // the user sent a text message without files.
-  if (fileIds.length === 0 && content.trim().length > 0) {
-    enqueueBuilderJob(sessionId, content.trim(), fileIds).catch((err) => {
-      console.error("[builder] Failed to enqueue:", err);
-      runBuilderAgent(sessionId, content.trim(), fileIds).catch((e) => {
-        console.error("[builder] Background processing crashed:", e);
-      });
-    });
-  }
 
   return { success: true };
 }

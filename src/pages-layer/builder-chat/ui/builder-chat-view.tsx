@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App, Segmented, Tooltip } from "antd";
-import { SettingOutlined, DatabaseOutlined, PaperClipOutlined } from "@ant-design/icons";
-import { useQueryClient } from "@tanstack/react-query";
+import { Modal, Table, App, Segmented, Tooltip, Button } from "antd";
+import { SettingOutlined, DatabaseOutlined, PaperClipOutlined, RobotOutlined } from "@ant-design/icons";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { useBuilderSession } from "@/src/shared/api/builder/useBuilderSession";
 import { useBuilderMessages } from "@/src/shared/api/builder/useBuilderMessages";
@@ -15,6 +15,7 @@ import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
 import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
+import { requestBuilderResponseAction } from "@/src/shared/actions/builder/request-builder-response";
 import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
@@ -191,6 +192,16 @@ export const BuilderChatView = () => {
     await stopBuilderAction(sessionId);
   }, [sessionId]);
 
+  // --- Request response ---
+  const requestMutation = useMutation({
+    mutationFn: () => requestBuilderResponseAction(sessionId!),
+  });
+
+  const handleRequestResponse = useCallback(async () => {
+    if (!sessionId) return;
+    await requestMutation.mutateAsync();
+  }, [sessionId, requestMutation]);
+
   // --- Delete ---
   const handleDelete = useCallback(
     async (messageId: string) => {
@@ -248,6 +259,21 @@ export const BuilderChatView = () => {
     },
   ];
 
+  const requestBtn = (
+    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+      <Button
+        type="default"
+        size="small"
+        icon={<RobotOutlined />}
+        disabled={typing || stopping || uploading || requestMutation.isPending || !sessionId}
+        loading={requestMutation.isPending}
+        onClick={handleRequestResponse}
+      >
+        {typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}
+      </Button>
+    </Tooltip>
+  );
+
   return (
     <>
       <ChatPanel
@@ -278,6 +304,7 @@ export const BuilderChatView = () => {
         sending={sendMutation.isPending || uploading}
         typing={typing}
         stopping={stopping}
+        footerAction={requestBtn}
         stepsSessionId={sessionId ?? undefined}
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}

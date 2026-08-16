@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App, notification as antNotification } from "antd";
+import { Modal, Table, App, Button, Tooltip, notification as antNotification } from "antd";
+import { RobotOutlined } from "@ant-design/icons";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
 import { RollStrip } from "@/src/features/roll-strip";
@@ -13,6 +14,7 @@ import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delet
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
 import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
+import { requestPersonalMasterResponseAction } from "@/src/shared/actions/game-master/request-personal-master-response";
 import { getPersonalMessagesAction, type IPersonalMessage } from "@/src/shared/actions/game-master/get-personal-messages";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
@@ -65,6 +67,15 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     onMutate: () => setStopping(true),
     onSettled: () => setStopping(false),
   });
+
+  const requestMutation = useMutation({
+    mutationFn: () => requestPersonalMasterResponseAction(sessionId!),
+  });
+
+  const handleRequestMaster = useCallback(async () => {
+    if (!sessionId) return;
+    await requestMutation.mutateAsync();
+  }, [sessionId, requestMutation]);
 
   const handleStop = useCallback(async () => {
     if (!sessionId) return;
@@ -202,6 +213,21 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     },
   ];
 
+  const requestBtn = (
+    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+      <Button
+        type="default"
+        size="small"
+        icon={<RobotOutlined />}
+        disabled={disabled || typing || stopping || requestMutation.isPending || !sessionId}
+        loading={requestMutation.isPending}
+        onClick={handleRequestMaster}
+      >
+        {typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}
+      </Button>
+    </Tooltip>
+  );
+
   return (
     <>
       <ChatPanel
@@ -225,6 +251,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         onStepsDone={handleStepsDone}
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
+        footerAction={requestBtn}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
       />
       <Modal

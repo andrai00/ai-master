@@ -5,7 +5,7 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmGetPlayersTool = {
   description:
-    "List players who have access to the current game and how engaged they are. Returns for each player: display name, number of documents linked to them (character sheet and personal data — 0 means they are still a viewer and have not created a character), and the time of their last message in the game chat. Use periodically to see who is active, who is idle, and who has not started playing yet. Admins are not listed — they are not participants.",
+    "List everyone who has access to the current game (both admins and players — the AI is the GM, human admin accounts are participants too) and how engaged they are. Returns for each participant: display name, role, number of documents linked to them (character sheet and personal data — 0 means they are still a viewer and have not created a character), and the time of their last message in the game chat. Use periodically to see who is active, who is idle, and who has not started playing yet.",
   inputSchema: zodSchema(z.object({})),
   execute: async () => {
     const activeGame = await getActiveGame();
@@ -14,8 +14,8 @@ export const gmGetPlayersTool = {
     const prisma = getPrisma();
 
     const players = await prisma.user.findMany({
-      where: { role: "player", gameAccess: { some: { masterId: activeGame.currentMasterId } } },
-      select: { id: true, displayName: true, login: true },
+      where: { gameAccess: { some: { masterId: activeGame.currentMasterId } } },
+      select: { id: true, displayName: true, login: true, role: true },
       orderBy: { displayName: "asc" },
     });
 
@@ -46,6 +46,7 @@ export const gmGetPlayersTool = {
     return players.map((p) => ({
       id: p.id,
       name: p.displayName || p.login,
+      role: p.role,
       documentCount: docCountMap.get(p.id) ?? 0,
       lastMessageAt: lastMsgMap.get(p.id)?.toISOString() ?? null,
     }));

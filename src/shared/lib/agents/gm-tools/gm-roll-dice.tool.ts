@@ -35,6 +35,7 @@ export const gmRollDiceTool = {
             status: "completed",
             result: result.totals.join(", "),
             detail: result.output,
+            completedAt: new Date(),
           },
         });
         broadcastGameEvent("roll_completed", { sessionId: session.id });

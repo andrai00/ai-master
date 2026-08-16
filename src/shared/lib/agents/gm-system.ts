@@ -79,7 +79,7 @@ Document access (by domain):
 - resolve_glossary_link: resolve a glossary title to its ID (wiki-links)
 - create_document / update_document / update_char_sheet / write_note / set_scene_state: write documents
 - roll_dice: roll dice for yourself (GM). Supports full RPG notation: basic (4d6, 1d20), modifier (1d20+5), keep/drop (4d6kh3, 4d6dl1), reroll (4d6ro<2), compound (2d20+1d6), grouped ([[4d6dl1]][[4d6dl1]]).
-- present_roll_check: assign dice rolls to players. Each player sees ONE button per check. Use count>1 for multiple identical rolls — all rolled from that single button.
+- present_roll_check: assign dice rolls to players. Pass several playerIds in targetPlayers to give the same check to several players at once (e.g. initiative before combat) — each player gets their OWN button and result. Use count>1 for multiple identical rolls for one player — all rolled from that single button.
 - set_scene_state: update the current scene (game_hidden)
 - write_note: write a hidden note for yourself
 - get_rolls: view session rolls (assigned, completed). Filter by player or status.

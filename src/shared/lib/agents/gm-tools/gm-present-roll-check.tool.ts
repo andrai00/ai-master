@@ -6,7 +6,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export const gmPresentRollCheckTool = {
-  description: "Assign dice rolls to specific players. Each player sees ONE roll button per check. Use count>1 for multiple identical rolls (e.g. 6 stat rolls) — all are rolled from that single button.",
+  description: "Assign dice rolls to specific players. Pass several playerIds in targetPlayers to give the same check to several players at once — each player gets their OWN button and result (e.g. initiative before combat, one call for the whole party). Use count>1 for multiple identical rolls for ONE player (e.g. 6 stat rolls) — all are rolled from that single button.",
   inputSchema: zodSchema(
     z.object({
       checkName: z.string().describe("Short label for the check (it becomes the button text)"),

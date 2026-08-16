@@ -35,6 +35,15 @@ export function getActions(sessionId: string): string[] {
 }
 
 /**
+ * Heuristic used ONLY as a delivery-time safety net: does the reply text
+ * promise a roll button (roll verbs or dice notation)? If yes but no roll
+ * was actually created, the runner re-runs the agent once.
+ */
+export function promisesRoll(text: string): boolean {
+  return /(бросай|брось|кинь|кидай|жми|нажми|кнопк|кубик|🎲)|\b\d+\s*d\s*\d+/i.test(text);
+}
+
+/**
  * send_reply — the agent delivers its answer through this tool instead of
  * "just finishing" the generation. This gives a natural enforcement point:
  * the runner knows when a reply was actually sent, and the prompt can

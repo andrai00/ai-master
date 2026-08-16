@@ -24,7 +24,7 @@ import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmUpdateMemoryTool } from "./gm-tools/gm-update-memory.tool";
-import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions, promisesRoll } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -470,6 +470,45 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     let gmText = delivered > 0 ? null : (result.text?.trim() ?? null);
     gmLog(`FINISH reason=${finishReason} textLen=${result.text?.length ?? 0} delivered=${delivered} actions=[${getActions(sessionId).join(",")}]`);
 
+    // Roll-promise guard: if the reply says the player must roll but no roll
+    // was created this run and none is pending, re-run once so the button
+    // really exists. (Safety net — the model sometimes writes button text
+    // without calling present_roll_check.)
+    if (gmText && promisesRoll(gmText)) {
+      const rollCreated =
+        (await prisma.roll.count({ where: { sessionId, createdAt: { gte: cutoffTime } } })) > 0;
+      const hasAssigned = (await prisma.roll.count({ where: { sessionId, status: "assigned" } })) > 0;
+      if (!rollCreated && !hasAssigned) {
+        gmLog("ROLL GUARD retry (button promised, no roll)");
+        const retry = await generateText({
+          model,
+          system: ctx.system,
+          messages: [
+            ...existingMessages,
+            { role: "user", content: "🛑 Ты написал, что игрок должен сделать бросок, но не вызвал present_roll_check — кнопки не существует. Обязательно вызови present_roll_check и только потом заверши ответ." },
+          ],
+          tools,
+          stopWhen: isStepCount(40),
+          abortSignal: ac.signal,
+          prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+          onStepFinish: async (event) => {
+            const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+            if (calls?.length) {
+              recordActions(sessionId, calls);
+              gmLog(`ROLL GUARD STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
+              for (const call of calls) {
+                emitStep(sessionId, call.toolName as string);
+              }
+            }
+          },
+        });
+        delivered = await deliveredCount();
+        const retryText = retry.text?.trim();
+        gmText = delivered > 0 ? null : (retryText || gmText);
+        gmLog(`ROLL GUARD DONE delivered=${delivered} textLen=${retry.text?.length ?? 0} rollCreated=${rollCreated} hasAssigned=${hasAssigned}`);
+      }
+    }
+
     // The model ended without a reply (no send_reply, no text) — re-run once
     // forcing it to deliver via send_reply.
     if (!gmText && delivered === 0) {
@@ -617,6 +656,42 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
 
     let gmText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
+
+    // Roll-promise guard: if the reply says the player must roll but no roll
+    // was created this run and none is pending, re-run once so the button
+    // really exists.
+    if (gmText && promisesRoll(gmText)) {
+      const rollCreated =
+        (await prisma.roll.count({ where: { sessionId, createdAt: { gte: cutoffTime } } })) > 0;
+      const hasAssigned = (await prisma.roll.count({ where: { sessionId, status: "assigned" } })) > 0;
+      if (!rollCreated && !hasAssigned) {
+        const retry = await generateText({
+          model,
+          system: ctx.system,
+          messages: [
+            ...existingMessages,
+            { role: "user", content: "🛑 Ты написал, что игрок должен сделать бросок, но не вызвал present_roll_check — кнопки не существует. Обязательно вызови present_roll_check и только потом заверши ответ." },
+          ],
+          tools,
+          stopWhen: isStepCount(30),
+          abortSignal: ac.signal,
+          prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+          onStepFinish: async (event) => {
+            const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+            if (calls?.length) {
+              recordActions(sessionId, calls);
+              for (const call of calls) {
+                emitStep(sessionId, call.toolName as string);
+              }
+            }
+          },
+        });
+        if ((await deliveredCount()) === 0) {
+          const retryText = retry.text?.trim();
+          if (retryText) gmText = retryText;
+        }
+      }
+    }
 
     // The model ended without a reply — re-run once forcing it to deliver.
     if (!gmText && (await deliveredCount()) === 0) {

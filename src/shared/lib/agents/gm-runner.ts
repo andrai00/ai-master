@@ -171,6 +171,60 @@ function getPersonalTools() {
   };
 }
 
+async function buildRollsContext(prisma: ReturnType<typeof getPrisma>, sessionId: string): Promise<string> {
+  const completedRolls = await prisma.roll.findMany({
+    where: { sessionId, status: "completed", consumed: false },
+    select: { id: true, checkName: true, diceExpression: true, result: true, playerId: true, completedAt: true },
+    orderBy: { completedAt: "asc" },
+    take: 10,
+  });
+  const assignedRolls = await prisma.roll.findMany({
+    where: { sessionId, status: "assigned" },
+    select: { id: true, checkName: true, diceExpression: true, playerId: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
+
+  if (completedRolls.length === 0 && assignedRolls.length === 0) return "";
+
+  const ids = [
+    ...new Set(
+      [...completedRolls.map((r) => r.playerId), ...assignedRolls.map((r) => r.playerId)].filter(
+        (id): id is string => !!id
+      )
+    ),
+  ];
+  const users = ids.length
+    ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true, login: true } })
+    : [];
+  const nameById = new Map(users.map((u) => [u.id, u.displayName || u.login]));
+
+  let out = "";
+
+  if (completedRolls.length > 0) {
+    out += `\n\n## Latest player action — completed rolls (respond to these)\n`
+      + `The following rolls were completed and are the player's most recent action — treat them as the input that continues the conversation. Acknowledge each result, interpret it, and move the scene forward. Do NOT re-assign a roll that is already completed; do NOT ask to roll again. If no new chat text was written, the completed roll IS the message.\n`;
+    out += completedRolls
+      .map((r) => {
+        const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+        return `- ${who} rolled "${r.checkName}" (${r.diceExpression}) → ${r.result}`;
+      })
+      .join("\n");
+  }
+
+  if (assignedRolls.length > 0) {
+    out += `\n\n⚠️ WAITING FOR ROLLS (assigned, not yet rolled):\n`;
+    out += assignedRolls
+      .map((r) => {
+        const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+        return `- "${r.checkName}" (${r.diceExpression}) — ${who}`;
+      })
+      .join("\n");
+  }
+
+  return out;
+}
+
 async function buildGameContext(sessionId: string) {
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
@@ -200,7 +254,7 @@ async function buildGameContext(sessionId: string) {
     select: { id: true },
   });
   if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
-    systemPrompt += `\n\n⚠️ ROLLS PENDING: ${unseenAssigned.length} unrolled, ${unseenRolls.length} completed with unseen results. Use get_rolls to check them.`;
+    systemPrompt += await buildRollsContext(prisma, sessionId);
   }
 
   const summary = await prisma.chatSummary.findFirst({
@@ -259,7 +313,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     select: { id: true },
   });
   if (unseenRolls.length > 0 || unseenAssigned.length > 0) {
-    systemPrompt += `\n\n⚠️ ROLLS PENDING: ${unseenAssigned.length} unrolled, ${unseenRolls.length} completed with unseen results. Use get_rolls to check them.`;
+    systemPrompt += await buildRollsContext(prisma, sessionId);
   }
 
   const summary = await prisma.chatSummary.findFirst({

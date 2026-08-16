@@ -44,6 +44,15 @@ export function promisesRoll(text: string): boolean {
 }
 
 /**
+ * Heuristic used ONLY as a delivery-time safety net: does the reply reveal
+ * plot information the GM should remember (a discovery, a hidden thing, a
+ * secret)? If yes but update_memory was not called, the runner re-runs once.
+ */
+export function revealsPlotInfo(text: string): boolean {
+  return /(обнаруж|нашёл|нашла|нашли|находит|находишь|выяснил|узнал|узнаёшь|тайник|сейф|записк|секрет|тайна|спрят|скрыт|прячет|под половиц|за картиной|на дне)/i.test(text);
+}
+
+/**
  * send_reply — the agent delivers its answer through this tool instead of
  * "just finishing" the generation. This gives a natural enforcement point:
  * the runner knows when a reply was actually sent, and the prompt can

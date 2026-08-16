@@ -24,7 +24,7 @@ import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmUpdateMemoryTool } from "./gm-tools/gm-update-memory.tool";
-import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions, promisesRoll } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions, promisesRoll, revealsPlotInfo } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -509,6 +509,39 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       }
     }
 
+    // Memory guard: if the reply reveals plot information but the GM did not
+    // record it (update_memory was not called this run), re-run once so the
+    // fact lands in the Game Memory document.
+    if (gmText && revealsPlotInfo(gmText) && !getActions(sessionId).includes("update_memory")) {
+      gmLog("MEMORY GUARD retry (plot info revealed, no memory record)");
+      const retry = await generateText({
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          { role: "user", content: "🛑 Ты раскрыл игроку важную информацию (тайну/факт/находку), но не записал её в свою память — update_memory не вызывался. Вызови update_memory, добавь запись (факт или тайну), затем заверши ответ." },
+        ],
+        tools,
+        stopWhen: isStepCount(40),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+        onStepFinish: async (event) => {
+          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+          if (calls?.length) {
+            recordActions(sessionId, calls);
+            gmLog(`MEMORY GUARD STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
+            for (const call of calls) {
+              emitStep(sessionId, call.toolName as string);
+            }
+          }
+        },
+      });
+      delivered = await deliveredCount();
+      const retryText = retry.text?.trim();
+      gmText = delivered > 0 ? null : (retryText || gmText);
+      gmLog(`MEMORY GUARD DONE delivered=${delivered} textLen=${retry.text?.length ?? 0}`);
+    }
+
     // The model ended without a reply (no send_reply, no text) — re-run once
     // forcing it to deliver via send_reply.
     if (!gmText && delivered === 0) {
@@ -690,6 +723,36 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
           const retryText = retry.text?.trim();
           if (retryText) gmText = retryText;
         }
+      }
+    }
+
+    // Memory guard: if the reply reveals plot information but the GM did not
+    // record it (update_memory was not called this run), re-run once.
+    if (gmText && revealsPlotInfo(gmText) && !getActions(sessionId).includes("update_memory")) {
+      const retry = await generateText({
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          { role: "user", content: "🛑 Ты раскрыл игроку важную информацию (тайну/факт/находку), но не записал её в свою память — update_memory не вызывался. Вызови update_memory, добавь запись (факт или тайну), затем заверши ответ." },
+        ],
+        tools,
+        stopWhen: isStepCount(30),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+        onStepFinish: async (event) => {
+          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+          if (calls?.length) {
+            recordActions(sessionId, calls);
+            for (const call of calls) {
+              emitStep(sessionId, call.toolName as string);
+            }
+          }
+        },
+      });
+      if ((await deliveredCount()) === 0) {
+        const retryText = retry.text?.trim();
+        if (retryText) gmText = retryText;
       }
     }
 

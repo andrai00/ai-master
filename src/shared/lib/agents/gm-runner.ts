@@ -1,5 +1,7 @@
 import { generateText, isStepCount, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { mkdirSync, appendFileSync } from "fs";
+import path from "path";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
@@ -22,7 +24,7 @@ import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmUpdateMemoryTool } from "./gm-tools/gm-update-memory.tool";
-import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -40,6 +42,21 @@ export { emitStopped } from "./step-tracker";
 const globalGuard = globalThis as unknown as {
   gmProcessing: Map<string, AbortController>;
 };
+
+// Minimal file log for the game chat GM — lets us inspect the exact
+// tool-call order, finish reason and delivery outcome after a run.
+let gmLogReady = false;
+function gmLog(line: string): void {
+  try {
+    if (!gmLogReady) {
+      mkdirSync(path.join(process.cwd(), "logs"), { recursive: true });
+      gmLogReady = true;
+    }
+    appendFileSync(path.join(process.cwd(), "logs", "gm-game.log"), `[${new Date().toISOString()}] ${line}\n`);
+  } catch {
+    // logging must never break the agent
+  }
+}
 
 function getGuard(): Map<string, AbortController> {
   if (!globalGuard.gmProcessing) globalGuard.gmProcessing = new Map();
@@ -403,12 +420,14 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
   try {
     const ctx = await buildGameContext(sessionId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
+      gmLog("SKIP notInGameMode");
       emitError(sessionId, "errors.notInGameMode");
       return;
     }
 
     const existingMessages = ctx.messages;
     if (existingMessages.length === 0) {
+      gmLog("SKIP no messages");
       emitDone(sessionId);
       return;
     }
@@ -417,6 +436,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     const tools = getGameTools(sessionId);
 
     emitStarted(sessionId);
+    gmLog(`START session=${sessionId} msgs=${existingMessages.length}`);
     console.log(`[gm-game] generateText start — session=${sessionId} msgs=${existingMessages.length}`);
 
     const result = await generateText({
@@ -431,6 +451,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
           recordActions(sessionId, calls);
+          gmLog(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
           for (const call of calls) {
             emitStep(sessionId, call.toolName as string);
           }
@@ -439,16 +460,20 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     });
 
     const prisma = getPrisma();
+    const finishReason = (result as unknown as { finishReason?: string })?.finishReason ?? "?";
 
     // Was a reply actually delivered this run (a successful send_reply saved a message)?
     const deliveredCount = () =>
       prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
 
-    let gmText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
+    let delivered = await deliveredCount();
+    let gmText = delivered > 0 ? null : (result.text?.trim() ?? null);
+    gmLog(`FINISH reason=${finishReason} textLen=${result.text?.length ?? 0} delivered=${delivered} actions=[${getActions(sessionId).join(",")}]`);
 
     // The model ended without a reply (no send_reply, no text) — re-run once
     // forcing it to deliver via send_reply.
-    if (!gmText && (await deliveredCount()) === 0) {
+    if (!gmText && delivered === 0) {
+      gmLog("RETRY empty reply");
       const retry = await generateText({
         model,
         system: ctx.system,
@@ -464,22 +489,26 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
           const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
           if (calls?.length) {
             recordActions(sessionId, calls);
+            gmLog(`RETRY STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
             for (const call of calls) {
               emitStep(sessionId, call.toolName as string);
             }
           }
         },
       });
-      if ((await deliveredCount()) === 0) {
+      delivered = await deliveredCount();
+      if (delivered === 0) {
         const retryText = retry.text?.trim();
         if (retryText) gmText = retryText;
       }
+      gmLog(`RETRY DONE delivered=${delivered} textLen=${retry.text?.length ?? 0}`);
     }
 
     // Last resort — still nothing delivered: save a short fallback so the
     // thinking bubble never ends silently.
-    if (!gmText && (await deliveredCount()) === 0) {
+    if (!gmText && delivered === 0) {
       gmText = "Не удалось сформировать ответ. Попробуй ещё раз.";
+      gmLog("FALLBACK empty reply");
     }
 
     if (gmText) {
@@ -492,9 +521,11 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         },
       });
       broadcastGameEvent("game_message_sent", { sessionId });
+      gmLog(`SAVE len=${gmText.length} delivered=${delivered}`);
     }
 
     await autoSummarize(sessionId);
+    gmLog("DONE");
     emitDone(sessionId);
 
     const newMessages = await prisma.message.findMany({
@@ -507,6 +538,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     );
 
     if (hasNewPlayerMessages) {
+      gmLog("RECURSIVE new player msgs arrived");
       endProcessing(sessionId);
       runGameMasterBatch(sessionId).catch((e) => {
         console.error("[gm-game] recursive batch failed:", e);
@@ -516,10 +548,12 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
   } catch (err: unknown) {
     if (err instanceof Error && (err.name === "AbortError" || err.message === "errors.cancelled")) {
+      gmLog("ABORTED");
       emitStopped(sessionId);
       return;
     }
     const message = err instanceof Error ? err.message : "errors.unknownError";
+    gmLog(`ERROR ${message}`);
     console.error("[gm-game] ERROR:", message);
     emitError(sessionId, message.startsWith("errors.") ? message : "errors.unknownError");
   } finally {

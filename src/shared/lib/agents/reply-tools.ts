@@ -29,7 +29,8 @@ export function recordActions(sessionId: string, toolCalls: Array<{ toolName?: s
   actionLedger.set(sessionId, list);
 }
 
-function getActions(sessionId: string): string[] {
+/** Exposed for diagnostics (gm-game run log). */
+export function getActions(sessionId: string): string[] {
   return actionLedger.get(sessionId) ?? [];
 }
 

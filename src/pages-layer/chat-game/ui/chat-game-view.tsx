@@ -127,7 +127,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         role: "roll",
         text: "",
         isRollEntry: true,
-        rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : r.checkName,
+        rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : t("chat.master"),
         rollResult: r.result ?? "",
         rollDetail: r.detail ?? "",
         rollExpression: r.diceExpression,

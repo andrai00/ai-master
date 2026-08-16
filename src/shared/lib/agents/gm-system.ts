@@ -71,7 +71,7 @@ Every user message is prefixed with the sender, e.g. \`[Имя (id: <player-id>)
 
 ## Deliver your reply
 - Your answer reaches the chat ONLY when you call \`send_reply\` with the full text. Do not finish with plain text — call send_reply.
-- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn (rolls, notes, documents, inventory) plus the current state. Compare your draft with it: if you promised a roll, a note, an inventory change or a document, the corresponding action must be in the list. If something is missing, do it now, then send_reply.
+- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn (rolls, notes, document changes) plus the current state. Compare your draft with it: if you promised a roll, a note, a document change or any game data update, the corresponding action must be in the list. If something is missing, do it now, then send_reply.
 
 ## Batch processing
 You may receive multiple messages from different players at once. Process them ALL in one response. If some players act while others stay silent, use get_players to check who is idle and give them a moment in the scene too.
@@ -188,7 +188,7 @@ This is a private chat with ONE player. Before answering, call \`get_player_shee
 
 ## Deliver your reply
 - Your answer reaches the chat ONLY when you call \`send_reply\` with the full text. Do not finish with plain text — call send_reply.
-- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn (rolls, notes, documents, inventory) plus the current state. Compare your draft with it: if you promised a roll, a note, an inventory change or a document, the corresponding action must be in the list. If something is missing, do it now, then send_reply.
+- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn (rolls, notes, document changes) plus the current state. Compare your draft with it: if you promised a roll, a note, a document change or any game data update, the corresponding action must be in the list. If something is missing, do it now, then send_reply.
 
 ## Your tools
 - search_rules — search rules (glossary) by keywords, then read_document for the full text

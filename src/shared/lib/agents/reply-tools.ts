@@ -70,13 +70,13 @@ export function makeSendReplyTool(sessionId: string, role: TRole, event: TEvent)
 /**
  * review_draft — returns the agent's actions this turn plus factual state, so
  * it can verify its draft before delivering. GM chats: assigned rolls,
- * completed-but-unprocessed rolls and recent document changes (notes, sheets,
- * inventory). Builder: recent document activity.
+ * completed-but-unprocessed rolls and recent document changes (notes, game
+ * data). Builder: recent document activity.
  */
 export function makeReviewDraftTool(sessionId: string, kind: "game" | "personal" | "builder") {
   return {
     description:
-      "Check your draft before delivering your reply. Returns (1) the actions you have taken THIS turn (tool calls), (2) current state: assigned rolls, completed-but-unprocessed rolls and recent document changes (notes, character sheets, inventory) for GM chats, or recent documents for the Builder. Compare your draft with this list — if you promised a roll, a note, an inventory change or a document, make sure the corresponding action is actually there. If something is missing, do it now, then send_reply.",
+      "Check your draft before delivering your reply. Returns (1) the actions you have taken THIS turn (tool calls), (2) current state: assigned rolls, completed-but-unprocessed rolls and recent document changes for GM chats, or recent documents for the Builder. Compare your draft with this list — if you promised a roll, a note, a document change or any game data update, make sure the corresponding action is actually there. If something is missing, do it now, then send_reply.",
     inputSchema: zodSchema(z.object({})),
     execute: async () => {
       const prisma = getPrisma();

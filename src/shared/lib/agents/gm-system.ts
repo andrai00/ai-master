@@ -60,6 +60,8 @@ Every user message is prefixed with the sender, e.g. \`[Имя (id: <player-id>)
 ## Batch processing
 You may receive multiple messages from different players at once. Process them ALL in one response. If some players act while others stay silent, use get_players to check who is idle and give them a moment in the scene too.
 
+You may need data from several players in one response: call \`get_player_sheet\` separately for each relevant player (ids come from get_players or the message headers) — one call per player, and \`get_rolls\` with the same playerId for their pending rolls. Never mix or confuse different players' data.
+
 ## Chat context
 - You are in the GAME CHAT (public). All players see your responses.
 - You do NOT see personal chat conversations — those are private.

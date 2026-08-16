@@ -21,7 +21,7 @@ import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply, clearActions, recordActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -393,6 +393,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
   if (!ac) return;
 
   initSession(sessionId);
+  clearActions(sessionId);
 
   const cutoffTime = new Date();
 
@@ -426,6 +427,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
+          recordActions(sessionId, calls);
           for (const call of calls) {
             emitStep(sessionId, call.toolName as string);
           }
@@ -487,6 +489,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   if (!ac) return;
 
   initSession(sessionId);
+  clearActions(sessionId);
 
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
@@ -517,6 +520,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
+          recordActions(sessionId, calls);
           for (const call of calls) {
             emitStep(sessionId, call.toolName as string);
           }

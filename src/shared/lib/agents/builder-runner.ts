@@ -29,7 +29,7 @@ import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply, clearActions, recordActions } from "./reply-tools";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -112,7 +112,7 @@ Your available tools are listed in the context for the current mode. Use get_bui
 
 ## Deliver your reply
 - Your answer reaches the chat ONLY when you call \`send_reply\` with the full text. Do not finish with plain text — call send_reply.
-- BEFORE send_reply, call \`review_draft\` and verify your draft is complete: any document you say you created or updated must actually exist (review_draft shows recent documents). If something is missing, fix it first, then send_reply.
+- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn and the recent documents. Compare your draft with it: if you say you created or updated a document, the action must be in the list and the document in the recent documents. If something is missing, do it now, then send_reply.
 
 ## Proactive document links
 - Always back up your chat answers with clickable wiki-links to the documents you reference: [[<document-id>]] or [[<document-id>|text]].
@@ -347,6 +347,7 @@ export async function runBuilderAgent(
   if (!ac) return; // already processing
 
   initSession(sessionId);
+  clearActions(sessionId);
   resetCancellation();
 
   try {
@@ -471,6 +472,7 @@ export async function runBuilderAgent(
             console.log(`[builder] RAW onStepFinish — ${JSON.stringify({ hasToolCalls: "toolCalls" in event, hasToolResults: "toolResults" in event, keys: Object.keys(event), stepNumber: (event as Record<string,unknown>).stepNumber, finishReason: (event as Record<string,unknown>).finishReason, text: (event as Record<string,unknown>).text })}`);
             const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
             if (calls?.length) {
+              recordActions(sessionId, calls);
               for (let i = 0; i < calls.length; i++) {
                 try {
                   const call = calls[i];

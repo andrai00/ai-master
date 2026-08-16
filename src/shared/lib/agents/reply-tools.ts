@@ -9,6 +9,31 @@ type TRole = "master" | "builder";
 type TEvent = "game_message_sent" | "personal_message_sent" | "builder_message_sent";
 
 /**
+ * Per-run action ledger: every tool call the agent makes in the current
+ * generation is recorded here, so review_draft can show the agent exactly
+ * what it has done (and what it has not) before delivering its reply.
+ */
+const actionLedger = new Map<string, string[]>();
+
+export function clearActions(sessionId: string): void {
+  actionLedger.delete(sessionId);
+}
+
+export function recordActions(sessionId: string, toolCalls: Array<{ toolName?: string }>): void {
+  const list = actionLedger.get(sessionId) ?? [];
+  for (const c of toolCalls ?? []) {
+    if (c.toolName && c.toolName !== "review_draft" && c.toolName !== "send_reply") {
+      list.push(c.toolName);
+    }
+  }
+  actionLedger.set(sessionId, list);
+}
+
+function getActions(sessionId: string): string[] {
+  return actionLedger.get(sessionId) ?? [];
+}
+
+/**
  * send_reply — the agent delivers its answer through this tool instead of
  * "just finishing" the generation. This gives a natural enforcement point:
  * the runner knows when a reply was actually sent, and the prompt can
@@ -43,22 +68,27 @@ export function makeSendReplyTool(sessionId: string, role: TRole, event: TEvent)
 }
 
 /**
- * review_draft — returns factual state so the agent can verify its draft
- * before delivering. GM chats: pending assigned rolls and completed-but-
- * unprocessed rolls. Builder: recent document activity.
+ * review_draft — returns the agent's actions this turn plus factual state, so
+ * it can verify its draft before delivering. GM chats: assigned rolls,
+ * completed-but-unprocessed rolls and recent document changes (notes, sheets,
+ * inventory). Builder: recent document activity.
  */
 export function makeReviewDraftTool(sessionId: string, kind: "game" | "personal" | "builder") {
   return {
     description:
-      "Check the current draft state before delivering your reply. Returns the pending/assigned rolls and completed-but-unprocessed rolls (GM chats), or recent document activity (Builder). Use it to verify your draft is complete — e.g. any roll you ask a player to make must already be assigned via present_roll_check.",
+      "Check your draft before delivering your reply. Returns (1) the actions you have taken THIS turn (tool calls), (2) current state: assigned rolls, completed-but-unprocessed rolls and recent document changes (notes, character sheets, inventory) for GM chats, or recent documents for the Builder. Compare your draft with this list — if you promised a roll, a note, an inventory change or a document, make sure the corresponding action is actually there. If something is missing, do it now, then send_reply.",
     inputSchema: zodSchema(z.object({})),
     execute: async () => {
       const prisma = getPrisma();
       const activeGame = await getActiveGame();
       const masterId = activeGame?.currentMasterId ?? "";
 
+      const out: Record<string, unknown> = {
+        actionsThisTurn: getActions(sessionId),
+      };
+
       if (kind === "game" || kind === "personal") {
-        const [assigned, completed] = await Promise.all([
+        const [assigned, completed, recentChanges] = await Promise.all([
           prisma.roll.findMany({
             where: { sessionId, status: "assigned" },
             select: { checkName: true, diceExpression: true, playerId: true },
@@ -71,8 +101,17 @@ export function makeReviewDraftTool(sessionId: string, kind: "game" | "personal"
             orderBy: { completedAt: "asc" },
             take: 10,
           }),
+          prisma.document.findMany({
+            where: { masterId, OR: [{ category: "game_hidden" }, { category: "game_visible" }] },
+            orderBy: { updatedAt: "desc" },
+            take: 10,
+            select: { title: true, category: true, updatedAt: true },
+          }),
         ]);
-        return { assignedRolls: assigned, completedUnprocessedRolls: completed };
+        out.assignedRolls = assigned;
+        out.completedUnprocessedRolls = completed;
+        out.recentChanges = recentChanges;
+        return out;
       }
 
       const docs = await prisma.document.findMany({
@@ -81,7 +120,8 @@ export function makeReviewDraftTool(sessionId: string, kind: "game" | "personal"
         take: 10,
         select: { title: true, category: true, type: true, updatedAt: true },
       });
-      return { recentDocuments: docs };
+      out.recentDocuments = docs;
+      return out;
     },
   };
 }

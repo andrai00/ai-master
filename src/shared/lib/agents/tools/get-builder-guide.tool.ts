@@ -42,6 +42,8 @@ Required brain docs (create for every game system):
 - rules/game_state (type: 'game_state') — what to store in game_hidden (scene, NPCs, plots)
 - rules/doc_org (type: 'doc_org') — document organization plan
 
+Add to the brain a memory-organization note for the GM (e.g. in _index or a rules/game_memory doc): which memory categories THIS game needs (facts, secrets, plans, npc, rumors...), how to structure them, and when to clean them up. The GM uses update_memory to maintain them live during the game.
+
 Save templates (type: 'dice_template') for common rolls: attack, damage, save, skill, initiative.`,
 
   formula: `## Formula System

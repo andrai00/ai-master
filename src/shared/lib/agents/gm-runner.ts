@@ -21,6 +21,7 @@ import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
+import { gmUpdateMemoryTool } from "./gm-tools/gm-update-memory.tool";
 import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
@@ -147,6 +148,7 @@ function getGameTools(sessionId: string) {
     update_chat_summary: updateChatSummaryTool,
     get_players: gmGetPlayersTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
+    update_memory: gmUpdateMemoryTool,
     send_reply: makeSendReplyTool(sessionId, "master", "game_message_sent"),
     review_draft: makeReviewDraftTool(sessionId, "game"),
   };
@@ -171,6 +173,7 @@ function getPersonalTools(sessionId: string) {
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
+    update_memory: gmUpdateMemoryTool,
     send_reply: makeSendReplyTool(sessionId, "master", "personal_message_sent"),
     review_draft: makeReviewDraftTool(sessionId, "personal"),
   };

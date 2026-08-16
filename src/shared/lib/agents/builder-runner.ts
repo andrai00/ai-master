@@ -29,6 +29,7 @@ import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
+import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply } from "./reply-tools";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -109,6 +110,10 @@ Your available tools are listed in the context for the current mode. Use get_bui
 - Tool calls (search_rules, get_brain, create_document, update_document, scan_wiki_links, …) are invisible system actions. NEVER describe them in your reply text — no "я нашёл документ", "проверил базу", "создал файл", "заменил ссылки".
 - Your reply is ONLY the summary/result the admin needs. What you did with tools is implied; write the outcome, not the system actions.
 
+## Deliver your reply
+- Your answer reaches the chat ONLY when you call \`send_reply\` with the full text. Do not finish with plain text — call send_reply.
+- BEFORE send_reply, call \`review_draft\` and verify your draft is complete: any document you say you created or updated must actually exist (review_draft shows recent documents). If something is missing, fix it first, then send_reply.
+
 ## Proactive document links
 - Always back up your chat answers with clickable wiki-links to the documents you reference: [[<document-id>]] or [[<document-id>|text]].
 - Only link GLOSSARY documents (rules) — never brain, game_hidden or game_visible.
@@ -167,7 +172,7 @@ async function createProvider() {
 // Tools
 // ---------------------------------------------------------------------------
 
-function getTools(builderMode: string): ToolSet {
+function getTools(builderMode: string, sessionId: string): ToolSet {
   const shared = {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -177,6 +182,8 @@ function getTools(builderMode: string): ToolSet {
     get_builder_guide: getBuilderGuideTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
+    send_reply: makeSendReplyTool(sessionId, "builder", "builder_message_sent"),
+    review_draft: makeReviewDraftTool(sessionId, "builder"),
   };
 
   if (builderMode === "memory") {
@@ -382,7 +389,7 @@ export async function runBuilderAgent(
     const isStudy = fileIds.length > 0;
     console.log(`[builder] generateText start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
 
-    const tools = getTools(ctx.builderMode);
+    const tools = getTools(ctx.builderMode, sessionId);
 
     // Retry loop: up to 5 attempts for transient errors
     const MAX_RETRIES = 5;
@@ -506,10 +513,11 @@ export async function runBuilderAgent(
     if (!result) throw lastError; // should never happen
 
     // --- Success: save builder message + log response ---
-    const builderText = result.text?.trim();
+    const sentViaTool = didCallSendReply(result.steps);
+    const builderText = sentViaTool ? null : (result.text?.trim() ?? null);
     const finishReason = (result as unknown as Record<string, unknown>)?.finishReason ?? "unknown";
     const stepArr = (result as unknown as { steps?: Array<unknown> })?.steps;
-    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0} textPreview=${JSON.stringify(builderText?.slice(0, 200))}`);
+    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0} sentViaTool=${sentViaTool}`);
     const prisma = getPrisma();
 
     if (builderText) {

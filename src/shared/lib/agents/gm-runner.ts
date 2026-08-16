@@ -21,6 +21,7 @@ import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
+import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -124,7 +125,7 @@ function makePrepareStep(sessionId: string, toolsCount: number) {
   };
 }
 
-function getGameTools() {
+function getGameTools(sessionId: string) {
   return {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -146,10 +147,12 @@ function getGameTools() {
     update_chat_summary: updateChatSummaryTool,
     get_players: gmGetPlayersTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
+    send_reply: makeSendReplyTool(sessionId, "master", "game_message_sent"),
+    review_draft: makeReviewDraftTool(sessionId, "game"),
   };
 }
 
-function getPersonalTools() {
+function getPersonalTools(sessionId: string) {
   return {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -168,6 +171,8 @@ function getPersonalTools() {
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
+    send_reply: makeSendReplyTool(sessionId, "master", "personal_message_sent"),
+    review_draft: makeReviewDraftTool(sessionId, "personal"),
   };
 }
 
@@ -405,7 +410,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     }
 
     const model = await createProvider();
-    const tools = getGameTools();
+    const tools = getGameTools(sessionId);
 
     emitStarted(sessionId);
     console.log(`[gm-game] generateText start — session=${sessionId} msgs=${existingMessages.length}`);
@@ -428,7 +433,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       },
     });
 
-    const gmText = result.text?.trim();
+    const sentViaTool = didCallSendReply(result.steps);
+    const gmText = sentViaTool ? null : (result.text?.trim() ?? null);
     const prisma = getPrisma();
 
     if (gmText) {
@@ -496,7 +502,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     }
 
     const model = await createProvider();
-    const tools = getPersonalTools();
+    const tools = getPersonalTools(sessionId);
 
     emitStarted(sessionId);
     console.log(`[gm-personal] generateText start — session=${sessionId} playerId=${playerId} tools=${JSON.stringify(Object.keys(tools))} msgs=${existingMessages.length}`);
@@ -521,7 +527,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     const personalSteps = (result as unknown as { steps?: unknown[] }).steps;
     console.log(`[gm-personal] generateText done — steps=${personalSteps?.length ?? "?"} textLen=${result.text?.length ?? 0}`);
 
-    const gmText = result.text?.trim();
+    const sentViaTool = didCallSendReply(result.steps);
+    const gmText = sentViaTool ? null : (result.text?.trim() ?? null);
     const prisma = getPrisma();
 
     if (gmText) {

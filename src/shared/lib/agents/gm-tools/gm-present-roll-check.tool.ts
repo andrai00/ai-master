@@ -39,7 +39,16 @@ export const gmPresentRollCheckTool = {
       where: { masterId: activeGame.currentMasterId, userId: { in: args.targetPlayers } },
       select: { userId: true },
     });
-    const allowedPlayers = new Set(accesses.map((a) => a.userId));
+    const accessIds = new Set(accesses.map((a) => a.userId));
+    const users = await prisma.user.findMany({
+      where: { id: { in: args.targetPlayers } },
+      select: { id: true, role: true },
+    });
+    // A participant is allowed if they have a GameAccess row OR are an admin
+    // (admins have access to every game by role, no GameAccess row exists).
+    const allowedPlayers = new Set(
+      users.filter((u) => u.role === "admin" || accessIds.has(u.id)).map((u) => u.id)
+    );
 
     for (const playerId of args.targetPlayers) {
       if (!allowedPlayers.has(playerId)) continue;

@@ -216,13 +216,15 @@ async function buildGameContext(sessionId: string) {
     where: { sessionId, summarized: false },
     orderBy: { createdAt: "asc" },
     take: 30,
-    select: { role: true, content: true, senderId: true },
+    select: { role: true, content: true, senderId: true, sender: { select: { displayName: true } } },
   });
 
-  const messages = recent.map((m) => ({
-    role: (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant",
-    content: m.content,
-  }));
+  const messages = recent.map((m) => {
+    const role = (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant";
+    const prefix =
+      role === "user" ? `[${m.sender?.displayName || m.senderId} (id: ${m.senderId})]: ` : "";
+    return { role, content: `${prefix}${m.content}` };
+  });
 
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }

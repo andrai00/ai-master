@@ -4,7 +4,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useTranslation } from "react-i18next";
-import styles from "./page.module.css";
+import styles from "./doc-viewer.module.css";
 
 interface IDocViewerProps {
   title: string;

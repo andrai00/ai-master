@@ -84,7 +84,7 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep(sessionId: string, toolsCount: number, _ctx: { activeGame?: { mode?: string; currentMasterId?: string } | null }) {
+function makePrepareStep(sessionId: string, toolsCount: number) {
   let cachedLimit = 128_000;
   let limitLoaded = false;
 
@@ -268,7 +268,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
 }
 
-async function autoSummarize(sessionId: string, _masterId: string): Promise<void> {
+async function autoSummarize(sessionId: string): Promise<void> {
   const prisma = getPrisma();
   const allUnsummarized = await prisma.message.findMany({
     where: { sessionId, summarized: false },
@@ -331,7 +331,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       tools,
       stopWhen: isStepCount(40),
       abortSignal: ac.signal,
-      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length, ctx),
+      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
@@ -358,7 +358,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     }
 
     await markRollsConsumed(sessionId);
-    await autoSummarize(sessionId, ctx.masterId);
+    await autoSummarize(sessionId);
     emitDone(sessionId);
 
     const newMessages = await prisma.message.findMany({
@@ -422,7 +422,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       tools,
       stopWhen: isStepCount(30),
       abortSignal: ac.signal,
-      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length, ctx),
+      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
       onStepFinish: async (event) => {
         const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
         if (calls?.length) {
@@ -452,7 +452,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     }
 
     await markRollsConsumed(sessionId);
-    await autoSummarize(sessionId, ctx.masterId);
+    await autoSummarize(sessionId);
     emitDone(sessionId);
 
   } catch (err: unknown) {

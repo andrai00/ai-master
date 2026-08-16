@@ -2,11 +2,10 @@
 
 import { Modal, Button, Space } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { MdViewer } from "@/src/features/md-viewer";
 import { getDocumentAction, type IDocumentData } from "@/src/shared/actions/documents/get-document";
 import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-document-path";
-import GithubSlug from "github-slugger";
 
 interface IDocumentPreviewModalProps {
   open: boolean;
@@ -20,48 +19,56 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
   const [navStack, setNavStack] = useState<IDocumentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [loadedKey, setLoadedKey] = useState<{ open: boolean; docId: string | null }>({ open: false, docId: null });
 
-  useEffect(() => {
-    if (open && docId) {
-      setNavStack([]);
-      setScrollTo(undefined);
-      setDoc(null);
-      loadDoc(docId);
-    }
-  }, [open, docId]);
-
-  useEffect(() => {
-    if (doc) {
-      setScrollTo(undefined);
-      requestAnimationFrame(() => {
-        const el = contentRef.current?.querySelector('[class*="content"]') as HTMLElement | null;
-        if (el) el.scrollTop = 0;
-      });
-      if (anchor) {
-        setTimeout(() => { setScrollTo(anchor); }, 300);
-      }
-    }
-  }, [doc, anchor]);
-
-  const loadDoc = async (id: string) => {
-    setLoading(true);
+  const fetchDoc = useCallback(async (id: string): Promise<IDocumentData | null> => {
     let d = await getDocumentAction(id);
     if (!d) {
       const resolved = await resolveDocumentByPath(id);
       if (resolved) d = await getDocumentAction(resolved.docId);
     }
-    setDoc(d);
-    setLoading(false);
-  };
+    return d;
+  }, []);
+
+  // Reset navigation state when the modal opens or switches documents.
+  // Runs during render (React's official "adjusting state when props change"
+  // pattern) instead of an effect, so state never cascades.
+  if (open !== loadedKey.open || docId !== loadedKey.docId) {
+    setLoadedKey({ open, docId });
+    if (open && docId) {
+      setNavStack([]);
+      setScrollTo(undefined);
+      setDoc(null);
+    }
+  }
+
+  // Load the document on open / docId change. setState happens only inside
+  // the async callback, never synchronously in the effect body.
+  useEffect(() => {
+    if (!open || !docId) return;
+    let cancelled = false;
+    void fetchDoc(docId).then((d) => {
+      if (cancelled) return;
+      setDoc(d);
+      setLoading(false);
+      if (anchor) setScrollTo(anchor);
+    });
+    return () => { cancelled = true; };
+  }, [open, docId, anchor, fetchDoc]);
 
   const handleNavigate = useCallback((targetId: string, anchor?: string) => {
-    setScrollTo(anchor || "");
-    if (targetId !== doc?.id) {
-      setNavStack((s) => [...s, doc!]);
-      loadDoc(targetId);
+    if (targetId === doc?.id) {
+      setScrollTo(anchor || "");
+      return;
     }
-  }, [doc]);
+    setNavStack((s) => (doc ? [...s, doc] : s));
+    setLoading(true);
+    void fetchDoc(targetId).then((d) => {
+      setDoc(d);
+      setLoading(false);
+      setScrollTo(anchor || "");
+    });
+  }, [doc, fetchDoc]);
 
   const handleBack = useCallback(() => {
     setScrollTo(undefined);
@@ -69,6 +76,7 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
       if (s.length === 0) return s;
       const prev = s[s.length - 1]!;
       setDoc(prev);
+      setLoading(false);
       return s.slice(0, -1);
     });
   }, []);

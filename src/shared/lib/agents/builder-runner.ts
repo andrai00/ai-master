@@ -298,9 +298,6 @@ export async function runBuilderAgent(
       ctx.system += "\n\n## Current Mode: IMPORT\nYou are processing uploaded files. Read the IMPORT MODE section below for rules.";
     }
 
-    const activeGame = await getActiveGame();
-    const masterId = activeGame?.currentMasterId ?? "";
-
     let fileHint = "";
     if (fileIds.length > 0) {
       const prisma = getPrisma();

@@ -102,19 +102,18 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
-  const mapMsg = (m: IGameMessage): IMessage => ({
-    id: m.id,
-    sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
-    role: m.role,
-    text: m.content,
-    shared: m.shared,
-    summarized: m.summarized,
-    avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
-  });
-
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
 
   const messages: IMessage[] = useMemo(() => {
+    const mapMsg = (m: IGameMessage): IMessage => ({
+      id: m.id,
+      sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
+      role: m.role,
+      text: m.content,
+      shared: m.shared,
+      summarized: m.summarized,
+      avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
+    });
     const msgs = rawMessages.map(mapMsg);
     if (rawMessages.length === 0) return msgs;
 
@@ -141,7 +140,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
       const bCreated = b.isRollEntry ? (b.rollTimestamp ?? 0) : new Date(rawMessages.find(m => m.id === b.id)?.createdAt ?? 0).getTime();
       return aCreated - bCreated;
     });
-  }, [rawMessages, rolls]);
+  }, [rawMessages, rolls, t]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

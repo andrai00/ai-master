@@ -101,16 +101,15 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [queryClient, sessionId]);
 
-  const mapMsg = (m: IPersonalMessage): IMessage => ({
-    id: m.id,
-    sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
-    role: m.role,
-    text: m.content,
-    summarized: m.summarized,
-    avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
-  });
-
   const messages: IMessage[] = useMemo(() => {
+    const mapMsg = (m: IPersonalMessage): IMessage => ({
+      id: m.id,
+      sender: m.role === "master" ? t("chat.master") : (m.senderDisplayName || t("admin.roleAdmin")),
+      role: m.role,
+      text: m.content,
+      summarized: m.summarized,
+      avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
+    });
     const msgList: IPersonalMessage[] = msgData && "messages" in msgData ? msgData.messages : [];
     const msgs: IMessage[] = msgList.map(mapMsg);
     if (msgList.length === 0) return msgs;
@@ -138,7 +137,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
       const bCreated = b.isRollEntry ? (b.rollTimestamp ?? 0) : new Date(msgList.find(m => m.id === b.id)?.createdAt ?? 0).getTime();
       return aCreated - bCreated;
     });
-  }, [msgData, rolls]);
+  }, [msgData, rolls, t]);
 
   const handleSend = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

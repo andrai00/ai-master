@@ -6,7 +6,6 @@ import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeRaw from "rehype-raw";
 import GithubSlug from "github-slugger";
-import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-document-path";
 import { MenuOutlined } from "@ant-design/icons";
 import { remarkWikiLink } from "../model/remark-wiki-link";
 import { remarkFormulaRef } from "../model/remark-formula-ref";

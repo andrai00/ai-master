@@ -6,8 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
-import GithubSlug from "github-slugger";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
@@ -25,6 +24,7 @@ export const DocumentsView = () => {
   const [previewDoc, setPreviewDoc] = useState<IDocumentItem | null>(null);
   const [navStack, setNavStack] = useState<IDocumentItem[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
+  const [prevOpenDocId, setPrevOpenDocId] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -33,14 +33,21 @@ export const DocumentsView = () => {
   const searchParams = useSearchParams();
   const openDocId = searchParams.get("doc");
 
-  useEffect(() => {
-    if (!openDocId || docs.length === 0) return;
-    const target = docs.find((d) => d.id === openDocId);
-    if (target) setPreviewDoc(target);
-  }, [openDocId, docs]);
-
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
   const titleToDoc = useMemo(() => new Map(docs.map((d) => [d.title, d])), [docs]);
+
+  // Open the document referenced by ?doc= in the URL (deep link / share).
+  // Runs during render (React's official "adjusting state when props change"
+  // pattern) instead of an effect, so state never cascades. If the doc is
+  // not loaded yet, keep the previous id so this retries when docs arrive.
+  if (openDocId !== prevOpenDocId) {
+    const target = openDocId ? docMap.get(openDocId) : null;
+    if (target || !openDocId) {
+      setPrevOpenDocId(openDocId);
+      setPreviewDoc(target ?? null);
+      setNavStack([]);
+    }
+  }
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
@@ -65,15 +72,14 @@ export const DocumentsView = () => {
   const handleNavigate = useCallback((docId: string, anchor?: string) => {
     const target = docMap.get(docId) ?? titleToDoc.get(docId);
     if (!target) return;
-    const anchorSlug = anchor ? new GithubSlug().slug(anchor) : "";
-    setScrollTo(anchor || "");  // use raw anchor, scrollTo effect handles both slug and raw
+    setScrollTo(anchor || "");
     setPreviewDoc((prev) => {
       if (prev && prev.id !== docId) {
         setNavStack((s) => [...s, prev]);
       }
       return { ...target, content: target.content };
     });
-  }, [docMap]);
+  }, [docMap, titleToDoc]);
 
   const handleBack = useCallback(() => {
     setScrollTo(undefined);

@@ -9,7 +9,6 @@ interface INoGamePlaceholderProps {
 
 export function NoGamePlaceholder({ page }: INoGamePlaceholderProps) {
   const { t } = useTranslation();
-  const prefix = page === "builder" ? "builder" : "documents";
 
   return (
     <Result

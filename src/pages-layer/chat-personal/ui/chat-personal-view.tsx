@@ -64,23 +64,6 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   const { data: rolls } = usePersonalRolls();
   const executeRollMutation = useExecuteRoll();
 
-  // The player's messages newer than the last master reply are pending (unanswered).
-  const pendingCount = useMemo(() => {
-    if (!msgData || !("messages" in msgData)) return 0;
-    const msgs = msgData.messages;
-    let lastMasterAt: number | null = null;
-    for (const m of msgs) {
-      if (m.role === "master") {
-        const ts = new Date(m.createdAt).getTime();
-        if (lastMasterAt === null || ts > lastMasterAt) lastMasterAt = ts;
-      }
-    }
-    return msgs.filter(
-      (m) => (m.role === "admin" || m.role === "player") &&
-        (lastMasterAt === null || new Date(m.createdAt).getTime() > lastMasterAt)
-    ).length;
-  }, [msgData]);
-
   const handleClearChat = useCallback(() => {
     if (sessionId) clearMutation.mutate(sessionId);
   }, [sessionId, clearMutation]);
@@ -270,7 +253,6 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         sending={sendMutation.isPending}
         typing={typing}
         stopping={stopping}
-        pendingCount={pendingCount}
         stepsSessionId={sessionId}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}

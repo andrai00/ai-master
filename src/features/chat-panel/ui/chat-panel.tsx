@@ -25,7 +25,6 @@ import {
   MenuOutlined,
   StopOutlined,
   LoadingOutlined,
-  ClockCircleOutlined,
   BookOutlined,
   PictureOutlined,
   LinkOutlined,
@@ -197,8 +196,6 @@ interface IChatPanelProps {
   onToolStep?: (tool: string) => void;
   /** True while stop is in progress (waiting for abort to complete) */
   stopping?: boolean;
-  /** Number of player messages awaiting AI response (game chat batch mode) */
-  pendingCount?: number;
   /** Optional element to render inside the input bar, between attach button and text input */
   inputPrefix?: ReactNode;
   /** Optional action rendered between messages area and input bar */
@@ -306,7 +303,6 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
-  pendingCount,
   inputPrefix, footerAction, rollStrip, typingSender,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
@@ -688,12 +684,6 @@ export const ChatPanel = ({
           <div className={styles.thinkingBanner}>
             <LoadingOutlined spin className={styles.pendingIcon} />
             <span>{t("chat.masterThinking")}</span>
-          </div>
-        )}
-        {typing && pendingCount !== undefined && pendingCount > 0 && (
-          <div className={styles.pendingBanner}>
-            <ClockCircleOutlined className={styles.pendingIcon} />
-            <span>{t("chat.messagesPending", { count: pendingCount })}</span>
           </div>
         )}
         {disabled && disabledText && (

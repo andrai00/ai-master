@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, Segmented, Tooltip, Button } from "antd";
 import { SettingOutlined, DatabaseOutlined, PaperClipOutlined, RobotOutlined } from "@ant-design/icons";
@@ -134,23 +134,6 @@ export const BuilderChatView = () => {
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
-
-  // Admin messages newer than the last builder reply are pending (unanswered).
-  const pendingCount = useMemo(() => {
-    if (!msgData || !("messages" in msgData)) return 0;
-    const msgs = msgData.messages;
-    let lastBuilderAt: number | null = null;
-    for (const m of msgs) {
-      if (m.role === "builder") {
-        const ts = new Date(m.createdAt).getTime();
-        if (lastBuilderAt === null || ts > lastBuilderAt) lastBuilderAt = ts;
-      }
-    }
-    return msgs.filter(
-      (m) => m.role === "admin" &&
-        (lastBuilderAt === null || new Date(m.createdAt).getTime() > lastBuilderAt)
-    ).length;
-  }, [msgData]);
 
   const mapMsg = (m: IBuilderMessage): IMessage => ({
     id: m.id,
@@ -321,7 +304,6 @@ export const BuilderChatView = () => {
         sending={sendMutation.isPending || uploading}
         typing={typing}
         stopping={stopping}
-        pendingCount={pendingCount}
         footerAction={requestBtn}
         stepsSessionId={sessionId ?? undefined}
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}

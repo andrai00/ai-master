@@ -29,7 +29,7 @@ import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply, clearActions, recordActions } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions } from "./reply-tools";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -350,6 +350,8 @@ export async function runBuilderAgent(
   clearActions(sessionId);
   resetCancellation();
 
+  const cutoffTime = new Date();
+
   try {
     // --- Phase: prepare ---
     const ctx = await buildContext(sessionId);
@@ -397,14 +399,15 @@ export async function runBuilderAgent(
     let result: Awaited<ReturnType<typeof generateText<typeof tools>>> | undefined;
     let lastError: unknown;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        result = await generateText({
-          model,
-          system: ctx.system,
-          messages,
-          tools,
-          stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(80),
+    const runGenerate = (
+      msgs: Array<{ role: "user" | "assistant"; content: string }>
+    ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> =>
+      generateText({
+        model,
+        system: ctx.system,
+        messages: msgs,
+        tools,
+        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(80),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
             // Check abort before doing anything
             if (ac.signal.aborted) {
@@ -484,7 +487,11 @@ export async function runBuilderAgent(
               }
             }
           },
-        });
+      });
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        result = await runGenerate(messages);
         console.log(`[builder] generateText raw result — ${JSON.stringify({ text: result.text?.slice(0, 200), finishReason: (result as unknown as Record<string,unknown>).finishReason, steps: (result as unknown as {steps?: unknown[]}).steps?.length, usage: (result as unknown as Record<string,unknown>).usage })}`);
         break; // success — exit retry loop
       } catch (err: unknown) {
@@ -515,12 +522,33 @@ export async function runBuilderAgent(
     if (!result) throw lastError; // should never happen
 
     // --- Success: save builder message + log response ---
-    const sentViaTool = didCallSendReply(result.steps);
-    const builderText = sentViaTool ? null : (result.text?.trim() ?? null);
+    const prisma = getPrisma();
+
+    // Was a reply actually delivered this run (a successful send_reply saved a message)?
+    const deliveredCount = () =>
+      prisma.message.count({ where: { sessionId, role: "builder", createdAt: { gte: cutoffTime } } });
+
+    let builderText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
     const finishReason = (result as unknown as Record<string, unknown>)?.finishReason ?? "unknown";
     const stepArr = (result as unknown as { steps?: Array<unknown> })?.steps;
-    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0} sentViaTool=${sentViaTool}`);
-    const prisma = getPrisma();
+    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0}`);
+
+    // The model ended without a reply — re-run once forcing it to deliver.
+    if (!builderText && (await deliveredCount()) === 0) {
+      const retryResult = await runGenerate([
+        ...messages,
+        { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
+      ]);
+      if ((await deliveredCount()) === 0) {
+        const retryText = retryResult.text?.trim();
+        if (retryText) builderText = retryText;
+      }
+    }
+
+    // Last resort — still nothing delivered: short fallback so the bubble never ends silently.
+    if (!builderText && (await deliveredCount()) === 0) {
+      builderText = "Не удалось сформировать ответ. Попробуй ещё раз.";
+    }
 
     if (builderText) {
       await prisma.message.create({

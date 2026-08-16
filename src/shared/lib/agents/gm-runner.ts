@@ -21,7 +21,7 @@ import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { makeSendReplyTool, makeReviewDraftTool, didCallSendReply, clearActions, recordActions } from "./reply-tools";
+import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -435,9 +435,49 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       },
     });
 
-    const sentViaTool = didCallSendReply(result.steps);
-    const gmText = sentViaTool ? null : (result.text?.trim() ?? null);
     const prisma = getPrisma();
+
+    // Was a reply actually delivered this run (a successful send_reply saved a message)?
+    const deliveredCount = () =>
+      prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
+
+    let gmText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
+
+    // The model ended without a reply (no send_reply, no text) — re-run once
+    // forcing it to deliver via send_reply.
+    if (!gmText && (await deliveredCount()) === 0) {
+      const retry = await generateText({
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
+        ],
+        tools,
+        stopWhen: isStepCount(40),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+        onStepFinish: async (event) => {
+          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+          if (calls?.length) {
+            recordActions(sessionId, calls);
+            for (const call of calls) {
+              emitStep(sessionId, call.toolName as string);
+            }
+          }
+        },
+      });
+      if ((await deliveredCount()) === 0) {
+        const retryText = retry.text?.trim();
+        if (retryText) gmText = retryText;
+      }
+    }
+
+    // Last resort — still nothing delivered: save a short fallback so the
+    // thinking bubble never ends silently.
+    if (!gmText && (await deliveredCount()) === 0) {
+      gmText = "Не удалось сформировать ответ. Попробуй ещё раз.";
+    }
 
     if (gmText) {
       await prisma.message.create({
@@ -491,6 +531,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   initSession(sessionId);
   clearActions(sessionId);
 
+  const cutoffTime = new Date();
+
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
@@ -531,9 +573,47 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     const personalSteps = (result as unknown as { steps?: unknown[] }).steps;
     console.log(`[gm-personal] generateText done — steps=${personalSteps?.length ?? "?"} textLen=${result.text?.length ?? 0}`);
 
-    const sentViaTool = didCallSendReply(result.steps);
-    const gmText = sentViaTool ? null : (result.text?.trim() ?? null);
     const prisma = getPrisma();
+
+    // Was a reply actually delivered this run (a successful send_reply saved a message)?
+    const deliveredCount = () =>
+      prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
+
+    let gmText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
+
+    // The model ended without a reply — re-run once forcing it to deliver.
+    if (!gmText && (await deliveredCount()) === 0) {
+      const retry = await generateText({
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
+        ],
+        tools,
+        stopWhen: isStepCount(30),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
+        onStepFinish: async (event) => {
+          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+          if (calls?.length) {
+            recordActions(sessionId, calls);
+            for (const call of calls) {
+              emitStep(sessionId, call.toolName as string);
+            }
+          }
+        },
+      });
+      if ((await deliveredCount()) === 0) {
+        const retryText = retry.text?.trim();
+        if (retryText) gmText = retryText;
+      }
+    }
+
+    // Last resort — still nothing delivered: short fallback so the bubble never ends silently.
+    if (!gmText && (await deliveredCount()) === 0) {
+      gmText = "Не удалось сформировать ответ. Попробуй ещё раз.";
+    }
 
     if (gmText) {
       await prisma.message.create({

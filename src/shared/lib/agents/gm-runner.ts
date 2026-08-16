@@ -15,6 +15,7 @@ import { gmPersonalPresentRollCheckTool } from "./gm-tools/gm-personal-present-r
 import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
 import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
+import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -134,6 +135,7 @@ function getGameTools() {
     confirm_rolls: gmConfirmRollsTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
+    get_players: gmGetPlayersTool,
   };
 }
 
@@ -173,7 +175,7 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results. Use update_chat_summary to save summaries of key events.`;
+  systemPrompt += `\n\nUse search_documents to find rules (glossary), instructions (brain), hidden notes (game_hidden), and player sheets (game_visible). Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
 
   const unseenRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },

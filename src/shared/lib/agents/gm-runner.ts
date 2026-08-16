@@ -243,7 +243,7 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
+  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
   if (rollsCtx.note) systemPrompt += rollsCtx.note;
@@ -318,7 +318,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
   systemPrompt += `\n- Player ID: ${playerId}\n`;
 
-  systemPrompt += `\n\nUse search_rules for rules (glossary), get_brain for your instructions, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
+  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
   if (rollsCtx.note) systemPrompt += rollsCtx.note;

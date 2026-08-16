@@ -35,11 +35,11 @@ import remarkGfm from "remark-gfm";
 import { remarkWikiLink } from "@/src/features/md-viewer/model/remark-wiki-link";
 import { remarkChatLink } from "@/src/features/md-viewer/model/remark-chat-link";
 import { ChatNavLink } from "@/src/features/md-viewer/ui/chat-nav-link";
-import { DocumentPreviewModal } from "@/src/shared/ui/document-preview-modal";
+import { useDocumentPreview } from "@/src/shared/ui/document-preview-provider";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
-import { subscribeStep, subscribeReconnect, subscribeDocumentDeleted } from "@/src/shared/lib/realtime/client";
+import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import styles from "./chat-panel.module.css";
 
@@ -297,6 +297,7 @@ export const ChatPanel = ({
   const queryClient = useQueryClient();
   const { isMobile, toggle } = useMobileMenu();
   const { notification } = App.useApp();
+  const { openDocument } = useDocumentPreview();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState("");
@@ -304,13 +305,10 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
-  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
-  const [previewAnchor, setPreviewAnchor] = useState<string | undefined>(undefined);
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
-    setPreviewDocId(docId);
-    setPreviewAnchor(anchor);
-  }, []);
+    openDocument(docId, anchor);
+  }, [openDocument]);
   const [stepLabel, setStepLabel] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,18 +371,6 @@ export const ChatPanel = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
-
-  // Close the preview modal only when the document it shows is deleted.
-  // Updates/creates and deletions of other documents leave it open (no flicker).
-  useEffect(() => {
-    const unsub = subscribeDocumentDeleted((deletedId) => {
-      if (previewDocId === deletedId) {
-        setPreviewDocId(null);
-        setPreviewAnchor(undefined);
-      }
-    });
-    return unsub;
-  }, [previewDocId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -801,12 +787,6 @@ export const ChatPanel = ({
         </div>
       </div>
     </div>
-      <DocumentPreviewModal
-        open={previewDocId !== null}
-        docId={previewDocId}
-        anchor={previewAnchor}
-        onClose={() => { setPreviewDocId(null); setPreviewAnchor(undefined); }}
-      />
     </>
   );
 };

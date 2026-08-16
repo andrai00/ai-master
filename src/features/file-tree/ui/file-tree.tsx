@@ -1,10 +1,10 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { useRouter, usePathname } from "next/navigation";
 import { useMemo, type ReactNode } from "react";
 import { FileTextOutlined, IdcardOutlined, BookOutlined, ContainerOutlined } from "@ant-design/icons";
 import type { IPlayerDocument } from "@/src/shared/actions/game-master/get-player-documents";
+import { useDocumentPreview } from "@/src/shared/ui/document-preview-provider";
 import styles from "./file-tree.module.css";
 
 interface ITreeSection {
@@ -18,7 +18,6 @@ interface ITreeItem {
   icon: ReactNode;
   labelKey: string;
   label?: string;
-  route?: string;
 }
 
 const SECTION_ICONS: Record<string, ReactNode> = {
@@ -39,8 +38,7 @@ interface IFileTreeProps {
 
 export const FileTree = ({ isAdmin, documents }: IFileTreeProps) => {
   const { t } = useTranslation();
-  const router = useRouter();
-  const pathname = usePathname();
+  const { openDocument } = useDocumentPreview();
 
   const treeSections = useMemo(() => {
     if (!documents || documents.length === 0) return [] as ITreeSection[];
@@ -60,7 +58,6 @@ export const FileTree = ({ isAdmin, documents }: IFileTreeProps) => {
         icon: getDocIcon(doc.type),
         labelKey: doc.title,
         label: doc.title,
-        route: `/characters/${doc.id}`,
       })),
     } as ITreeSection));
   }, [documents]);
@@ -68,12 +65,6 @@ export const FileTree = ({ isAdmin, documents }: IFileTreeProps) => {
   const visibleSections = treeSections.filter(
     (s) => !s.adminOnly || isAdmin
   );
-
-  const handleClick = (route?: string) => {
-    if (route) router.push(route);
-  };
-
-  const isActive = (route?: string) => route ? pathname.startsWith(route) : false;
 
   return (
     <div className={styles.tree}>
@@ -85,8 +76,8 @@ export const FileTree = ({ isAdmin, documents }: IFileTreeProps) => {
           {section.items.map((item) => (
             <button
               key={item.key}
-              className={`${styles.item} ${isActive(item.route) ? styles.itemActive : ""}`}
-              onClick={() => handleClick(item.route)}
+              className={styles.item}
+              onClick={() => openDocument(item.key)}
             >
               <span className={styles.itemIcon}>{item.icon}</span>
               <span className={styles.itemLabel}>{item.label || t(item.labelKey)}</span>

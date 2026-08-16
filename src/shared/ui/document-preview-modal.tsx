@@ -20,7 +20,7 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
   const [loadedKey, setLoadedKey] = useState<{ open: boolean; docId: string | null }>({ open: false, docId: null });
 
   const activeId = targetId ?? docId;
-  const { data: doc } = useDocument(activeId, open);
+  const { data: doc, isLoading } = useDocument(activeId, open);
 
   // Reset local navigation when the modal opens or the requested doc changes.
   // Runs during render (React's official "adjusting state when props change"
@@ -70,8 +70,10 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
       centered
       styles={{ body: { padding: 0, height: "70vh", overflow: "hidden" } }}
     >
-      {!doc ? (
+      {isLoading ? (
         <div style={{ padding: 24, color: "var(--text-dim)" }}>Loading...</div>
+      ) : !doc ? (
+        <div style={{ padding: 24, color: "var(--text-dim)" }}>Document not found</div>
       ) : (
         <MdViewer key={doc.id} content={doc.content} onNavigate={handleNavigate} scrollTo={scrollTo} showToc />
       )}

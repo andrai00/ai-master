@@ -6,6 +6,7 @@ import { Sidebar } from "@/src/widgets/sidebar";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { MobileMenuProvider } from "@/src/shared/ui/page-header";
+import { DocumentPreviewProvider } from "@/src/shared/ui/document-preview-provider";
 import { emitStep, emitReconnect, emitDocumentDeleted } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
@@ -150,32 +151,34 @@ export const Shell = ({ user, children }: IShellProps) => {
   }, [isMobile]);
 
   return (
-    <Layout className={styles.shell}>
-      {isMobile && mobileOpen && (
-        <div className={styles.overlay} onClick={() => setMobileOpen(false)} />
-      )}
+    <DocumentPreviewProvider>
+      <Layout className={styles.shell}>
+        {isMobile && mobileOpen && (
+          <div className={styles.overlay} onClick={() => setMobileOpen(false)} />
+        )}
 
-      {isMobile ? (
-        <div className={`${styles.mobileDrawer} ${mobileOpen ? styles.mobileDrawerOpen : ""}`}>
-          <Sidebar collapsed={false} onToggle={toggleSidebar} user={user} onGameChange={() => router.refresh()} />
-        </div>
-      ) : (
-        <Layout.Sider
-          collapsed={sidebarCollapsed}
-          collapsedWidth={48}
-          width={266}
-          className={styles.sider}
-          trigger={null}
-        >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} user={user} onGameChange={() => router.refresh()} />
-        </Layout.Sider>
-      )}
+        {isMobile ? (
+          <div className={`${styles.mobileDrawer} ${mobileOpen ? styles.mobileDrawerOpen : ""}`}>
+            <Sidebar collapsed={false} onToggle={toggleSidebar} user={user} onGameChange={() => router.refresh()} />
+          </div>
+        ) : (
+          <Layout.Sider
+            collapsed={sidebarCollapsed}
+            collapsedWidth={48}
+            width={266}
+            className={styles.sider}
+            trigger={null}
+          >
+            <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} user={user} onGameChange={() => router.refresh()} />
+          </Layout.Sider>
+        )}
 
-      <Content className={styles.content}>
-        <MobileMenuProvider isMobile={isMobile && !mobileOpen} toggle={toggleSidebar}>
-          {children}
-        </MobileMenuProvider>
-      </Content>
-    </Layout>
+        <Content className={styles.content}>
+          <MobileMenuProvider isMobile={isMobile && !mobileOpen} toggle={toggleSidebar}>
+            {children}
+          </MobileMenuProvider>
+        </Content>
+      </Layout>
+    </DocumentPreviewProvider>
   );
 };

@@ -668,6 +668,12 @@ export const ChatPanel = ({
         </div>
       )}
       <div className={styles.inputBar}>
+        {typing && (
+          <div className={styles.thinkingBanner}>
+            <LoadingOutlined spin className={styles.pendingIcon} />
+            <span>{t("chat.masterThinking")}</span>
+          </div>
+        )}
         {typing && pendingCount !== undefined && pendingCount > 0 && (
           <div className={styles.pendingBanner}>
             <ClockCircleOutlined className={styles.pendingIcon} />

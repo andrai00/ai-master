@@ -226,7 +226,6 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         title={t("chat.gameChat")}
         hideShare={false}
         disabled={disabled || typing}
-        disabledText={typing ? t("chat.masterThinking") : undefined}
         onDelete={handleDelete}
         onHistoryClick={openHistory}
         onSend={handleSend}

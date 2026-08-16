@@ -147,7 +147,7 @@
 ### Good: `explore_archive()` — видит только дерево папок и sample-имена. Типы определяет по названиям папок. `bulk_import_to_glossary` создаёт все Document'ы серверной операцией (createMany на папку).
 
 ### Bad: ссылаться на документы только по UUID
-### Why: документы хранятся с path-based названиями (`classes/87-barbarian`). Ссылки в контенте используют `/path/file.md#anchor` формат. Если тул принимает только UUID — AI вынужден делать search_documents перед каждым read/update/delete.
+### Why: документы хранятся с path-based названиями (`classes/87-barbarian`). Ссылки в контенте используют `/path/file.md#anchor` формат. Если тул принимает только UUID — AI вынужден делать поиск (`search_rules`/`get_brain`) перед каждым read/update/delete.
 ### Good: `read_document`, `update_document`, `delete_document` принимают и UUID и path. Авто-резолв через `resolveDocId`: содержит `/` или `.md` → path → ищет по title.
 
 ### Bad: 10+ параллельных `generateText()` без контроля concurrency
@@ -223,8 +223,8 @@
 ## LLM / Prompts
 
 ### Bad: агент утверждает что создал документы без проверки через тулз
-### Why: LLM галлюцинирует выполненную работу. Без `search_documents()` проверки факта создания — агент пишет "сделал 7 brain-документов" когда их 0 в БД.
-### Good: после выхода из STUDY MODE обязательный `search_documents(category="brain")` перед отчётом. Никогда не утверждать что документы созданы без проверки тулзом. См. `builder-system.md:Study Mode:Step 5`.
+### Why: LLM галлюцинирует выполненную работу. Без проверки через тулз (`get_brain()`/`search_rules()`) факта создания — агент пишет "сделал 7 brain-документов" когда их 0 в БД.
+### Good: после выхода из STUDY MODE обязательный `get_brain()` перед отчётом. Никогда не утверждать что документы созданы без проверки тулзом. См. `builder-system.md:Study Mode:Step 5`.
 
 ### Bad: промпт говорит "Create brain documents IF the chunk contains instructions"
 ### Why: LLM интерпретирует "if" буквально — чанк с правилами не "instructions" → пропускает мозги. За весь файл ни одного brain-документа.

@@ -89,7 +89,11 @@
 | `create_document(title, content, category, type, tags?, summary?)` | `glossary` / `brain` | `game_hidden` / `game_visible` |
 | `update_document(id, content, title?, summary?)` | `glossary` / `brain` | `game_hidden` / `game_visible` |
 | `read_document(id)` | `glossary` / `brain` | все категории |
-| `search_documents(query, category?)` | `glossary` / `brain` (до 20) | все категории (до 20) |
+| `search_rules(query)` | глоссарий (до 20) | глоссарий (до 20) |
+| `get_brain(topic?)` | мозг: индекс + секции | мозг: индекс + секции |
+| `get_gm_notes()` | — | game_hidden (заметки/память) |
+| `get_scene_state()` | — | текущая сцена |
+| `get_player_sheet(playerId?)` | — | game_visible (листы/записи игроков) |
 
 **Защита от дубликатов:** `create_document` проверяет существующий документ с тем же title. Если найден — возвращает ID существующего, не создавая новый. Builder может переключиться на `update_document`.
 

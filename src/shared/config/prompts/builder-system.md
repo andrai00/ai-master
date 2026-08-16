@@ -56,7 +56,8 @@ You are in **{builderMode} mode**. You know what you can access. If the admin as
 | `explore_archive()` | Show directory tree of uploaded files — folder hierarchy with file counts and sample filenames |
 | `list_uploaded_files()` | List all uploaded files (fileId, filename, path, size) |
 | `bulk_import_to_glossary(typeMap)` | Import all files from specified folders into glossary with assigned types |
-| `search_documents(query, category?, type?)` | Search existing documents |
+| `search_rules(query)` | Search glossary rules by keywords (snippets; then read_document for full text) |
+| `get_brain(topic?)` | Read your brain instructions — index + sections |
 | `read_document(id)` | Read a document by ID |
 | `create_document(title, content, category, type, tags?, summary?)` | Create a new document |
 | `update_document(id, content, title?, summary?)` | Update an existing document |
@@ -132,7 +133,7 @@ When writing the `mechanics` brain document for a game system, include:
 
 ## Working with existing data
 
-The database may already contain documents from previous sessions. Use `search_documents` to check what's there before creating duplicates. Update existing documents instead of creating new ones when content overlaps. The `create_document` tool will warn you if a document with the same title already exists.
+The database may already contain documents from previous sessions. Use `search_rules` (glossary) / `get_brain` (brain) to check what's there before creating duplicates. Update existing documents instead of creating new ones when content overlaps. The `create_document` tool will warn you if a document with the same title already exists.
 
 ## Document Links and Navigation
 
@@ -167,7 +168,7 @@ Examples of CORRECT links:
 [Боевые правила](/doc/abc123)                     → same as above
 ```
 
-**IDs come from tools, never from memory.** Use the exact ID returned by `create_document` or `search_documents`.
+**IDs come from tools, never from memory.** Use the exact ID returned by `create_document` or `search_rules`.
 
 **In markdown tables:** use `[text](/doc/UUID)` format, NOT `[[UUID|text]]`. The `|` in wiki-links breaks table column parsing.
 
@@ -209,13 +210,13 @@ Examples of CORRECT links:
 
 **CRITICAL: IDs come from tools, never from memory.**
 - `create_document` returns the ID — use it immediately in `[[ID|Title]]` format
-- `search_documents` returns IDs — use them to fill gaps
+- `search_rules` returns IDs — use them to fill gaps
 - NEVER write `[[some-uuid]]` based on what you "remember"
 
 After STUDY completes, verify completeness:
-1. `search_documents(category="glossary")` — list all docs
+1. `get_brain()` for brain docs / `search_rules()` to list recent glossary docs
 2. Read all indices — is every document listed?
-3. Missing docs → add links using IDs from search_documents
+3. Missing docs → add links using IDs from search_rules
 4. Sections with 20+ docs → create dedicated per-section index
 
 Update `_index` brain document with links to all glossary indices.
@@ -456,7 +457,7 @@ Documents can link to each other using wiki-link syntax:
 - In brain instructions — link to specific rules you reference (e.g. "see [[combat-rules-id#initiative]]")
 - Between related glossary documents — if one rule builds on another
 
-**How to find document IDs:** Use `search_documents(query)` to find the target, then use the returned ID in your link. Prefer linking by ID — titles may change.
+**How to find document IDs:** Use `search_rules(query)` to find the target, then use the returned ID in your link. Prefer linking by ID — titles may change.
 
 ## Migrations (Memory mode)
 

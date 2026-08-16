@@ -1,4 +1,4 @@
-import { generateText, isStepCount, isLoopFinished, type StepResult, type ModelMessage } from "ai";
+import { generateText, isStepCount, isLoopFinished, type StepResult, type ModelMessage, type ToolSet } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -6,7 +6,6 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { createDocumentTool } from "./tools/create-document.tool";
 import { updateDocumentTool } from "./tools/update-document.tool";
 import { readDocumentTool } from "./tools/read-document.tool";
-import { searchDocumentsTool } from "./tools/search-documents.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { exploreArchiveTool } from "./tools/explore-archive.tool";
 import { readFileTool } from "./tools/read-file.tool";
@@ -16,6 +15,8 @@ import { scanWikiLinksTool } from "./tools/scan-wiki-links.tool";
 import { replaceWikiLinksTool } from "./tools/replace-wiki-links.tool";
 import { deleteDocumentTool } from "./tools/delete-document.tool";
 import { validateLinksTool } from "./tools/validate-links.tool";
+import { builderGetSceneStateTool } from "./tools/get-scene-state.tool";
+import { builderGetPlayerSheetTool } from "./tools/get-player-sheet.tool";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopping, emitStopped,
@@ -23,6 +24,11 @@ import {
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
+import { gmSearchRulesTool } from "./gm-tools/gm-search-rules.tool";
+import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
+import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
+import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
+import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -81,18 +87,18 @@ You configure the AI Master that will run games. Read rule files → build gloss
 - Propose next steps, don't ask permission
 - One response = one task done
 
-## Three kinds of data
-| glossary | Source rules (read/write in brain mode) |
-| brain | Instructions for AI Master (read/write in brain mode) |
-| game_hidden/game_visible | Game memory — character sheets, notes, state (read/write in memory mode) |
+## Document domains — separate logic, don't mix them
+- **Правила (glossary)** — the game rules: a huge corpus. NEVER read it wholesale. Search with search_rules by keywords, then read_document on the result.
+- **Мозг (brain)** — instructions for the AI Master: an index plus a few sections. Start from get_brain().
+- **Игровая память (game_hidden)** — game memory: notes, current scene, state. get_gm_notes() lists notes, get_scene_state() reads the current scene.
+- **Данные игроков (game_visible with playerId)** — character sheets and player records. get_player_sheet() lists them; pass a playerId for one player.
 
 ## Your current mode: {builderMode}
-In Brain mode: read/write glossary+brain. Memory mode: read all, write game_hidden/game_visible only.
+- **BRAIN mode** — you work with rules and instructions: glossary + brain (read/write). Use search_rules for a rule, get_brain for instructions, and create/update documents.
+- **MEMORY mode** — you manage game memory and player data: game_hidden + game_visible (write), all categories (read). Like running the game: first check each player's data (get_player_sheet) and the current scene (get_scene_state) before changing anything.
 
 ## Tools
-explore_archive, list_uploaded_files, bulk_import_to_glossary, read_file, search_documents, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, delete_uploaded_files, ask_admin, get_builder_guide.
-
-Use get_builder_guide(topic) for detailed reference on dice notation, file imports, brain document structure, formulas, document links, or memory mode migrations. Use update_chat_summary to save your progress as a compact summary when the conversation gets long.
+Your available tools are listed in the context for the current mode. Use get_builder_guide(topic) for detailed reference on dice notation, file imports, brain document structure, formulas, document links, or memory mode migrations. Use update_chat_summary to save your progress as a compact summary when the conversation gets long.
 
 ## Working with existing data
 - Never delete glossary/brain without admin confirmation
@@ -102,7 +108,7 @@ Use get_builder_guide(topic) for detailed reference on dice notation, file impor
 ## Proactive document links
 - Always back up your chat answers with clickable wiki-links to the documents you reference: [[<document-id>]] or [[<document-id>|text]].
 - Only link GLOSSARY documents (rules) — never brain, game_hidden or game_visible.
-- Links ONLY work with the raw document ID (UUID), never with a title. Take the id from search_documents / read_document results or from the document you just created.
+- Links ONLY work with the raw document ID (UUID), never with a title. Take the id from search_rules / read_document results or from the document you just created.
 - Mentioned a spell, item, class, race, condition or rule? Link it right away — do not wait to be asked.
 - Inside documents you create, add [[<id>]] cross-references to related glossary docs.
 
@@ -157,24 +163,41 @@ async function createProvider() {
 // Tools
 // ---------------------------------------------------------------------------
 
-function getTools() {
-  return {
-    list_uploaded_files: listUploadedFilesTool,
-    explore_archive: exploreArchiveTool,
-    read_file: readFileTool,
-    bulk_import_to_glossary: bulkImportTool,
-    delete_uploaded_files: deleteUploadedFilesTool,
-    scan_wiki_links: scanWikiLinksTool,
-    replace_wiki_links: replaceWikiLinksTool,
-    delete_document: deleteDocumentTool,
+function getTools(builderMode: string): ToolSet {
+  const shared = {
+    search_rules: gmSearchRulesTool,
+    get_brain: gmGetBrainTool,
+    read_document: readDocumentTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
-    read_document: readDocumentTool,
-    search_documents: searchDocumentsTool,
-    validate_links: validateLinksTool,
     get_builder_guide: getBuilderGuideTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
+  };
+
+  if (builderMode === "memory") {
+    return {
+      ...shared,
+      get_gm_notes: gmGetGmNotesTool,
+      get_scene_state: builderGetSceneStateTool,
+      get_player_sheet: builderGetPlayerSheetTool,
+      get_players: gmGetPlayersTool,
+      resolve_glossary_link: gmResolveGlossaryLinkTool,
+    };
+  }
+
+  // brain mode
+  return {
+    ...shared,
+    delete_document: deleteDocumentTool,
+    scan_wiki_links: scanWikiLinksTool,
+    replace_wiki_links: replaceWikiLinksTool,
+    validate_links: validateLinksTool,
+    bulk_import_to_glossary: bulkImportTool,
+    explore_archive: exploreArchiveTool,
+    list_uploaded_files: listUploadedFilesTool,
+    read_file: readFileTool,
+    delete_uploaded_files: deleteUploadedFilesTool,
   };
 }
 
@@ -197,6 +220,12 @@ async function buildContext(sessionId: string) {
   });
   const builderMode = builderSession?.builderMode ?? "brain";
   systemPrompt = systemPrompt.replace("{builderMode}", builderMode);
+
+  const toolsNote =
+    builderMode === "memory"
+      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
+      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
+  systemPrompt += toolsNote;
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -233,7 +262,7 @@ async function buildContext(sessionId: string) {
     systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
-  return { messages, system: systemPrompt };
+  return { messages, system: systemPrompt, builderMode };
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +363,7 @@ export async function runBuilderAgent(
     const isStudy = fileIds.length > 0;
     console.log(`[builder] generateText start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
 
-    const tools = getTools();
+    const tools = getTools(ctx.builderMode);
 
     // Retry loop: up to 5 attempts for transient errors
     const MAX_RETRIES = 5;
@@ -363,7 +392,7 @@ export async function runBuilderAgent(
                 switch (c.toolName) {
                   case "create_document": created++; break;
                   case "update_document": updated++; break;
-                  case "search_documents": searched++; break;
+                  case "search_rules": searched++; break;
                   case "list_uploaded_files": listed++; break;
                 }
               }

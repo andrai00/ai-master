@@ -20,9 +20,6 @@ export const TOOL_DESCRIPTIONS = {
   read_document:
     "Read a document by ID (UUID) or by path/title (e.g. 'spells/207-faerie_fire'). Accepts both formats — auto-detects. In memory mode you can read all categories (glossary, brain, game_hidden, game_visible). Returns computed formula values when the document contains ```formula blocks.",
 
-  search_documents:
-    "Search across all document categories you can read. Without query — lists all readable docs. With query — full-text search returns each matching document. In memory mode searches glossary, brain, game_hidden, and game_visible. Use read_document(id, offset=X, limit=Y) to jump to a specific section.",
-
   roll_dice:
     "Roll dice using standard RPG notation. Full syntax supports: basic (4d6, 1d20), modifier (1d20+5), keep/drop (4d6kh3, 4d6dl1), reroll (4d6ro<2), exploding (4d6!), compound (2d20+1d6), grouped ([[4d6dl1]][[4d6dl1]]). Returns total and detailed output.",
 

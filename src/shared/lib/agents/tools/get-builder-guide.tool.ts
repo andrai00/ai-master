@@ -22,7 +22,7 @@ Workflow:
 2. Scan for wiki-links → scan_wiki_links(). Returns links to fix.
 3. Fix links → replace_wiki_links(fixes). Each fix = { original, replacement } or { original, id }.
 4. Create index docs → _index docs in each glossary type section for navigation.
-5. Search for duplicates → search_documents(query) before creating new docs.
+5. Search for duplicates → search_rules(query) before creating new docs.
 
 After import complete: build brain instructions. Then suggest switching to Memory mode for game state setup.`,
 

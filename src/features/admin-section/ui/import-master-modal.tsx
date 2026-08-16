@@ -4,6 +4,7 @@ import { Modal, Button, Upload, App } from "antd";
 import { ImportOutlined, UploadOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface IImportMasterModalProps {
   open: boolean;
@@ -13,6 +14,7 @@ interface IImportMasterModalProps {
 export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) => {
   const { t } = useTranslation();
   const { notification, modal } = App.useApp();
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
@@ -75,8 +77,9 @@ export const ImportMasterModal = ({ open, onClose }: IImportMasterModalProps) =>
 
     setImporting(false);
     setFile(null);
+    queryClient.invalidateQueries({ queryKey: ["admin", "documents"] });
+    queryClient.invalidateQueries({ queryKey: ["game", "playerDocuments"] });
     onClose();
-    window.location.reload();
   };
 
   return (

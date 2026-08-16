@@ -15,6 +15,7 @@ import { useSessionRolls, useExecuteRoll } from "@/src/shared/api/game-master/us
 import { requestMasterResponseAction } from "@/src/shared/actions/game-master/request-master-response";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
+import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -25,10 +26,7 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
   const queryClient = useQueryClient();
   const [page] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyData, setHistoryData] = useState<IGameMessage[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -171,25 +169,26 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
     await stopMutation.mutateAsync();
   }, [sessionId, stopMutation]);
 
-  const openHistory = async () => {
+  const { data: historyData, isFetching: historyLoading } = useChatHistory<IGameMessage>(
+    "game",
+    sessionId,
+    historyPage,
+    historyPageSize,
+    historyOpen,
+    getGameMessagesAction
+  );
+  const historyMessages = historyData && "messages" in historyData ? historyData.messages : [];
+  const historyTotal = historyData && "messages" in historyData ? historyData.total : 0;
+
+  const openHistory = () => {
     if (!sessionId) return;
     setHistoryOpen(true);
     setHistoryPage(1);
-    await loadHistory(1);
   };
 
-  const loadHistory = async (p: number, ps?: number) => {
-    if (!sessionId) return;
-    const size = ps ?? historyPageSize;
-    setHistoryLoading(true);
+  const handleHistoryChange = (p: number, ps: number) => {
     setHistoryPage(p);
-    setHistoryPageSize(size);
-    const result = await getGameMessagesAction(sessionId, p, size);
-    if ("messages" in result) {
-      setHistoryData(result.messages);
-      setHistoryTotal(result.total);
-    }
-    setHistoryLoading(false);
+    setHistoryPageSize(ps);
   };
 
   const historyColumns: ColumnsType<IGameMessage> = [
@@ -252,9 +251,9 @@ export const ChatGameView = ({ disabled, userId }: { disabled?: boolean; userId?
         footer={null}
         centered width={640}
       >
-        <Table dataSource={historyData} columns={historyColumns} rowKey="id" size="small"
+        <Table dataSource={historyMessages} columns={historyColumns} rowKey="id" size="small"
           loading={historyLoading}
-          pagination={{ current: historyPage, total: historyTotal, pageSize: historyPageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: loadHistory }}
+          pagination={{ current: historyPage, total: historyTotal, pageSize: historyPageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: handleHistoryChange }}
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>

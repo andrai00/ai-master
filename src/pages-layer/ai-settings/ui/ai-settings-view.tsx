@@ -1,6 +1,6 @@
 "use client";
 
-import { Select, Input, Button, App } from "antd";
+import { Select, Input, Button, App, Spin } from "antd";
 import {
   CloudOutlined,
   RobotOutlined,
@@ -10,12 +10,13 @@ import {
   ApiOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { useAiConfig, useSaveAiConfig } from "@/src/shared/api/admin/useAiConfig";
-import { testAiConnectionFromDbAction } from "@/src/shared/actions/admin/test-ai-connection";
 import { useModelList } from "@/src/shared/api/admin/useModelList";
+import { useTestAiConnection } from "@/src/shared/api/admin/useTestAiConnection";
+import type { IAiConfig } from "@/src/shared/actions/admin/manage-ai-config";
 import { VirtualSelect } from "@/src/features/virtual-select";
 import { PageHeader } from "@/src/shared/ui/page-header";
-import { useState, useEffect } from "react";
 
 const PROVIDERS = [
   {
@@ -78,33 +79,50 @@ function getProvider(v: string) {
 
 export const AiSettingsView = () => {
   const { t } = useTranslation();
-  const { notification } = App.useApp();
-
   const { data: config } = useAiConfig();
 
-  const [provider, setProvider] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("");
-  const [contextLimit, setContextLimit] = useState<string>("");
-  const [testing, setTesting] = useState(false);
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <PageHeader title={t("aiSettings.title")} />
+      <div
+        style={{
+          padding: 24,
+          width: 440,
+          maxWidth: "100%",
+          margin: "0 auto",
+          overflow: "auto",
+          flex: 1,
+        }}
+      >
+        {config ? (
+          <AiConfigForm key="ready" config={config} />
+        ) : (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <Spin />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+function AiConfigForm({ config }: { config: IAiConfig }) {
+  const { t } = useTranslation();
+  const { notification } = App.useApp();
+
+  const [provider, setProvider] = useState(config.provider);
+  const [baseUrl, setBaseUrl] = useState(config.baseUrl);
+  const [apiKey, setApiKey] = useState(config.apiKey);
+  const [model, setModel] = useState(config.model);
+  const [contextLimit, setContextLimit] = useState<string>(
+    config.contextLimit > 0 ? String(config.contextLimit) : ""
+  );
   const [modelsOpen, setModelsOpen] = useState(false);
 
   const contextDefault = PROVIDER_LIMITS[provider] ?? 128000;
 
-  useEffect(() => {
-    if (config) {
-      /* eslint-disable react-hooks/set-state-in-effect -- form pre-fill from async query */
-      setProvider(config.provider);
-      setBaseUrl(config.baseUrl);
-      setApiKey(config.apiKey);
-      setModel(config.model);
-      /* eslint-enable react-hooks/set-state-in-effect */
-      setContextLimit(config.contextLimit > 0 ? String(config.contextLimit) : "");
-    }
-  }, [config]);
-
   const saveMutation = useSaveAiConfig();
+  const testMutation = useTestAiConnection();
 
   const currentProvider = getProvider(provider);
 
@@ -120,129 +138,115 @@ export const AiSettingsView = () => {
 
   const modelList = modelsData?.success ? modelsData.models || [] : [];
 
-  const handleTest = async () => {
-    setTesting(true);
-    const res = await testAiConnectionFromDbAction();
-    setTesting(false);
-    if (res.success) {
-      notification.success({ title: t("aiSettings.testOk"), description: res.message });
-    } else {
-      notification.error({ title: t("aiSettings.testFail"), description: res.message });
-    }
+  const handleTest = () => {
+    testMutation.mutate(undefined, {
+      onSuccess: (res) => {
+        if (res.success) {
+          notification.success({ title: t("aiSettings.testOk"), description: res.message });
+        } else {
+          notification.error({ title: t("aiSettings.testFail"), description: res.message });
+        }
+      },
+    });
   };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <PageHeader title={t("aiSettings.title")} />
-      <div
-        style={{
-          padding: 24,
-          width: 440,
-          maxWidth: "100%",
-          margin: "0 auto",
-          overflow: "auto",
-          flex: 1,
-        }}
-      >
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Provider */}
+      <div>
+        <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+          {t("aiSettings.provider")}
+        </div>
+        <Select
+          value={provider}
+          onChange={handleProviderChange}
+          options={PROVIDERS.map((p) => ({
+            value: p.value,
+            label: (
+              <span>
+                {p.icon} {t(p.labelKey)}
+              </span>
+            ),
+          }))}
+          style={{ width: "100%" }}
+        />
+      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Provider */}
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
-            {t("aiSettings.provider")}
-          </div>
-          <Select
-            value={provider}
-            onChange={handleProviderChange}
-            options={PROVIDERS.map((p) => ({
-              value: p.value,
-              label: (
-                <span>
-                  {p.icon} {t(p.labelKey)}
-                </span>
-              ),
-            }))}
-            style={{ width: "100%" }}
-          />
+      {/* Base URL */}
+      <div>
+        <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+          {t("aiSettings.baseUrl")}
         </div>
+        <Input
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          placeholder={currentProvider.defaultUrl || t("aiSettings.urlPlaceholder")}
+        />
+      </div>
 
-        {/* Base URL */}
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
-            {t("aiSettings.baseUrl")}
-          </div>
-          <Input
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={currentProvider.defaultUrl || t("aiSettings.urlPlaceholder")}
-          />
+      {/* API Key */}
+      <div>
+        <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+          {t("aiSettings.apiKey")}
         </div>
+        <Input.Password
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={t("aiSettings.keyPlaceholder")}
+        />
+      </div>
 
-        {/* API Key */}
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
-            {t("aiSettings.apiKey")}
-          </div>
-          <Input.Password
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={t("aiSettings.keyPlaceholder")}
-          />
+      {/* Model */}
+      <div>
+        <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+          {t("aiSettings.model")}
         </div>
+        <VirtualSelect
+          value={model || undefined}
+          onChange={setModel}
+          showSearch
+          allowClear
+          placeholder={modelsLoading ? t("aiSettings.loading") : currentProvider.modelHint}
+          style={{ width: "100%" }}
+          options={modelList.map((m) => ({ value: m, label: m }))}
+          loading={modelsLoading}
+          onOpenChange={(open) => setModelsOpen(open)}
+          notFoundContent={modelsLoading ? t("aiSettings.loading") : apiKey ? t("aiSettings.noModels") : t("aiSettings.enterKey")}
+        />
+      </div>
 
-        {/* Model */}
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
-            {t("aiSettings.model")}
-          </div>
-          <VirtualSelect
-            value={model || undefined}
-            onChange={setModel}
-            showSearch
-            allowClear
-            placeholder={modelsLoading ? t("aiSettings.loading") : currentProvider.modelHint}
-            style={{ width: "100%" }}
-            options={modelList.map((m) => ({ value: m, label: m }))}
-            loading={modelsLoading}
-            onOpenChange={(open) => setModelsOpen(open)}
-            notFoundContent={modelsLoading ? t("aiSettings.loading") : apiKey ? t("aiSettings.noModels") : t("aiSettings.enterKey")}
-          />
+      {/* Context Limit */}
+      <div>
+        <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
+          {t("aiSettings.contextLimit")}
         </div>
+        <Input
+          value={contextLimit}
+          onChange={(e) => setContextLimit(e.target.value.replace(/\D/g, ""))}
+          placeholder={contextDefault ? t("aiSettings.contextLimitAuto", { count: contextDefault.toLocaleString("ru") }) : t("aiSettings.contextLimitHint")}
+        />
+      </div>
 
-        {/* Context Limit */}
-        <div>
-          <div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>
-            {t("aiSettings.contextLimit")}
-          </div>
-          <Input
-            value={contextLimit}
-            onChange={(e) => setContextLimit(e.target.value.replace(/\D/g, ""))}
-            placeholder={contextDefault ? t("aiSettings.contextLimitAuto", { count: contextDefault.toLocaleString("ru") }) : t("aiSettings.contextLimitHint")}
-          />
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button
-            onClick={handleTest}
-            loading={testing}
-            icon={<ApiOutlined />}
-            style={{ flex: 1 }}
-          >
-            {t("aiSettings.test")}
-          </Button>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            onClick={() => saveMutation.mutate({ provider, baseUrl, apiKey, model, contextLimit: parseInt(contextLimit, 10) || 0, extra: "" })}
-            loading={saveMutation.isPending}
-            style={{ flex: 1 }}
-          >
-            {t("common.save")}
-          </Button>
-        </div>
-        </div>
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button
+          onClick={handleTest}
+          loading={testMutation.isPending}
+          icon={<ApiOutlined />}
+          style={{ flex: 1 }}
+        >
+          {t("aiSettings.test")}
+        </Button>
+        <Button
+          type="primary"
+          icon={<SaveOutlined />}
+          onClick={() => saveMutation.mutate({ provider, baseUrl, apiKey, model, contextLimit: parseInt(contextLimit, 10) || 0, extra: "" })}
+          loading={saveMutation.isPending}
+          style={{ flex: 1 }}
+        >
+          {t("common.save")}
+        </Button>
       </div>
     </div>
   );
-};
+}

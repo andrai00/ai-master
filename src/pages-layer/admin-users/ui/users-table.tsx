@@ -1,6 +1,6 @@
 "use client";
 
-import { Table, Button, Modal, Input, App, Popconfirm, Select, Checkbox, Tooltip, Popover } from "antd";
+import { Table, Button, Modal, Input, App, Popconfirm, Select, Checkbox, Tooltip, Popover, Spin } from "antd";
 import { UserAddOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,8 +8,8 @@ import { useListUsers } from "@/src/shared/api/admin/useListUsers";
 import { useCreatePlayer } from "@/src/shared/api/admin/useCreatePlayer";
 import { useEditUser } from "@/src/shared/api/admin/useEditUser";
 import { useDeleteUser } from "@/src/shared/api/admin/useDeleteUser";
-import { listGamesAction, type IGameItem } from "@/src/shared/actions/admin/manage-games";
-import { getUserGameAccessAction } from "@/src/shared/actions/admin/manage-game-access";
+import { useListGames } from "@/src/shared/api/admin/useListGames";
+import { useUserGameAccess } from "@/src/shared/api/admin/useUserGameAccess";
 import type { IUserListItem } from "@/src/shared/actions/admin/list-users";
 import { UserAvatarCell } from "./user-avatar-cell";
 import { PageHeader } from "@/src/shared/ui/page-header";
@@ -28,8 +28,8 @@ export const UsersTable = () => {
   const [editName, setEditName] = useState("");
   const [editPw, setEditPw] = useState("");
   const [editRole, setEditRole] = useState("");
-  const [editGameAccess, setEditGameAccess] = useState<string[]>([]);
-  const [editGames, setEditGames] = useState<IGameItem[]>([]);
+  const [selectedAccess, setSelectedAccess] = useState<string[]>([]);
+  const [selectedAccessFor, setSelectedAccessFor] = useState<string | null>(null);
 
   const { data: users = [], isLoading } = useListUsers();
   const createMutation = useCreatePlayer();
@@ -37,14 +37,21 @@ export const UsersTable = () => {
   const deleteMutation = useDeleteUser();
   const [pageSize, setPageSize] = useState(10);
 
-  const openEdit = async (user: IUserListItem) => {
+  const { data: editGames = [] } = useListGames();
+  const accessQuery = useUserGameAccess(editUser?.id ?? null);
+
+  // Load the selected user's game access once its query resolves. Runs during
+  // render (React's official "adjusting state when props change" pattern).
+  if (editUser && editUser.id !== selectedAccessFor && accessQuery.data !== undefined) {
+    setSelectedAccessFor(editUser.id);
+    setSelectedAccess(accessQuery.data);
+  }
+
+  const openEdit = (user: IUserListItem) => {
     setEditUser(user);
     setEditName(user.displayName || user.login);
     setEditPw("");
     setEditRole(user.role);
-    const [gameList, access] = await Promise.all([listGamesAction(), getUserGameAccessAction(user.id)]);
-    setEditGames(gameList);
-    setEditGameAccess(access);
     setEditOpen(true);
   };
 
@@ -63,7 +70,7 @@ export const UsersTable = () => {
     if (!editUser) return;
     editMutation.mutate({
       userId: editUser.id, displayName: editName, password: editPw,
-      role: editRole !== editUser.role ? editRole : undefined, gameAccess: editGameAccess,
+      role: editRole !== editUser.role ? editRole : undefined, gameAccess: selectedAccess,
     }, {
       onSuccess: (result) => {
         if (result.success) {
@@ -177,6 +184,7 @@ export const UsersTable = () => {
       </Modal>
       <Modal title={t("admin.editUser")} open={editOpen} onCancel={() => setEditOpen(false)}
         onOk={handleEdit} confirmLoading={editMutation.isPending}
+        okButtonProps={{ disabled: accessQuery.isLoading }}
         okText={t("common.save")} cancelText={t("gameSelector.cancel")} centered>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} autoComplete="off" /></div>
@@ -184,15 +192,19 @@ export const UsersTable = () => {
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.roleCol")}</div>
             <Select value={editRole} onChange={setEditRole} style={{ width: "100%" }} options={[{ value: "admin", label: t("admin.roleAdmin") }, { value: "player", label: t("admin.rolePlayer") }]} /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.gameAccess")}</div>
-            {editGames.map((g) => (
-              <div key={g.id} style={{ marginBottom: 4 }}>
-                <Checkbox checked={editGameAccess.includes(g.id)} onChange={(e) => {
-                  if (e.target.checked) setEditGameAccess([...editGameAccess, g.id]);
-                  else setEditGameAccess(editGameAccess.filter((id) => id !== g.id));
-                }}>{g.name}</Checkbox>
-              </div>
-            ))}
-            {editGames.length === 0 && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("admin.noGames")}</div>}
+            {accessQuery.isLoading ? (
+              <div style={{ padding: "8px 0" }}><Spin size="small" /></div>
+            ) : (
+              editGames.map((g) => (
+                <div key={g.id} style={{ marginBottom: 4 }}>
+                  <Checkbox checked={selectedAccess.includes(g.id)} onChange={(e) => {
+                    if (e.target.checked) setSelectedAccess([...selectedAccess, g.id]);
+                    else setSelectedAccess(selectedAccess.filter((id) => id !== g.id));
+                  }}>{g.name}</Checkbox>
+                </div>
+              ))
+            )}
+            {!accessQuery.isLoading && editGames.length === 0 && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("admin.noGames")}</div>}
           </div>
         </div>
       </Modal>

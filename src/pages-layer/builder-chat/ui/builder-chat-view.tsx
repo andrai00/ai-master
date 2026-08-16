@@ -15,6 +15,8 @@ import { useBuilderMode } from "@/src/shared/api/builder/use-builder-mode";
 import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode";
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
+import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
+import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
 import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
 
@@ -39,10 +41,7 @@ export const BuilderChatView = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [page, setPage] = useState(1);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyData, setHistoryData] = useState<IBuilderMessage[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // UI state — driven by SSE, not by mutation
@@ -114,10 +113,8 @@ export const BuilderChatView = () => {
     }
     prevSessionId.current = sessionId;
 
-    import("@/src/shared/actions/builder/check-processing").then(({ checkProcessingAction }) => {
-      checkProcessingAction(sessionId).then((r) => {
-        if (r.processing) setTyping(true);
-      });
+    void checkProcessingAction(sessionId).then((r) => {
+      if (r.processing) setTyping(true);
     });
   }, [sessionId]);
 
@@ -211,25 +208,26 @@ export const BuilderChatView = () => {
   }, [sessionId, clearMutation]);
 
   // --- History ---
-  const openHistory = async () => {
+  const { data: historyData, isFetching: historyLoading } = useChatHistory<IBuilderMessage>(
+    "builder",
+    sessionId,
+    historyPage,
+    historyPageSize,
+    historyOpen,
+    getBuilderMessagesAction
+  );
+  const historyMessages = historyData && "messages" in historyData ? historyData.messages : [];
+  const historyTotal = historyData && "messages" in historyData ? historyData.total : 0;
+
+  const openHistory = () => {
     if (!sessionId) return;
     setHistoryOpen(true);
     setHistoryPage(1);
-    await loadHistory(1);
   };
 
-  const loadHistory = async (p: number, ps?: number) => {
-    if (!sessionId) return;
-    const size = ps ?? historyPageSize;
-    setHistoryLoading(true);
+  const handleHistoryChange = (p: number, ps: number) => {
     setHistoryPage(p);
-    setHistoryPageSize(size);
-    const result = await getBuilderMessagesAction(sessionId, p, size);
-    if ("messages" in result) {
-      setHistoryData(result.messages);
-      setHistoryTotal(result.total);
-    }
-    setHistoryLoading(false);
+    setHistoryPageSize(ps);
   };
 
   const historyColumns: ColumnsType<IBuilderMessage> = [
@@ -293,9 +291,9 @@ export const BuilderChatView = () => {
         footer={null}
         centered width={640}
       >
-        <Table dataSource={historyData} columns={historyColumns} rowKey="id" size="small"
+        <Table dataSource={historyMessages} columns={historyColumns} rowKey="id" size="small"
           loading={historyLoading}
-          pagination={{ current: historyPage, total: historyTotal, pageSize: historyPageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: loadHistory }}
+          pagination={{ current: historyPage, total: historyTotal, pageSize: historyPageSize, showSizeChanger: { showSearch: false }, hideOnSinglePage: true, onChange: handleHistoryChange }}
           showHeader={false}
           locale={{ emptyText: t("chat.noMessages") }} />
       </Modal>

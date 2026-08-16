@@ -13,10 +13,22 @@ interface IWikiLinkProps {
   plain?: boolean;
 }
 
-/** Cache of resolved doc IDs to titles across all WikiLink instances */
-const resolvedCache = new Map<string, { title: string; exists: boolean }>();
+interface IResolved {
+  title: string;
+  exists: boolean;
+}
+
+/** Cache of resolved doc IDs to titles across all WikiLink instances. */
+const resolvedCache = new Map<string, IResolved>();
+/** Re-render listeners — notified once a batch resolves (no polling). */
+const listeners = new Set<() => void>();
+
 let pendingBatch: string[] = [];
 let batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function notifyListeners() {
+  for (const l of listeners) l();
+}
 
 function flushBatch() {
   const batch = [...new Set(pendingBatch.filter((id) => !resolvedCache.has(id)))];
@@ -25,10 +37,15 @@ function flushBatch() {
 
   if (batch.length === 0) return;
 
-  resolveWikiLinksAction(batch).then((results) => {
+  void resolveWikiLinksAction(batch).then((results) => {
+    let changed = false;
     for (const r of results) {
-      resolvedCache.set(r.docId, { title: r.title, exists: r.exists });
+      if (!resolvedCache.has(r.docId)) {
+        resolvedCache.set(r.docId, { title: r.title, exists: r.exists });
+        changed = true;
+      }
     }
+    if (changed) notifyListeners();
   });
 }
 
@@ -44,21 +61,13 @@ export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWik
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    if (!displayText) scheduleResolve(docId);
-  }, [docId, displayText]);
-
-  // Subscribe to cache — re-render when resolved (only when no displayText override)
-  useEffect(() => {
     if (displayText) return;
-    if (!resolvedCache.has(docId)) {
-      const interval = setInterval(() => {
-        if (resolvedCache.has(docId)) {
-          setTick((t) => t + 1);
-          clearInterval(interval);
-        }
-      }, 50);
-      return () => clearInterval(interval);
-    }
+    scheduleResolve(docId);
+    const listener = () => setTick((t) => t + 1);
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
   }, [docId, displayText]);
 
   const cached = resolvedCache.get(docId);

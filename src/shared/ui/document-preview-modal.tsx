@@ -2,10 +2,9 @@
 
 import { Modal, Button, Space } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { MdViewer } from "@/src/features/md-viewer";
-import { getDocumentAction, type IDocumentData } from "@/src/shared/actions/documents/get-document";
-import { resolveDocumentByPath } from "@/src/shared/actions/documents/resolve-document-path";
+import { useDocument } from "@/src/shared/api/documents/use-document";
 
 interface IDocumentPreviewModalProps {
   open: boolean;
@@ -15,68 +14,40 @@ interface IDocumentPreviewModalProps {
 }
 
 export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocumentPreviewModalProps) {
-  const [doc, setDoc] = useState<IDocumentData | null>(null);
-  const [navStack, setNavStack] = useState<IDocumentData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [navStack, setNavStack] = useState<string[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
   const [loadedKey, setLoadedKey] = useState<{ open: boolean; docId: string | null }>({ open: false, docId: null });
 
-  const fetchDoc = useCallback(async (id: string): Promise<IDocumentData | null> => {
-    let d = await getDocumentAction(id);
-    if (!d) {
-      const resolved = await resolveDocumentByPath(id);
-      if (resolved) d = await getDocumentAction(resolved.docId);
-    }
-    return d;
-  }, []);
+  const activeId = targetId ?? docId;
+  const { data: doc } = useDocument(activeId, open);
 
-  // Reset navigation state when the modal opens or switches documents.
+  // Reset local navigation when the modal opens or the requested doc changes.
   // Runs during render (React's official "adjusting state when props change"
   // pattern) instead of an effect, so state never cascades.
   if (open !== loadedKey.open || docId !== loadedKey.docId) {
     setLoadedKey({ open, docId });
     if (open && docId) {
       setNavStack([]);
-      setScrollTo(undefined);
-      setDoc(null);
+      setScrollTo(anchor || undefined);
+      setTargetId(null);
     }
   }
 
-  // Load the document on open / docId change. setState happens only inside
-  // the async callback, never synchronously in the effect body.
-  useEffect(() => {
-    if (!open || !docId) return;
-    let cancelled = false;
-    void fetchDoc(docId).then((d) => {
-      if (cancelled) return;
-      setDoc(d);
-      setLoading(false);
-      if (anchor) setScrollTo(anchor);
-    });
-    return () => { cancelled = true; };
-  }, [open, docId, anchor, fetchDoc]);
-
-  const handleNavigate = useCallback((targetId: string, anchor?: string) => {
-    if (targetId === doc?.id) {
-      setScrollTo(anchor || "");
-      return;
+  const handleNavigate = useCallback((nextId: string, nextAnchor?: string) => {
+    setScrollTo(nextAnchor || "");
+    if (nextId !== activeId) {
+      setNavStack((s) => (activeId ? [...s, activeId] : s));
+      setTargetId(nextId);
     }
-    setNavStack((s) => (doc ? [...s, doc] : s));
-    setLoading(true);
-    void fetchDoc(targetId).then((d) => {
-      setDoc(d);
-      setLoading(false);
-      setScrollTo(anchor || "");
-    });
-  }, [doc, fetchDoc]);
+  }, [activeId]);
 
   const handleBack = useCallback(() => {
     setScrollTo(undefined);
     setNavStack((s) => {
       if (s.length === 0) return s;
       const prev = s[s.length - 1]!;
-      setDoc(prev);
-      setLoading(false);
+      setTargetId(prev);
       return s.slice(0, -1);
     });
   }, []);
@@ -99,7 +70,7 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
       centered
       styles={{ body: { padding: 0, height: "70vh", overflow: "hidden" } }}
     >
-      {loading || !doc ? (
+      {!doc ? (
         <div style={{ padding: 24, color: "var(--text-dim)" }}>Loading...</div>
       ) : (
         <MdViewer key={doc.id} content={doc.content} onNavigate={handleNavigate} scrollTo={scrollTo} showToc />

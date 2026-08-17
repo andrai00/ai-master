@@ -228,7 +228,7 @@ async function buildRollsContext(
 ): Promise<{ completed: Array<{ role: "user"; content: string }>; note: string }> {
   const completedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
-    select: { id: true, checkName: true, diceExpression: true, result: true, playerId: true, completedAt: true },
+    select: { id: true, checkName: true, diceExpression: true, result: true, detail: true, playerId: true, completedAt: true },
     orderBy: { completedAt: "asc" },
     take: 10,
   });
@@ -256,9 +256,13 @@ async function buildRollsContext(
   // confirm_rolls, so a result is never silently lost.
   const completed = completedRolls.map((r) => {
     const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+    // Include `detail` (the per-die breakdown the player sees on hover) so
+    // the GM knows WHICH dice were rolled — e.g. a natural 20 vs a boosted
+    // result, or which die in a pool succeeded.
+    const detail = r.detail ? ` (${r.detail})` : "";
     return {
       role: "user" as const,
-      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}`,
+      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
     };
   });
 

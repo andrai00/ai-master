@@ -122,7 +122,8 @@
     "details": "Подробнее",
     "builderLabel": "Builder",
     "stopping": "Остановка...",
-    "processingBlocked": "Мастер обрабатывает ответ — подождите"
+    "processingBlocked": "Мастер обрабатывает ответ — подождите",
+    "scrollToBottom": "Вниз"
   },
   "tabs": {
     "commonChat": "Общий чат",

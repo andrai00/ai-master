@@ -122,7 +122,8 @@
     "details": "Details",
     "builderLabel": "Builder",
     "stopping": "Stopping...",
-    "processingBlocked": "The master is processing a response — please wait"
+    "processingBlocked": "The master is processing a response — please wait",
+    "scrollToBottom": "Scroll to bottom"
   },
   "tabs": {
     "commonChat": "Game Chat",

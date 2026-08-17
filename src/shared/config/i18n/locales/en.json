@@ -121,7 +121,8 @@
     "fileDetails": "File details",
     "details": "Details",
     "builderLabel": "Builder",
-    "stopping": "Stopping..."
+    "stopping": "Stopping...",
+    "processingBlocked": "The master is processing a response — please wait"
   },
   "tabs": {
     "commonChat": "Game Chat",
@@ -263,9 +264,6 @@
       "get_player_sheet": ["Checking player sheet", "Viewing player data"],
       "get_players": ["Checking player roster", "Viewing participants"],
       "resolve_glossary_link": ["Resolving rule link", "Finding document link"],
-      "send_reply": ["Sending reply", "Delivering message"],
-      "review_draft": ["Reviewing draft", "Checking completeness"],
-      "update_memory": ["Keeping notes", "Updating memory"],
       "update_file_summary": ["Making notes", "Recording progress", "Updating file notes"],
       "get_builder_guide": ["Reading guide", "Opening reference"],
       "roll_dice": ["Rolling dice", "Throwing the bones", "Checking fate"],

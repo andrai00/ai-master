@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { isProcessing } from "@/src/shared/lib/agents/gm-runner";
 
 export async function sendPersonalMessageAction(
   sessionId: string,
@@ -12,6 +13,8 @@ export async function sendPersonalMessageAction(
   const session = await getSession();
   if (!session) return { success: false, error: "errors.forbidden" };
   if (!content.trim()) return { success: false, error: "errors.emptyMessage" };
+
+  if (isProcessing(sessionId)) return { success: false, error: "chat.processingBlocked" };
 
   const activeGame = await getActiveGame();
   if (!activeGame) return { success: false, error: "errors.noGame" };

@@ -177,10 +177,14 @@ export const BuilderChatView = () => {
       }
 
       // Save message (fire-and-forget, AI runs in background)
-      await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
+      const result = await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
+      if (!result.success) {
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        notification.error({ title: t(result.error || "errors.unknownError") });
+      }
       // Don't set typing — SSE does it when processing starts
     },
-    [sessionId, sendMutation, notification, t]
+    [sessionId, sendMutation, queryClient, notification, t]
   );
 
   // --- Stop ---

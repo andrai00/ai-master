@@ -30,7 +30,7 @@ model Master {
   description String?
   mode        String       @default("development")
   createdAt   DateTime     @default(now())
-  owner       User         @relation("MasterOwner", fields: [ownerId], references: [id])
+  owner       User         @relation("MasterOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   access      GameAccess[]
   activeGame  ActiveGame[]
   sessions    Session[]
@@ -44,7 +44,7 @@ model GameAccess {
   userId    String
   masterId  String
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   master    Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
 
   @@unique([userId, masterId])
@@ -85,7 +85,7 @@ model Session {
   builderMode String    @default("brain") // "brain" | "memory" (builder sessions only)
   createdAt   DateTime  @default(now())
   master      Master    @relation(fields: [masterId], references: [id], onDelete: Cascade)
-  player      User?     @relation("SessionPlayer", fields: [playerId], references: [id])
+  player      User?     @relation("SessionPlayer", fields: [playerId], references: [id], onDelete: Cascade)
   messages    Message[]
   rolls       Roll[]
 }
@@ -102,7 +102,7 @@ model Message {
   attachedFiles String   @default("[]")  // JSON: [{fileId: string, filename: string}]
   createdAt     DateTime @default(now())
   session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sender        User     @relation(fields: [senderId], references: [id])
+  sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model UploadedFile {
@@ -156,7 +156,7 @@ model DocumentAccess {
   documentId String
   userId     String
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, userId])
 }

@@ -34,13 +34,10 @@ export async function verifySessionToken(token: string): Promise<ISessionPayload
 }
 
 export async function setSessionCookie(token: string): Promise<void> {
-  // `Secure` is required for HTTPS (production default), but breaks plain
-  // HTTP. Local games over LAN/Hamachi run on http:// — disable it with
-  // COOKIE_SECURE=false in .env.
-  const secure =
-    process.env.COOKIE_SECURE === undefined
-      ? process.env.NODE_ENV === "production"
-      : process.env.COOKIE_SECURE === "true";
+  // Local games run on plain http:// (LAN/Hamachi) — Secure cookies are
+  // never sent back over HTTP, so the default is OFF. Set COOKIE_SECURE=true
+  // only when serving over HTTPS.
+  const secure = process.env.COOKIE_SECURE === "true";
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,

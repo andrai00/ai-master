@@ -35,12 +35,22 @@
 
 ## Агентный цикл
 
-`generateText({ tools, stopWhen: isStepCount(80), abortSignal, prepareStep })`
+Два прохода Plan → Execute:
 
-- SDK крутит: модель → tool call → выполнение → результат → модель → ...
-- `stopWhen` — до 80 шагов
+```
+Pass 1 (план): generateText({ tools: getPlanTools(), system: planSystem, stopWhen: isStepCount(20) })
+  → read-only тулы, короткий план-промт (~1K токенов вместо ~8K), план STUDY|RECORD|ROLLS|REPLY
+Pass 2 (выполнение): generateText({ tools: getTools(), system: system (полный), stopWhen: isStepCount(100) })
+  → полные тулы, полный промт, финальный ответ через result.text
+```
+
+- Мозг прелоажен в промт (`## Brain (preloaded)` — index + секции), `get_brain(topic)` — только полная секция
+- Гейт «пустой вызов»: нет новых сообщений/бросков → один короткий read-only вызов «спроси игрока»
 - `abortSignal` — прерывание по Stop
 - `prepareStep` — сжатие контекста (см. ниже)
+- Ретрай пустого ответа — только в Pass 2, затем fallback
+- Лимиты шагов: Pass 1 = 20, Pass 2 = 100 (builder STUDY — без лимита, `isLoopFinished()`)
+- Диагностика: при `AGENT_TRACE=1` пишется `TraceEvent` (каждый промт, тул-вызов, ответ)
 
 ---
 
@@ -84,18 +94,22 @@
 
 | Инструмент | Brain mode | Memory mode |
 |---|---|---|
-| `read_parsed_file(fileId, offset?, limit?)` | Читать чанк файла | Читать чанк файла |
 | `list_uploaded_files()` | Список файлов | Список файлов |
+| `explore_archive()` | дерево + плоский список `folders` (полный путь + кол-во) | — |
 | `create_document(title, content, category, type, tags?, summary?)` | `glossary` / `brain` | `game_hidden` / `game_visible` |
 | `update_document(id, content, title?, summary?)` | `glossary` / `brain` | `game_hidden` / `game_visible` |
+| `delete_document(id)` | `glossary` / `brain` | `game_hidden` / `game_visible` |
 | `read_document(id)` | `glossary` / `brain` | все категории |
-| `search_rules(query)` | глоссарий (до 20) | глоссарий (до 20) |
-| `get_brain(topic?)` | мозг: индекс + секции | мозг: индекс + секции |
+| `search_rules(query, type?, limit?)` | глоссарий (до 50, +total) | глоссарий (до 50, +total) |
+| `glossary_overview()` | карта типов глоссария (тип → кол-во + samples) | карта типов глоссария |
+| `get_brain(topic?)` | мозг: индекс + секции (прелоажен в промт) | мозг: индекс + секции |
 | `get_gm_notes()` | — | game_hidden (заметки/память) |
 | `get_scene_state()` | — | текущая сцена |
 | `get_player_sheet(playerId?)` | — | game_visible (листы/записи игроков) |
 | `get_players()` | — | состав участников и их вовлечённость |
 | `resolve_glossary_link(title)` | глоссарий: title → UUID | глоссарий: title → UUID |
+| `bulk_import_to_glossary(typeMap)` | префиксный импорт (longest wins, skipped) | — |
+| `scan_wiki_links` / `replace_wiki_links` / `validate_links` | проверка/починка перекрёстных ссылок | — |
 
 **Защита от дубликатов:** `create_document` проверяет существующий документ с тем же title. Если найден — возвращает ID существующего, не создавая новый. Builder может переключиться на `update_document`.
 
@@ -117,12 +131,12 @@
 
 ```
 [system prompt]           — ты Game Master, ведёшь игру
-[brain]                   — карта мозга: порядок действий, обработка ситуаций
-[glossary]                — НЕ весь. Только по запросу через search_*
+[brain (preloaded)]       — мозг прелоажен в промт (index + секции); get_brain(topic) для полной секции
+[glossary]                — НЕ весь. glossary_overview (карта типов) + search_rules по необходимости
 [память: саммари]         — саммари старых сообщений game-чата (game_hidden)
-[история: 10 сообщений]   — последние сообщения game-чата
+[история: 30 сообщений]   — ПОСЛЕДНИЕ 30 (desc + take + reverse), новые помечены 🆕
 [game_visible игрока]     — лист персонажа текущего игрока
-[инструменты]             — update_char_sheet, roll_dice, search_content, ...
+[инструменты]             — update_char_sheet, present_roll_check, get_rolls (только старые), get_chat_summary, ...
 [сообщение игрока]        — текущее сообщение
 ```
 
@@ -130,10 +144,10 @@
 
 ```
 [system prompt]           — ты Game Master, личный чат
-[brain]                   — карта мозга + порядок создания персонажа
-[glossary]                — НЕ весь. Только по запросу
+[brain (preloaded)]       — мозг прелоажен в промт (index + секции)
+[glossary]                — НЕ весь. glossary_overview + search_rules по необходимости
 [память: саммари]         — саммари старых сообщений personal-чата (game_hidden)
-[история: 10 сообщений]   — последние сообщения personal-чата
+[история: 20 сообщений]   — ПОСЛЕДНИЕ 20 (desc + take + reverse), новые помечены 🆕
 [game_visible игрока]     — лист персонажа этого игрока
 [инструменты]
 [сообщение игрока]
@@ -162,12 +176,11 @@
 ### Загрузка и парсинг файлов
 
 1. `POST /api/builder/upload` (API Route, не Server Action — файлы >1MB)
-2. Принимает multipart/form-data
-3. `parseFile(buffer, filename)` → `pdf2json` / `mammoth` / нативный decode
-4. Парсинг запускается **в фоне** — клиент получает `{ fileId }` сразу
-5. Результат кэшируется через `cacheFile(fileId, text, name)`
-6. `read_parsed_file` ждёт парсинг (polling до 600с с проверкой отмены)
-7. После завершения/остановки — файлы удаляются из кэша
+2. Принимает multipart/form-data: `.zip` (архив с `.md`) или одиночный `.md`
+3. ZIP распаковывается `adm-zip` (синхронно в роуте, ~600мс на 8592 файла), `.md` → `UploadedFile` записи (id, filename, path, text, status: ready)
+4. Авто-запуск агента после загрузки УДАЛЁН — билдер запускается только кнопкой «Запросить ответ»
+5. Кнопка подхватывает `fileIds` из последнего admin-сообщения и передаёт их в `runBuilderAgent`
+6. Агент: `explore_archive()` (дерево + `folders`) → типы по смыслу → `bulk_import_to_glossary(typeMap)` пакетно → `scan_wiki_links`/`replace_wiki_links` → импортированные `UploadedFile` удаляются
 
 ### Остановка (Stop)
 
@@ -186,7 +199,7 @@
 
 ### Сжатие контекста (prepareStep)
 
-`prepareStep` вызывается AI SDK перед каждым шагом:
+`prepareStep` вызывается AI SDK перед каждым шагом. Общий модуль `src/shared/lib/agents/context-compress.ts` (`compressMessages`) — используется билдером и GM:
 
 1. Считает `все_сообщения.length / 4 ≈ токены`
 2. Сравнивает с `contextLimit × 0.7` (настраивается в AI Settings, авто-дефолт по провайдеру)
@@ -194,7 +207,7 @@
 
 ```
 [Compressed — previous steps]
-Read 25 file chunks. Created 12 documents. Updated 3 documents. Searched 5 times.
+Created 12 documents. Updated 3 documents. Searched 5 times.
 ```
 
 4. Модель получает ~4 сообщения вместо 50+. Текущий tool-шаг не сжимается.
@@ -203,11 +216,13 @@ Read 25 file chunks. Created 12 documents. Updated 3 documents. Searched 5 times
 
 | Файл | Назначение |
 |---|---|
-| `builder-runner.ts` | Главный раннер: контекст, цикл, retry, prepareStep |
+| `builder-runner.ts` | Главный раннер: контекст, Plan→Execute, retry, prepareStep |
+| `gm-runner.ts` | Раннер Game Master: game + personal, Plan→Execute, трейс |
+| `context-compress.ts` | Общий модуль сжатия контекста (builder + GM) |
+| `trace.ts` | Диагностика: `TraceEvent` (промты, тулы, ответы) при `AGENT_TRACE=1` |
 | `step-tracker.ts` | Хранилище SSE-событий (in-memory, globalThis) |
 | `parse-cancel.ts` | Глобальный флаг отмены для всех тулов |
-| `file-cache.ts` | Кэш распарсенных файлов (30 мин TTL, очистка после обработки) |
-| `file-parser.ts` | Парсинг PDF (pdf2json), DOCX (mammoth), TXT/MD |
+| `archive-parser.ts` / `upload/route.ts` | Распаковка zip + загрузка |
 | `tools/*.tool.ts` | 6 инструментов для AI SDK |
 | `builder-system.md` | System prompt Builder'а |
 | `send-message.ts` | Server Action: сохраняет сообщение, запускает фон |
@@ -263,23 +278,28 @@ Read 25 file chunks. Created 12 documents. Updated 3 documents. Searched 5 times
 Никогда не меняй glossary и brain. Это зона Builder'а.
 ```
 
-### Специфичные инструменты
+### Специфичные инструменты (Game Master)
 
 | Инструмент | Описание |
 |---|---|
-| `get_char_sheet(player)` | Получить лист персонажа (game_visible) |
-| `update_char_sheet(player, changes)` | Изменить данные листа |
-| `add_composition_layer(player, layer)` | Добавить слой в composition |
-| `remove_composition_layer(player, layer)` | Убрать слой |
-| `roll_dice(expression)` | Бросок кубов |
-| `present_roll_check(chat_id, description, roll_expression)` | Предложить игроку кнопку броска |
-| `apply_effect(target, effect)` | Наложить эффект |
-| `get_scene_state()` | Текущая сцена |
-| `set_scene_state(data)` | Изменить сцену |
-| `log_event(type, data)` | Записать событие в лог (game_hidden) |
-| `summarize_to_state(text)` | Сохранить саммари (game_hidden) |
-| `write_gm_note(title, content)` | Записать скрытую заметку (game_hidden) |
-| `read_migration_summary()` | Прочитать сводку изменений от Builder'а |
+| `search_rules(query, type?, limit?)` | Поиск по глоссарию (тип-фильтр, total). Только по необходимости |
+| `glossary_overview()` | Карта типов глоссария (тип → кол-во + samples), один вызов |
+| `get_brain(topic?)` | Мозг (прелоажен в промт; для полной секции) |
+| `get_gm_notes()` | Список скрытых заметок (game_hidden) |
+| `get_scene_state()` / `set_scene_state(data)` | Текущая сцена / изменить (game_hidden) |
+| `get_player_sheet(playerId)` | Лист персонажа (game_visible) |
+| `update_char_sheet(playerId, changes)` | Изменить данные листа |
+| `read_document(id)` / `create_document` / `update_document` / `delete_document` | Документы по доменам |
+| `write_note(title, content)` | Записать скрытую заметку (game_hidden) |
+| `roll_dice(expression)` | Бросок кубов (мастер) |
+| `present_roll_check(checkName, diceExpression, count?)` | Предложить игроку кнопку броска |
+| `get_rolls(filter?)` | Броски сессии — ТОЛЬКО для старых/спорных (завершённые уже в контексте) |
+| `remove_roll` / `confirm_rolls` | Отменить назначенный / подтвердить завершённый |
+| `get_chat_summary()` / `update_chat_summary(content)` | Саммари чата |
+| `get_players()` | Состав игроков и вовлечённость |
+| `resolve_glossary_link(title)` | Глоссарий: title → UUID |
+
+Каждый read-тул помечает результат полем `source` (glossary/game_visible/game_hidden/brain/rolls/players/chat_summary) — модель учитывает, что можно говорить игрокам.
 
 ### Skills (часть общие, часть игро-специфичные)
 

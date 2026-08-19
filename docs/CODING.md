@@ -1,7 +1,7 @@
 # Правила кодинга: ai-master
 
 > **См. также:**
-> - `docs/GOLDEN-RULES.md` — 20 незыблемых правил (G1..G20), нарушение = баг
+> - `docs/GOLDEN-RULES.md` — незыблемые правила (G1..G39), нарушение = баг
 > - `docs/ANTI-PATTERNS.md` — каталог ошибок: Bad → Why → Good
 > - `docs/COMPLETION-GATE.md` — чеклист перед коммитом
 
@@ -275,27 +275,48 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 
 ### Builder Agent: метки шагов в бабле
 
-Тул-имена не показываются пользователю. Вместо `create_document` — человекочитаемая фраза из пула вариантов:
+Тул-имена не показываются пользователю. Вместо `create_document` — человекочитаемая фраза:
 
-- **i18n:** ключ `builder.steps.{tool}` → значение типа `string | string[]`
-- Если массив — выбирается случайная фраза, **не повторяющая предыдущую** (хранится в `lastLabelRef`)
-- Если строка — всегда она
+- **i18n:** ключ `builder.steps.{tool}` → строка (одна подпись на тул)
 - Фразы должны описывать что ИИ делает в бизнес-терминах: «Прописывает глоссарий», а не «Вызывает create_document»
+- Подписи нейтральные, без «мозга» для игроков (в билдере допустимо техничнее)
+- Финал — шаг `final` («Пишет ответ»), эмитится перед сохранением ответа во всех трёх раннерах
 
 Пример конфигурации в `ru.json`:
 ```json
 "steps": {
-  "explore_archive": ["Изучает структуру архива", "Анализирует папки"],
-  "read_file": ["Читает файл", "Открывает документ"],
-  "bulk_import_to_glossary": ["Импортирует в глоссарий", "Сохраняет справочник"],
-  "create_document": ["Прописывает глоссарий", "Формирует базу правил"],
-  "update_document": ["Дополняет запись", "Уточняет данные"],
-  "scan_wiki_links": ["Ищет ссылки для замены", "Сканирует документы"],
-  "replace_wiki_links": ["Заменяет ссылки", "Правит перекрёстные ссылки"],
-  "search_rules": ["Ищет правило", "Проверяет справочник"],
-  "update_file_summary": ["Делает заметки", "Записывает прогресс", "Обновляет пометки файла"]
+  "explore_archive": "Разбирает архив",
+  "read_file": "Читает файл",
+  "bulk_import_to_glossary": "Загружает правила",
+  "create_document": "Записывает новое",
+  "update_document": "Обновляет запись",
+  "search_rules": "Ищет правило",
+  "glossary_overview": "Смотрит, что есть в правилах",
+  "get_rolls": "Проверяет броски",
+  "final": "Пишет ответ"
 }
 ```
+
+### WAL-режим SQLite
+
+`PRAGMA journal_mode=WAL` + `busy_timeout=5000` при инициализации Prisma (`prisma.ts`). Без WAL массовые записи агента блокируют чтения всего сайта (один файл БД). WAL-артефакты `data/*.db-wal`, `data/*.db-shm` — в `.gitignore`.
+
+### Пакетные операции с БД
+
+Массовые записи (импорт, обновление, сканирование) — пакетно: один `findMany` существующих + `createMany`/`updateMany` чанками по 500. Цикл `findFirst`+`create`/`update` на запись запрещён (тысячи запросов держат write-lock, замораживают сайт). Пример: `bulk-import.ts` — ~20 запросов вместо ~17 000.
+
+### Диагностика агентов (AGENT_TRACE)
+
+При `AGENT_TRACE=1` пишется таблица `TraceEvent` (`src/shared/lib/agents/trace.ts` → `traceAgent`): каждый промт (system+messages), каждый тул-вызов (имя+аргументы), финальный ответ, ошибки — с тегом чата/фазы/sessionId. Лимиты: args ≤2К, result ≤4К, prompt ≤20К. Без флага ничего не пишется; после анализа флаг убрать и дропнуть таблицу.
+
+```sql
+SELECT phase, toolName, args FROM TraceEvent WHERE sessionId='...' ORDER BY createdAt;
+SELECT phase, stepIndex, prompt FROM TraceEvent WHERE prompt IS NOT NULL ORDER BY createdAt;
+```
+
+### Блокировка действий во время обдумывания
+
+Пока `isProcessing(sessionId)` — отправка сообщений и выполнение бросков отклоняются (`chat.processingBlocked`). Мутации-хуки обязаны бросать ошибку при `{ success: false }` (не резолвить успешно), иначе игрок не увидит уведомление. См. `useExecuteRoll`.
 
 ### Prisma: @updatedAt в SQLite требует @default(now())
 `@updatedAt` без `@default(now())` ломает `db push` — SQLite не умеет авто-заполнять новые колонки существующих строк. Всегда: `updatedAt DateTime @default(now()) @updatedAt`.

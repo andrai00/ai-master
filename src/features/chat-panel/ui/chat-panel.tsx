@@ -412,7 +412,10 @@ export const ChatPanel = ({
     if (scrollRef.current && atBottom) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, atBottom]);
+    // `typing`/`liveStep` re-render the thinking bubble after the message
+    // list — re-scroll so it stays visible when the user is at the bottom.
+    // When scrolled up, `atBottom` is false and we leave the position alone.
+  }, [messages, atBottom, typing, liveStep]);
 
   // Reset near-bottom when switching chats (session change). State reset is
   // done during render (documented React pattern).

@@ -55,27 +55,36 @@ export async function bulkImportToGlossaryAction(
     type,
   }));
 
-  // --- Phase 1: collect ALL ready files, then assign the best matching type ---
-  const allFiles = await prisma.uploadedFile.findMany({
+  // --- Phase 1: collect metadata of ALL ready files (no text yet), assign
+  // the best matching type, then fetch content ONLY for files that will be
+  // imported. Avoids loading every file's body when only some folders match.
+  const allMeta = await prisma.uploadedFile.findMany({
     where: { masterId, status: "ready" },
-    select: { id: true, filename: true, path: true, text: true },
+    select: { id: true, filename: true, path: true },
     orderBy: [{ path: "asc" }, { filename: "asc" }],
   });
 
-  const toImport: Array<{ id: string; filename: string; path: string; text: string; type: string }> = [];
+  const matched: Array<{ id: string; filename: string; path: string; type: string }> = [];
   const skipped: string[] = [];
-  for (const f of allFiles) {
+  for (const f of allMeta) {
     const type = matchType(f.path, prefixes);
     if (type === null) {
       skipped.push(f.path ? `${f.path}/${f.filename}` : f.filename);
       continue;
     }
-    toImport.push({ id: f.id, filename: f.filename, path: f.path, text: f.text, type });
+    matched.push({ id: f.id, filename: f.filename, path: f.path, type });
   }
 
-  if (toImport.length === 0) {
+  if (matched.length === 0) {
     return { success: true, imported: 0, byType: {}, skipped };
   }
+
+  const contents = await prisma.uploadedFile.findMany({
+    where: { id: { in: matched.map((m) => m.id) } },
+    select: { id: true, text: true },
+  });
+  const textById = new Map(contents.map((c) => [c.id, c.text]));
+  const toImport = matched.map((m) => ({ ...m, text: textById.get(m.id) ?? "" }));
 
   // --- Phase 2: glossary-only dedup by (masterId, title) — overwrite when path+name match ---
   const byType: Record<string, number> = {};

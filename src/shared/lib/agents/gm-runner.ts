@@ -224,6 +224,8 @@ Procedure:
 2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one.
+6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
 
 ## Sources
 Every result is tagged with "source": glossary (rules — shareable), game_visible (that player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), players, chat_summary. Plan only what may be told; keep game_hidden facts hidden.
@@ -237,6 +239,8 @@ Procedure:
 2. Then study this player's data and your memory: get_player_sheet (no argument), get_gm_notes. The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one.
+6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
 
 ## Sources
 Every result is tagged with "source": glossary (rules — shareable), game_visible (this player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), chat_summary. Plan only what may be told; keep game_hidden facts hidden.
@@ -278,7 +282,7 @@ const STUDY_TOOLS = new Set([
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
   sessionId: string
-): Promise<{ completed: Array<{ role: "user"; content: string }>; note: string }> {
+): Promise<{ completed: Array<{ role: "user"; content: string }>; assigned: Array<{ role: "user"; content: string }> }> {
   const completedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
     select: { id: true, checkName: true, diceExpression: true, result: true, detail: true, playerId: true, completedAt: true },
@@ -306,7 +310,9 @@ async function buildRollsContext(
 
   // Completed (unconsumed) rolls become the latest user turn — the model must
   // answer them, not re-assign. They stay unconsumed until the GM calls
-  // confirm_rolls, so a result is never silently lost.
+  // confirm_rolls, so a result is never silently lost. Every roll is labeled
+  // with its FULL id so the model can target it exactly via remove_roll /
+  // confirm_rolls and never confuses several rolls with the same name.
   const completed = completedRolls.map((r) => {
     const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
     // Include `detail` (the per-die breakdown the player sees on hover) so
@@ -315,22 +321,23 @@ async function buildRollsContext(
     const detail = r.detail ? ` (${r.detail})` : "";
     return {
       role: "user" as const,
-      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
+      content: `🆕 🎲 [roll id: ${r.id}] [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
     };
   });
 
-  let note = "";
-  if (assignedRolls.length > 0) {
-    note = `\n\n⚠️ WAITING FOR ROLLS (assigned, not yet rolled):\n`
-      + assignedRolls
-        .map((r) => {
-          const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
-          return `- "${r.checkName}" (${r.diceExpression}) — ${who}`;
-        })
-        .join("\n");
-  }
+  // Assigned (not yet rolled) rolls are context too — the model must know they
+  // are still pending and may keep, cancel (remove_roll) or re-assign them.
+  // They are NOT marked 🆕 (nothing new to answer), but are labeled with their
+  // full id so the model can act on a specific one.
+  const assigned = assignedRolls.map((r) => {
+    const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+    return {
+      role: "user" as const,
+      content: `⏳ ACTIVE [roll id: ${r.id}] «${r.checkName}» (${r.diceExpression}) — ${who}, не брошен`,
+    };
+  });
 
-  return { completed, note };
+  return { completed, assigned };
 }
 
 /**
@@ -396,7 +403,6 @@ async function buildGameContext(sessionId: string) {
   }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -449,8 +455,9 @@ async function buildGameContext(sessionId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
-  // Completed rolls are the player's latest action — append as the last user turns.
-  messages.push(...rollsCtx.completed);
+  // Pending assigned rolls are context first (older state), then completed
+  // rolls as the latest user turns the model must answer.
+  messages.push(...rollsCtx.assigned, ...rollsCtx.completed);
 
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
@@ -469,6 +476,7 @@ async function buildGameContext(sessionId: string) {
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
     hasCompletedRolls: rollsCtx.completed.length > 0,
+    hasPendingRolls: rollsCtx.assigned.length > 0,
   };
 }
 
@@ -500,7 +508,6 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -544,8 +551,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
-  // Completed rolls are the player's latest action — append as the last user turns.
-  messages.push(...rollsCtx.completed);
+  // Pending assigned rolls are context first (older state), then completed
+  // rolls as the latest user turns the model must answer.
+  messages.push(...rollsCtx.assigned, ...rollsCtx.completed);
 
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
@@ -564,6 +572,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
     hasCompletedRolls: rollsCtx.completed.length > 0,
+    hasPendingRolls: rollsCtx.assigned.length > 0,
   };
 }
 
@@ -612,14 +621,16 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     const tools = getGameTools();
 
     emitStarted(sessionId);
-    gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls}`);
+    gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
 
     let gmText: string | null = null;
     const runStart = performance.now();
 
     // Gate — nothing new to act on: one short call, no planning pass.
     // Read-only tools: the model must not invent actions or write anything.
-    if (ctx.newCount === 0 && !ctx.hasCompletedRolls) {
+    // Pending (assigned, unrolled) rolls count as "something to decide on",
+    // so they run a full pass — the model may keep, cancel or re-assign them.
+    if (ctx.newCount === 0 && !ctx.hasCompletedRolls && !ctx.hasPendingRolls) {
       gmLog("GATE idle — no new msgs/rolls");
       const idleStart = performance.now();
       const idle = await generateText({
@@ -769,14 +780,16 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     const tools = getPersonalTools();
 
     emitStarted(sessionId);
-    console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls}`);
+    console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
 
     let gmText: string | null = null;
     const runStart = performance.now();
 
     // Gate — nothing new to act on: one short call, no planning pass.
     // Read-only tools: the model must not invent actions or write anything.
-    if (ctx.newCount === 0 && !ctx.hasCompletedRolls) {
+    // Pending (assigned, unrolled) rolls count as "something to decide on",
+    // so they run a full pass — the model may keep, cancel or re-assign them.
+    if (ctx.newCount === 0 && !ctx.hasCompletedRolls && !ctx.hasPendingRolls) {
       console.log("[gm-personal] GATE idle — no new msgs/rolls");
       const idleStart = performance.now();
       const idle = await generateText({

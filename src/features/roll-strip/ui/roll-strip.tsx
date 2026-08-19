@@ -9,9 +9,11 @@ interface IRollStripProps {
   currentUserId?: string;
   onExecuteRoll?: (rollId: string) => void;
   executing?: boolean;
+  /** True while the master is processing — buttons are disabled but stay visible. */
+  disabled?: boolean;
 }
 
-export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IRollStripProps) => {
+export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing, disabled }: IRollStripProps) => {
   if (rolls.length === 0) return null;
 
   return (
@@ -44,7 +46,7 @@ export const RollStrip = ({ rolls, currentUserId, onExecuteRoll, executing }: IR
             <button
               key={roll.id}
               className={styles.rollBtn}
-              disabled={executing}
+              disabled={executing || disabled}
               onClick={() => onExecuteRoll(roll.id)}
             >
               🎲 {displayLabel ?? roll.diceExpression}: {roll.diceExpression}

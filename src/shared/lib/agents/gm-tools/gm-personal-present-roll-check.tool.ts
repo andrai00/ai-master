@@ -5,7 +5,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmPersonalPresentRollCheckTool = {
-  description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them a roll button. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple identical rolls — all rolled from ONE button.",
+  description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them a roll button. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple identical rolls — all rolled from ONE button. The returned rollId lets you cancel this roll later with remove_roll.",
   inputSchema: zodSchema(
     z.object({
       checkName: z.string().describe("Short label for the check (it becomes the button text)"),
@@ -31,7 +31,7 @@ export const gmPersonalPresentRollCheckTool = {
 
     const rollCount = args.count ?? 1;
 
-    await prisma.roll.create({
+    const roll = await prisma.roll.create({
       data: {
         sessionId: personalSession.id,
         playerId: currentUser.userId,
@@ -49,6 +49,7 @@ export const gmPersonalPresentRollCheckTool = {
       checkName: args.checkName,
       diceExpression: args.diceExpression,
       count: rollCount,
+      rollId: roll.id,
     };
   },
 };

@@ -71,6 +71,9 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
     // after a header belongs to a CORRECT table — never touch it, otherwise
     // the first DATA row gets swapped and the header falls out of the table.
     c = c.replace(/(^|\n\n)(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/g, "$1$3$2");
+    // Literal placeholder [[<id>]] (a brain instruction example) must not be
+    // parsed as the HTML tag <id> — rewrite to a safe wiki placeholder.
+    c = c.replace(/\[\[<id>(\]\]|\|)/g, "[[id$1");
     // rehype-raw strips empty <a> without href — rewrite to <span>
     c = c.replace(/<a id=/g, "<span id=");
     c = c.replace(/<\/a>/g, "</span>");

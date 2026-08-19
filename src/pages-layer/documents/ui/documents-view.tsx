@@ -26,6 +26,7 @@ export const DocumentsView = () => {
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
   const [prevOpenDocId, setPrevOpenDocId] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(20);
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: docs = [], isLoading } = useDocuments();
@@ -52,11 +53,19 @@ export const DocumentsView = () => {
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
     const q = searchQuery.toLowerCase();
-    return docs.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        (d.summary && d.summary.toLowerCase().includes(q))
-    );
+
+    // Ranked search: title/summary matches are primary, content matches are
+    // secondary and sort after them. Stable sort keeps original order within
+    // each group.
+    const ranked: Array<IDocumentItem & { _inContent?: boolean }> = [];
+    for (const d of docs) {
+      const inTitle = d.title.toLowerCase().includes(q);
+      const inSummary = d.summary ? d.summary.toLowerCase().includes(q) : false;
+      const inContent = d.content.toLowerCase().includes(q);
+      if (inTitle || inSummary) ranked.push({ ...d, _inContent: false });
+      else if (inContent) ranked.push({ ...d, _inContent: true });
+    }
+    return ranked;
   }, [docs, searchQuery]);
 
   const getCategoryDocs = (cat: string) => filteredDocs.filter((d) => d.category === cat);
@@ -96,13 +105,20 @@ export const DocumentsView = () => {
     setNavStack([]);
   }, []);
 
-  const columns: ColumnsType<IDocumentItem> = [
+  const columns: ColumnsType<IDocumentItem & { _inContent?: boolean }> = [
     {
       title: t("documents.title"),
       dataIndex: "title",
       ellipsis: true,
-      render: (title: string) => (
-        <span>{title || t("documents.untitled")}</span>
+      render: (title: string, record) => (
+        <span>
+          {title || t("documents.untitled")}
+          {record._inContent && (
+            <span style={{ marginLeft: 8, color: "var(--text-dim)", fontSize: 11 }}>
+              {t("documents.inContent")}
+            </span>
+          )}
+        </span>
       ),
     },
     {
@@ -135,8 +151,9 @@ export const DocumentsView = () => {
         allowClear
         placeholder={t("documents.searchPlaceholder")}
         prefix={<SearchOutlined />}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        onSearch={(value) => setSearchQuery(value)}
         style={{ marginBottom: 12 }}
       />
       <Tabs

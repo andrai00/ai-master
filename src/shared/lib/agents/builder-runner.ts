@@ -327,7 +327,9 @@ async function buildContext(sessionId: string) {
   ).length;
 
   if (newCount > 0) {
-    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet. The conversation below is in chronological order: messages marked 🆕 are NEW and are what you must answer now; messages without 🆕 are PAST history (context only — do not re-respond to them).`;
+  } else {
+    dynamic += `\n\nAll messages below are PAST history (context only). There is nothing new to answer.`;
   }
 
   const messages = recent.map((m) => {

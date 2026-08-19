@@ -50,6 +50,8 @@ next-env.d.ts
 # project data (runtime)
 data/ai-master.db
 data/*.bak*
+data/*.db-wal
+data/*.db-shm
 data/avatars/
 
 # Kilo — agent config tracked via .kilo/.gitignore (agent-manager.json, worktrees/, node_modules/ excluded)

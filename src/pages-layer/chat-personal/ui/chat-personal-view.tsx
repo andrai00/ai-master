@@ -264,7 +264,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
         footerAction={requestBtn}
-        rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id)} executing={executeRollMutation.isPending} />}
+        rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id, { onError: (e) => notification.error({ title: t(e instanceof Error ? e.message : "errors.unknownError") }) })} executing={executeRollMutation.isPending} />}
       />
       <Modal
         title={t("chat.historyTitle")}

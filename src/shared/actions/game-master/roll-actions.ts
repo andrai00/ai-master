@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { rollDice } from "@/src/shared/lib/dice/roll";
+import { isProcessing } from "@/src/shared/lib/agents/gm-runner";
 
 export async function executeRollAction(
   rollId: string
@@ -15,6 +16,10 @@ export async function executeRollAction(
   const roll = await prisma.roll.findUnique({ where: { id: rollId } });
   if (!roll) return { success: false, error: "errors.rollNotFound" };
   if (roll.status !== "assigned") return { success: false, error: "errors.rollAlreadyCompleted" };
+
+  // The master is processing — rolls must wait, in both the game and the
+  // personal chat (the processing guard covers every session of the game).
+  if (isProcessing(roll.sessionId)) return { success: false, error: "chat.processingBlocked" };
 
   if (session.role !== "admin") {
     if (!roll.playerId || roll.playerId !== session.userId) {

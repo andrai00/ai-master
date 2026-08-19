@@ -27,7 +27,11 @@ export function usePersonalRolls() {
 export function useExecuteRoll() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (rollId: string) => executeRollAction(rollId),
+    mutationFn: async (rollId: string) => {
+      const result = await executeRollAction(rollId);
+      if (!result.success) throw new Error(result.error || "errors.unknownError");
+      return result;
+    },
     onMutate: async (rollId) => {
       await qc.cancelQueries({ queryKey: ["game", "rolls"] });
       await qc.cancelQueries({ queryKey: ["personal", "rolls"] });

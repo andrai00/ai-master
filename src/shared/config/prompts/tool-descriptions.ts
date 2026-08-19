@@ -9,7 +9,7 @@ export const TOOL_DESCRIPTIONS = {
     "List all uploaded files for the current game (fileId, filename, path, size). Use before explore_archive to get an overview.",
 
   explore_archive:
-    "Show the directory tree of uploaded files — folder hierarchy with file counts and sample filenames. Use this to understand the structure before deciding document types for import.",
+    "Show the directory structure of uploaded files: a flat 'folders' list (every folder with its full path and direct file count) plus a hierarchical tree with sample filenames. Decide a document type for EACH folder by the MEANING of its contents — deeper folders override their parent (e.g. rules/bestiary/ is not rules, it is the bestiary). Use this before bulk_import_to_glossary.",
 
   create_document:
     "Create a new document. Valid categories depend on your mode: brain mode → glossary/brain, memory mode → game_hidden/game_visible. One document = one topic — never merge distinct topics into one. Use type to categorise: rule, template, _index, char_creation, mechanics, routing, char_tracking, game_state, doc_org, note, scene, character_sheet, lore. For game_visible with per-player data, provide playerId. Returns the created document's ID. If a document with the same title already exists, the tool returns the existing document's info — you can then use update_document() to overwrite it or pick a different title.",

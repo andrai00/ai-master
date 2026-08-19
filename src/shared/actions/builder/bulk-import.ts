@@ -10,9 +10,32 @@ function stripMd(name: string): string {
   return name.replace(/\.md$/i, "");
 }
 
+/** Normalizes a folder path: trims slashes, keeps leading slash for matching. */
+function normalizeFolder(path: string): string {
+  const trimmed = path.trim().replace(/\/+$/, "");
+  if (!trimmed) return "/";
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+/** Returns the LONGEST matching typeMap prefix for a file path, or null. */
+function matchType(filePath: string, prefixes: Array<{ prefix: string; type: string }>): string | null {
+  const normalized = filePath.trim().replace(/^\/+|\/+$/g, "");
+  let best: { prefix: string; type: string } | null = null;
+  for (const p of prefixes) {
+    const pn = p.prefix.trim().replace(/^\/+|\/+$/g, "");
+    if (pn === "" ) continue;
+    if (normalized === pn || normalized.startsWith(pn + "/")) {
+      if (!best || pn.length > best.prefix.trim().replace(/^\/+|\/+$/g, "").length) {
+        best = p;
+      }
+    }
+  }
+  return best?.type ?? null;
+}
+
 export async function bulkImportToGlossaryAction(
   typeMap: Record<string, string>
-): Promise<{ success: boolean; imported: number; byType: Record<string, number>; error?: string }> {
+): Promise<{ success: boolean; imported: number; byType: Record<string, number>; error?: string; skipped?: string[] }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, imported: 0, byType: {}, error: "errors.forbidden" };
 
@@ -26,69 +49,72 @@ export async function bulkImportToGlossaryAction(
 
   const prisma = getPrisma();
 
-  // --- Phase 1: collect all files across all folders ---
-  const allFiles: Array<{ filename: string; path: string; text: string; type: string }> = [];
+  // Build prefix list (longest-first semantics handled by matchType).
+  const prefixes = Object.entries(typeMap).map(([prefix, type]) => ({
+    prefix: normalizeFolder(prefix),
+    type,
+  }));
 
-  for (const [folderPath, docType] of Object.entries(typeMap)) {
-    const files = await prisma.uploadedFile.findMany({
-      where: { masterId, path: folderPath, status: "ready" },
-      select: { filename: true, path: true, text: true },
-    });
+  // --- Phase 1: collect ALL ready files, then assign the best matching type ---
+  const allFiles = await prisma.uploadedFile.findMany({
+    where: { masterId, status: "ready" },
+    select: { id: true, filename: true, path: true, text: true },
+    orderBy: [{ path: "asc" }, { filename: "asc" }],
+  });
 
-    for (const f of files) {
-      allFiles.push({ filename: f.filename, path: f.path, text: f.text, type: docType });
+  const toImport: Array<{ id: string; filename: string; path: string; text: string; type: string }> = [];
+  const skipped: string[] = [];
+  for (const f of allFiles) {
+    const type = matchType(f.path, prefixes);
+    if (type === null) {
+      skipped.push(f.path ? `${f.path}/${f.filename}` : f.filename);
+      continue;
     }
+    toImport.push({ id: f.id, filename: f.filename, path: f.path, text: f.text, type });
   }
 
-  if (allFiles.length === 0) {
-    return { success: true, imported: 0, byType: {} };
+  if (toImport.length === 0) {
+    return { success: true, imported: 0, byType: {}, skipped };
   }
 
   // --- Phase 2: glossary-only dedup by (masterId, title) — overwrite when path+name match ---
   const byType: Record<string, number> = {};
   let totalImported = 0;
 
-  for (const [folderPath, docType] of Object.entries(typeMap)) {
-    const folderFiles = allFiles.filter((f) => f.type === docType && f.path === folderPath);
-    if (folderFiles.length === 0) continue;
+  for (const f of toImport) {
+    const base = stripMd(f.filename);
+    const title = f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
+    const data = {
+      content: f.text,
+      category: "glossary" as const,
+      type: f.type,
+      tags: JSON.stringify([f.path.split("/").filter(Boolean).pop() ?? ""]),
+      summary: null as string | null,
+    };
 
-    for (const f of folderFiles) {
-      const base = stripMd(f.filename);
-      const title = f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
-      const data = {
-        content: f.text,
-        category: "glossary" as const,
-        type: docType,
-        tags: JSON.stringify([f.path.split("/").filter(Boolean).pop() ?? ""]),
-        summary: null as string | null,
-      };
+    const existing = await prisma.document.findFirst({
+      where: { masterId, title, category: "glossary" },
+      select: { id: true },
+    });
 
-      const existing = await prisma.document.findFirst({
-        where: { masterId, title, category: "glossary" },
-        select: { id: true },
-      });
-
-      if (existing) {
-        await prisma.document.update({ where: { id: existing.id }, data });
-      } else {
-        await prisma.document.create({ data: { masterId, title, ...data } });
-      }
+    if (existing) {
+      await prisma.document.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.document.create({ data: { masterId, title, ...data } });
     }
 
-    byType[docType] = (byType[docType] || 0) + folderFiles.length;
-    totalImported += folderFiles.length;
+    byType[f.type] = (byType[f.type] || 0) + 1;
+    totalImported++;
   }
 
-  // --- Phase 5: cleanup all uploaded files ---
-  for (const folderPath of Object.keys(typeMap)) {
-    await prisma.uploadedFile.deleteMany({
-      where: { masterId, path: folderPath },
-    });
-  }
+  // --- Phase 3: cleanup only the imported uploaded files (keep unmatched) ---
+  await prisma.uploadedFile.deleteMany({
+    where: { id: { in: toImport.map((f) => f.id) } },
+  });
 
   if (totalImported > 0) {
     broadcastGameEvent("document_updated", { masterId });
   }
 
-  return { success: true, imported: totalImported, byType };
+  return { success: true, imported: totalImported, byType, skipped: skipped.length > 0 ? skipped.slice(0, 20) : undefined };
 }

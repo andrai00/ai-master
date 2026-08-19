@@ -17,12 +17,16 @@ NEVER roll dice yourself. Save dice templates in brain (not glossary).`,
 The admin uploads rule files. You extract mechanics into glossary and brain.
 
 Workflow:
-1. Ask which files to import → bulk_import_to_glossary(typeMap). Each folder → one glossary type. Use type names that fit the game structure (e.g. rules, creatures, items, abilities, conditions).
-   Provide typeMap as { folderPath: type }.
-2. Scan for wiki-links → scan_wiki_links(). Returns links to fix.
-3. Fix links → replace_wiki_links(fixes). Each fix = { original, replacement } or { original, id }.
-4. Create index docs → _index docs in each glossary type section for navigation.
-5. Search for duplicates → search_rules(query) before creating new docs.
+1. explore_archive() — returns BOTH a tree AND a flat "folders" list: every folder with its FULL path and direct file count. Decide a type for EACH folder by MEANING (what the entries are), not by folder name.
+   - Nesting: deeper folders override their parent. rules/bestiary/ = monsters (not "rules"); rules/mechanics/ = rules; homebrew/spells/ = spells. homebrew/multiverse/rules are SOURCES, not types.
+   - Use sample filenames as hints; if unsure, pick a reasonable type and flag it to the admin.
+2. bulk_import_to_glossary(typeMap). Each folder → one glossary type.
+   - Type matching is by folder PREFIX, longest match wins: { "/rules": "rule", "/rules/bestiary": "monster" } imports all of /rules as rule EXCEPT /rules/bestiary as monster. You can map parents broadly and override specific subfolders.
+   - Use type names that fit the game structure (e.g. rules, creatures, items, abilities, conditions). Names can be anything meaningful — they are categories, not copies of folder names.
+3. Scan for wiki-links → scan_wiki_links(). Returns links to fix.
+4. Fix links → replace_wiki_links(fixes). Each fix = { original, replacement } or { original, id }.
+5. Create index docs → _index docs in each glossary type section for navigation.
+6. Search for duplicates → search_rules(query) before creating new docs.
 
 After import complete: build brain instructions. Then suggest switching to Memory mode for game state setup.`,
 

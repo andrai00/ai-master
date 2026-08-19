@@ -3,8 +3,6 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { enqueueBuilderJob } from "@/src/shared/lib/queue";
-import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
 import AdmZip from "adm-zip";
 
 export const maxDuration = 60;
@@ -19,31 +17,6 @@ function getDirname(entryName: string): string {
 function getBasename(entryName: string): string {
   const lastSlash = entryName.lastIndexOf("/");
   return lastSlash === -1 ? entryName : entryName.slice(lastSlash + 1);
-}
-
-async function triggerAgent(archive: boolean): Promise<void> {
-  const prisma = getPrisma();
-  const activeGame = await getActiveGame();
-  const masterId = activeGame?.currentMasterId;
-  if (!masterId) return;
-
-  const builderSession = await prisma.session.findFirst({
-    where: { masterId, type: "builder" },
-    select: { id: true },
-  });
-  const sessionId = builderSession?.id;
-  if (!sessionId) return;
-
-  const msg = archive
-    ? "Archive uploaded. Use explore_archive() to see the file tree, then bulk_import_to_glossary() with your type map."
-    : "File uploaded. Read it and create a glossary document with the appropriate type.";
-
-  enqueueBuilderJob(sessionId, msg, []).catch((err) => {
-    console.error("[upload] Failed to enqueue builder job:", err);
-    runBuilderAgent(sessionId, msg, []).catch((e) => {
-      console.error("[upload] Background builder crashed:", e);
-    });
-  });
 }
 
 export async function POST(request: NextRequest) {
@@ -104,7 +77,6 @@ export async function POST(request: NextRequest) {
     });
 
     broadcastGameEvent("file_uploaded", {});
-    triggerAgent(false).catch((e) => console.error("[upload] triggerAgent failed:", e));
 
     return NextResponse.json({ fileId, filename: file.name, size: text.length, status: "ready" });
   }
@@ -159,7 +131,6 @@ export async function POST(request: NextRequest) {
     const folders = [...new Set(mdEntries.map((e) => e.path))].sort();
 
     broadcastGameEvent("archive_uploaded", { fileCount: mdEntries.length, folders });
-    triggerAgent(true).catch((e) => console.error("[upload] triggerAgent failed:", e));
 
     return NextResponse.json({
       fileId: "__archive__",

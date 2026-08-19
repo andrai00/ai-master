@@ -25,16 +25,34 @@ export async function requestBuilderResponseAction(
   const last = await prisma.message.findFirst({
     where: { sessionId, role: "admin", summarized: false },
     orderBy: { createdAt: "desc" },
-    select: { content: true },
+    select: { content: true, hasFiles: true, attachedFiles: true },
   });
-  if (!last || !last.content.trim()) return { success: false, error: "errors.emptyMessage" };
+  if (!last) return { success: false, error: "errors.emptyMessage" };
+
+  // Pull attached file ids from the latest admin message so the builder
+  // processes the files the user just uploaded (files live on the message,
+  // not on the request — the upload route no longer auto-starts the agent).
+  let fileIds: string[] = [];
+  if (last.hasFiles && last.attachedFiles) {
+    try {
+      const files = JSON.parse(last.attachedFiles) as { fileId: string }[];
+      fileIds = files.map((f) => f.fileId).filter(Boolean);
+    } catch {
+      fileIds = [];
+    }
+  }
+
+  // Allow running with files only (no text): fall back to a short instruction.
+  const rawContent = last.content?.trim() ?? "";
+  if (!rawContent && fileIds.length === 0) return { success: false, error: "errors.emptyMessage" };
+  const content = rawContent ||
+    "File uploaded. Read it and create a glossary document with the appropriate type.";
 
   broadcastGameEvent("gm_response_requested", { sessionId });
 
-  const content = last.content.trim();
-  enqueueBuilderJob(sessionId, content, []).catch((err) => {
+  enqueueBuilderJob(sessionId, content, fileIds).catch((err) => {
     console.error("[builder] Failed to enqueue:", err);
-    runBuilderAgent(sessionId, content, []).catch((e) => {
+    runBuilderAgent(sessionId, content, fileIds).catch((e) => {
       console.error("[builder] Background processing crashed:", e);
     });
   });

@@ -32,6 +32,7 @@ import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
+import { traceAgent } from "./trace";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -515,7 +516,8 @@ export async function runBuilderAgent(
     const runGenerate = (
       msgs: Array<{ role: "user" | "assistant"; content: string }>,
       sys: string = ctx.system,
-      toolSet: ToolSet = tools
+      toolSet: ToolSet = tools,
+      phase: string = isStudy ? "study" : "chat"
     ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> =>
       generateText({
         model,
@@ -530,8 +532,11 @@ export async function runBuilderAgent(
               return {};
             }
 
-            // Periodic status log every 10 steps
             const stepIdx = (allSteps ?? []).length;
+            // Diagnostic: log the exact prompt the model sees before this step.
+            traceAgent({ chat: "builder", sessionId, phase, stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
+
+            // Periodic status log every 10 steps
             if (isStudy || stepIdx % 10 === 0) {
               const totalMsgs = allMsgs.length;
               const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
@@ -553,11 +558,12 @@ export async function runBuilderAgent(
           },
           abortSignal: ac.signal,
           onStepFinish: async (event: StepResult<typeof tools>) => {
-            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
+            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string; args?: unknown }> | undefined;
             if (calls?.length) {
               recordActions(sessionId, calls);
               for (const call of calls) {
                 try {
+                  traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.args ?? {}) });
                   emitStep(sessionId, call.toolName as string);
                 } catch (e) {
                   console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
@@ -570,16 +576,20 @@ export async function runBuilderAgent(
     const runWithRetries = async (
       msgs: Array<{ role: "user" | "assistant"; content: string }>,
       sys: string = ctx.system,
-      toolSet: ToolSet = tools
+      toolSet: ToolSet = tools,
+      phase: string = isStudy ? "study" : "chat"
     ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const r = await runGenerate(msgs, sys, toolSet);
+          const r = await runGenerate(msgs, sys, toolSet, phase);
+          traceAgent({ chat: "builder", sessionId, phase, result: r.text?.slice(0, 4000), elapsedMs: 0 });
           console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string,unknown>).finishReason, steps: (r as unknown as {steps?: unknown[]}).steps?.length, usage: (r as unknown as Record<string,unknown>).usage })}`);
           return r;
         } catch (err: unknown) {
           lastError = err;
-          console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${errMsg.slice(0, 200)}`);
+          traceAgent({ chat: "builder", sessionId, phase, error: errMsg, elapsedMs: 0 });
 
           // Never retry user stop
           if (err instanceof Error && err.name === "AbortError") throw err;
@@ -609,7 +619,7 @@ export async function runBuilderAgent(
     if (!isStudy) {
       // CHAT mode: Plan → Execute two passes. Pass 1 uses the SHORT planning
       // prompt and read-only plan tools; Pass 2 gets the full prompt.
-      const planResult = await runWithRetries(messages, ctx.planSystem + PLAN_SYSTEM_PROMPT, planTools);
+      const planResult = await runWithRetries(messages, ctx.planSystem + PLAN_SYSTEM_PROMPT, planTools, "plan");
       const planText = planResult.text?.trim() ?? "";
       console.log(`[builder] PLAN done — session=${sessionId} textLen=${planText.length}`);
 
@@ -617,13 +627,15 @@ export async function runBuilderAgent(
         planText
           ? [...messages, { role: "user", content: `Выполни план: ${planText}` }]
           : messages,
-        ctx.system + EXEC_SYSTEM_PROMPT
+        ctx.system + EXEC_SYSTEM_PROMPT,
+        tools,
+        "exec"
       );
       builderText = execResult.text?.trim() ?? null;
       console.log(`[builder] EXEC done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
     } else {
       // IMPORT/STUDY mode: single long autonomous pass (import logic untouched).
-      result = await runWithRetries(messages);
+      result = await runWithRetries(messages, ctx.system, tools, "study");
       builderText = result.text?.trim() ?? null;
       console.log(`[builder] STUDY done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
     }
@@ -634,7 +646,7 @@ export async function runBuilderAgent(
       const retryResult = await runWithRetries([
         ...messages,
         { role: "user", content: EMPTY_RETRY_PROMPT },
-      ]);
+      ], ctx.system, tools, "retry");
       builderText = retryResult.text?.trim() ?? null;
     }
 

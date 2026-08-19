@@ -181,3 +181,24 @@ model Roll {
   @@index([sessionId, status])
   @@index([sessionId, playerId])
 }
+
+// Diagnostic trace of agent runs — prompt, every tool call, and final reply.
+// Only written when AGENT_TRACE=1; used to optimize prompts/actions, then dropped.
+model TraceEvent {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  chat        String // "game" | "personal" | "builder"
+  sessionId   String
+  phase       String // "plan" | "exec" | "idle" | "study" | "retry"
+  stepIndex   Int?
+  toolName    String? // tool call (null for prompts and final replies)
+  args        String? // tool arguments (JSON)
+  result      String? // tool result (JSON) or final reply text
+  prompt      String? // full system+messages prompt for the pass (JSON)
+  elapsedMs   Int?
+  error       String?
+
+  @@index([chat, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([toolName, createdAt])
+}

@@ -38,6 +38,7 @@ import {
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
+import { traceAgent, type TraceChat } from "./trace";
 
 export { emitStopped } from "./step-tracker";
 
@@ -117,7 +118,7 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep() {
+function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
   let cachedLimit = 128_000;
   let limitLoaded = false;
 
@@ -130,6 +131,9 @@ function makePrepareStep() {
     } catch {
       return {};
     }
+
+    // Diagnostic: log the exact prompt the model sees before this step.
+    traceAgent({ chat, sessionId, phase, stepIndex: (steps ?? []).length, prompt: JSON.stringify(allMsgs) });
 
     const compressThreshold = cachedLimit * 0.7;
     return compressMessages({ messages: allMsgs, steps, threshold: compressThreshold }) ?? {};
@@ -600,8 +604,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         tools: planTools,
         stopWhen: isStepCount(10),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, gmLog),
+        prepareStep: makePrepareStep(sessionId, "game", "idle"),
+        onStepFinish: makeStepLogger(sessionId, "game", "idle", gmLog),
       });
       gmText = idle.text?.trim() ?? null;
     } else {
@@ -615,8 +619,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         tools: planTools,
         stopWhen: isStepCount(20),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, gmLog),
+        prepareStep: makePrepareStep(sessionId, "game", "plan"),
+        onStepFinish: makeStepLogger(sessionId, "game", "plan", gmLog),
       });
       const planText = planResult.text?.trim() ?? "";
       gmLog(`PLAN done textLen=${planText.length}`);
@@ -633,8 +637,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         tools,
         stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, gmLog),
+        prepareStep: makePrepareStep(sessionId, "game", "exec"),
+        onStepFinish: makeStepLogger(sessionId, "game", "exec", gmLog),
       });
       gmText = execResult.text?.trim() ?? null;
       gmLog(`EXEC done textLen=${gmText?.length ?? 0} actions=[${getActions(sessionId).join(",")}]`);
@@ -650,8 +654,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         tools,
         stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, gmLog),
+        prepareStep: makePrepareStep(sessionId, "game", "retry"),
+        onStepFinish: makeStepLogger(sessionId, "game", "retry", gmLog),
       });
       gmText = retry.text?.trim() ?? null;
       gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
@@ -665,6 +669,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
     if (gmText) {
       const prisma = getPrisma();
+      traceAgent({ chat: "game", sessionId, phase: "final", result: gmText });
       emitStep(sessionId, "final");
       await prisma.message.create({
         data: {
@@ -737,8 +742,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         tools: planTools,
         stopWhen: isStepCount(10),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+        prepareStep: makePrepareStep(sessionId, "personal", "idle"),
+        onStepFinish: makeStepLogger(sessionId, "personal", "idle", (l) => console.log(`[gm-personal] ${l}`)),
       });
       gmText = idle.text?.trim() ?? null;
     } else {
@@ -752,8 +757,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         tools: planTools,
         stopWhen: isStepCount(20),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+        prepareStep: makePrepareStep(sessionId, "personal", "plan"),
+        onStepFinish: makeStepLogger(sessionId, "personal", "plan", (l) => console.log(`[gm-personal] ${l}`)),
       });
       const planText = planResult.text?.trim() ?? "";
       console.log(`[gm-personal] PLAN done textLen=${planText.length}`);
@@ -769,8 +774,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         tools,
         stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+        prepareStep: makePrepareStep(sessionId, "personal", "exec"),
+        onStepFinish: makeStepLogger(sessionId, "personal", "exec", (l) => console.log(`[gm-personal] ${l}`)),
       });
       gmText = execResult.text?.trim() ?? null;
       console.log(`[gm-personal] EXEC done textLen=${gmText?.length ?? 0}`);
@@ -786,8 +791,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         tools,
         stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(),
-        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+        prepareStep: makePrepareStep(sessionId, "personal", "retry"),
+        onStepFinish: makeStepLogger(sessionId, "personal", "retry", (l) => console.log(`[gm-personal] ${l}`)),
       });
       gmText = retry.text?.trim() ?? null;
     }
@@ -800,6 +805,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     if (gmText) {
       const prisma = getPrisma();
       emitStep(sessionId, "final");
+      traceAgent({ chat: "personal", sessionId, phase: "final", result: gmText });
       await prisma.message.create({
         data: {
           sessionId,
@@ -827,13 +833,14 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   }
 }
 
-function makeStepLogger(sessionId: string, log?: (line: string) => void) {
+function makeStepLogger(sessionId: string, chat: TraceChat, phase: string, log?: (line: string) => void) {
   return async (event: Record<string, unknown>) => {
-    const calls = event.toolCalls as Array<{ toolName?: string }> | undefined;
+    const calls = event.toolCalls as Array<{ toolName?: string; args?: unknown }> | undefined;
     if (calls?.length) {
       recordActions(sessionId, calls);
       if (log) log(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
       for (const call of calls) {
+        traceAgent({ chat, sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.args ?? {}) });
         emitStep(sessionId, call.toolName as string);
       }
     }

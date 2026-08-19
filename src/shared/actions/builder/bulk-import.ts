@@ -86,13 +86,38 @@ export async function bulkImportToGlossaryAction(
   const textById = new Map(contents.map((c) => [c.id, c.text]));
   const toImport = matched.map((m) => ({ ...m, text: textById.get(m.id) ?? "" }));
 
-  // --- Phase 2: glossary-only dedup by (masterId, title) — overwrite when path+name match ---
+  // --- Phase 2: batch upsert — one read of existing titles, then createMany
+  // for new docs and chunked updates for existing ones. NEVER loop with a
+  // findFirst+create per file: thousands of sequential SQLite queries hold
+  // the DB write lock for minutes and freeze the whole Next.js app.
+  const titles = toImport.map((f) => {
+    const base = stripMd(f.filename);
+    return f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
+  });
+
+  const existing = await prisma.document.findMany({
+    where: { masterId, category: "glossary", title: { in: titles } },
+    select: { id: true, title: true },
+  });
+  const existingByTitle = new Map(existing.map((d) => [d.title, d.id]));
+
   const byType: Record<string, number> = {};
   let totalImported = 0;
 
-  for (const f of toImport) {
-    const base = stripMd(f.filename);
-    const title = f.path ? `${f.path}/${base}`.replace(/^\//, "") : base;
+  const newRows: Array<{
+    masterId: string;
+    title: string;
+    content: string;
+    category: "glossary";
+    type: string;
+    tags: string;
+    summary: string | null;
+  }> = [];
+  const updates: Array<{ id: string; content: string; type: string; tags: string }> = [];
+
+  for (let i = 0; i < toImport.length; i++) {
+    const f = toImport[i];
+    const title = titles[i];
     const data = {
       content: f.text,
       category: "glossary" as const,
@@ -101,19 +126,32 @@ export async function bulkImportToGlossaryAction(
       summary: null as string | null,
     };
 
-    const existing = await prisma.document.findFirst({
-      where: { masterId, title, category: "glossary" },
-      select: { id: true },
-    });
-
-    if (existing) {
-      await prisma.document.update({ where: { id: existing.id }, data });
+    const existingId = existingByTitle.get(title);
+    if (existingId) {
+      updates.push({ id: existingId, content: data.content, type: data.type, tags: data.tags });
     } else {
-      await prisma.document.create({ data: { masterId, title, ...data } });
+      newRows.push({ masterId, title, ...data });
     }
 
     byType[f.type] = (byType[f.type] || 0) + 1;
     totalImported++;
+  }
+
+  if (newRows.length > 0) {
+    const CHUNK = 500;
+    for (let i = 0; i < newRows.length; i += CHUNK) {
+      await prisma.document.createMany({ data: newRows.slice(i, i + CHUNK) });
+    }
+  }
+
+  if (updates.length > 0) {
+    const CHUNK = 500;
+    for (let i = 0; i < updates.length; i += CHUNK) {
+      const chunk = updates.slice(i, i + CHUNK);
+      await Promise.all(
+        chunk.map((u) => prisma.document.update({ where: { id: u.id }, data: { content: u.content, type: u.type, tags: u.tags } }))
+      );
+    }
   }
 
   // --- Phase 3: cleanup only the imported uploaded files (keep unmatched) ---

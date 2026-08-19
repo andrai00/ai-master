@@ -29,36 +29,39 @@ export const exploreArchiveTool = {
       orderBy: [{ path: "asc" }, { filename: "asc" }],
     });
 
-    // Flat list of every folder path with its direct file count and samples.
-    // This is the source of truth for nesting — the model must decide a type
-    // for EACH folder, and deeper folders override their parent.
-    const folderMap = new Map<string, { fileCount: number; samples: string[] }>();
+    // Folder stats + subfolder links built in ONE pass (linear, like the
+    // pre-19.08 version). Never loop over all folders inside another folder
+    // loop: with thousands of files that is O(n^2) and freezes the event loop.
+    const folderMap = new Map<string, { fileCount: number; samples: string[]; subdirs: Set<string> }>();
 
     for (const f of files) {
       const dir = f.path || "/";
 
       if (!folderMap.has(dir)) {
-        folderMap.set(dir, { fileCount: 0, samples: [] });
+        folderMap.set(dir, { fileCount: 0, samples: [], subdirs: new Set() });
       }
       const entry = folderMap.get(dir)!;
       entry.fileCount++;
       if (entry.samples.length < 5) entry.samples.push(f.filename);
+
+      const parts = dir.split("/").filter(Boolean);
+      for (let i = 0; i < parts.length; i++) {
+        const parentPath = "/" + parts.slice(0, i).join("/");
+        if (!folderMap.has(parentPath)) {
+          folderMap.set(parentPath, { fileCount: 0, samples: [], subdirs: new Set() });
+        }
+        const nextDir = parts.slice(0, i + 1).join("/");
+        folderMap.get(parentPath)!.subdirs.add(nextDir);
+      }
     }
 
     // Hierarchical tree (subfolders per node) for visual structure.
     const tree: ITreeNode[] = [];
     for (const [path, data] of folderMap) {
-      const subdirs = new Set<string>();
-      for (const [otherPath] of folderMap) {
-        if (otherPath.startsWith(path + "/")) {
-          const rest = otherPath.slice(path.length + 1).split("/")[0];
-          if (rest) subdirs.add(`${path}/${rest}`);
-        }
-      }
       tree.push({
         path,
         files: data.fileCount,
-        folders: [...subdirs].sort(),
+        folders: [...data.subdirs].sort(),
         samples: data.samples,
       });
     }

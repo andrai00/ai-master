@@ -1,0 +1,161 @@
+# Оптимизация скорости GM без потери качества
+
+## Контекст
+
+После тестов на короткой игре «DnD test 2» (master `a158e9c9`, сессии game `ca272945` / personal `ab6674af`, AGENT_TRACE=1, 525 записей) выявлено: GM стал «максимально умным», но **один ответ занимает 59–306 секунд**.
+
+**Почему долго (факты из трейсов):**
+- Один ответ = **10–19 LLM-вызовов** (план 2–7 шагов + exec 3–12 + retry/final).
+- Каждый вызов несёт полный контекст: system `GM_GAME_SYSTEM` 15.6 КБ (~3.9K токенов) + **мозг-индекс прелоажен целиком 13.2 КБ** + история/тул-результаты 13–20+ КБ (41% промптов упёрлись в кап 20К).
+- Среднее время генерации шага: plan ~35 сек, exec ~14.5 сек.
+- **Дублирование чтения**: Pass 1 (план) читает `get_player_sheet`/`get_scene_state`/`get_gm_notes`/`read_document`/`get_brain`, а Pass 2 (exec) перечитывает те же данные заново (до 6 дублей на батч). Результаты Pass 1 не передаются в Pass 2 — только текст плана.
+- `get_chat_summary` вызывается в почти каждом батче (12/15), хотя саммари уже в контексте.
+- `read_document`/`get_brain` без лимита тащат документы целиком (механики 25 КБ).
+- Порог компрессии контекста `128K × 0.7 = 89.6K` токенов — компрессия **никогда не срабатывает** (реальные промпты ~3.4K токенов).
+- Трейс аргументов тулов сломан: `call.args` в AI SDK v7 называется `call.input` — все 343 записи с `args: {}`.
+
+## Ограничения (от пользователя)
+
+1. **Один коммит на все изменения.** Откат = `git revert` этого коммита целиком.
+2. **Документы (мозг/глоссарий) кодом НЕ меняем.** Если нужна правка содержания — это рекомендация через Builder (раздел «Рекомендации Builder-у» ниже). Большие файлы глоссария (8592 документа) не трогаем вообще.
+3. Критерий приёмки: **GM не должен поглупеть**; время ответа должно упасть. Если станет глупее — откат.
+
+## Базовые метрики «до» (для сравнения после)
+
+| Метрика | Значение |
+|---|---|
+| Среднее время ответа (game) | ~3 мин (59–306 сек) |
+| LLM-вызовов на ответ | 10–19 |
+| read_document всего | 95 |
+| search_rules всего | 46 |
+| get_chat_summary всего | 12 |
+| get_brain всего | 16 |
+| Средний промпт (в трейсе) | 13.4 КБ, max 19.5 КБ |
+| Дублей чтения на батч | до 6 |
+
+Замер после: те же SQL по `TraceEvent` (новая сессия теста) — время ответа, число шагов/батч, число `read_document`/`get_chat_summary`/`get_brain` на батч.
+
+---
+
+## Шаги (все в одном коммите)
+
+### Шаг 1. Фикс трейса: `call.args` → `call.input` + реальный elapsedMs
+
+**Файлы:** `src/shared/lib/agents/gm-runner.ts:843`, `src/shared/lib/agents/builder-runner.ts:566`
+
+- В `makeStepLogger` (gm) и `onStepFinish` (builder): `JSON.stringify(call.args ?? {})` → `JSON.stringify(call.input ?? call.args ?? {})`. AI SDK v7 кладёт аргументы в `input`.
+- `elapsedMs: 0` → реальный замер: засечь `performance.now()` вокруг `generateText` и передать в `traceAgent({ ..., elapsedMs })` в обоих раннерах (после шага и после результата).
+- Эффект: трейс снова показывает, что модель передаёт в тулы → следующий анализ точный.
+
+### Шаг 2. Дефолтный лимит в `read_document` и `get_brain`
+
+**Файлы:**
+- `src/shared/lib/agents/gm-tools/gm-read-document.tool.ts`
+- `src/shared/lib/agents/tools/read-document.tool.ts` (builder)
+- `src/shared/lib/agents/gm-tools/gm-get-brain.tool.ts`
+
+- `gm-read-document.tool.ts`: при отсутствии `offset`/`limit` возвращать **первую порцию** (limit по умолчанию = 3000 символов) вместо всего документа, с `hasMore: true`, `totalSize`, `offset`. Обновить `description`: «omit limit to read the first 3000 chars; pass offset/limit to continue».
+- То же для builder `read-document.tool.ts` (там дефолт уже `limit ?? 5000` при заданном offset; сделать дефолтный срез и при «полном» чтении).
+- `gm-get-brain.tool.ts`: при `topic` возвращать первые 4000 символов `content` + `hasMore: true` + `totalSize`, описание «read the first 4000 chars; continue with read_document(id, offset)`.
+- Эффект: `read_document(mechanics)` больше не вливает 25 КБ в контекст.
+
+### Шаг 3. P1 — передать результаты изучения Pass 1 в Pass 2 (главный выигрыш)
+
+**Файлы:** `src/shared/lib/agents/gm-runner.ts`
+
+В `runGameMasterBatch` и `runGameMasterPersonal`:
+1. После `planResult` собрать сводку из `planResult.toolResults` (или `planResult.steps[*].toolResults`):
+   - для каждого результата read-тула (`get_player_sheet`, `get_scene_state`, `get_gm_notes`, `get_chat_summary`, `read_document`, `get_brain`, `search_rules`, `get_rolls`, `get_players`, `glossary_overview`, `resolve_glossary_link`) — компактная строка `- {toolName}: {JSON результата}`;
+   - обрезать каждый результат до ~1500 символов, суммарно кап ~12000 символов;
+   - только read-тулы (write-тулов в Pass 1 нет по `getPlanTools`).
+2. В Pass 2 подставить перед текстом плана:
+   ```
+   [...existingMessages,
+     { role: "user", content: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}` }]
+   ```
+3. В `EXEC_SYSTEM_PROMPT` добавить: «Данные уже изучены и приведены выше (## Study summary). НЕ вызывай get_player_sheet / get_scene_state / get_gm_notes / read_document повторно для документов, уже указанных в сводке. Используй тулы для записи (update/создание), бросков (present_roll_check) или если в сводке нет нужных данных — тогда перечитай конкретный документ.»
+4. Если `planText` пуст — сводку не вставлять (уже есть гейт).
+
+**Ожидание:** минус ~5–8 дублирующих вызовов на батч (с 10–19 до ~5–10).
+
+### Шаг 4. `get_chat_summary` — не включать в Pass 1 и не звать при наличии саммари в контексте
+
+**Файлы:** `src/shared/lib/agents/gm-runner.ts`
+
+- `getPlanTools("game"|"personal")`: убрать `get_chat_summary` из набора (Pass 1 видит саммари прямо в контексте `## Chat History Summary`).
+- В `buildGameContext`/`buildPersonalContext`: когда `summary` отсутствует, вместо пропуска добавлять строку `## Chat History Summary\n(нет данных)` — модель не гадает, есть ли саммари.
+- В `GM_PLAN_SYSTEM` и `GM_PERSONAL_SYSTEM` (в `gm-system.ts`), и в plan-промптах: усилить фразу — «саммари уже в контексте (## Chat History Summary); не вызывай get_chat_summary, кроме случаев когда нужны детали сессий старше видимого окна».
+- `get_chat_summary` остаётся в полном наборе тулов Pass 2 (для деталей старой истории).
+
+**Ожидание:** минус ~1 вызов на батч; меньше «гадания».
+
+### Шаг 5. Сократить дубли в системных промптах (P7)
+
+**Файл:** `src/shared/lib/agents/gm-system.ts`
+
+- Убрать только явные повторы внутри `GM_GAME_SYSTEM` / `GM_PERSONAL_SYSTEM` и между ними, не теряя инструкций:
+  - блок «Chat history — new vs past» сформулировать один раз (в game и personal он почти идентичен — оставить краткую версию в личном);
+  - «Reply style — tools are invisible» — объединить с «Rolls — acknowledge results» там, где это дублирование;
+  - секцию «Your tools» сократить — описания тулов уже есть в самих тул-дескрипшенах, в промпте достаточно списка имён.
+- Цель: `GM_GAME_SYSTEM` с 15.6 КБ → ~11–12 КБ без потери инструкций.
+- ⚠️ Риск для «ума»: править минимально, только склейка дублей. Не удалять уникальные правила (G30/G31-логика, meta-questions, sources, wiki-links обязательность).
+
+### Шаг 6. Починить порог компрессии (P6, низкий приоритет)
+
+**Файл:** `src/shared/lib/agents/gm-runner.ts` (`makePrepareStep`)
+
+- Сейчас `compressThreshold = cachedLimit * 0.7` = 89.6K токенов — никогда не срабатывает.
+- Сделать эффективный порог `Math.min(cachedLimit * 0.7, 24_000)` — чтобы при длинной истории (30 сообщений + тул-результаты, ~20K+ токенов) компрессия реально включалась.
+- Проверить, что `compressMessages` не съедает критичные сообщения (он сохраняет system + последнее user + последний tool-шаг — это правильно по G30).
+- ⚠️ Низкий приоритет: при текущих ~3.4K токенов компрессия не нужна; шаг защищает от регрессии в будущем.
+
+### Шаг 7. Builder: study summary Pass 1→Pass 2 + get_chat_summary (дополнение)
+
+**Файлы:**
+- `src/shared/lib/agents/study-summary.ts` (новый — общий хелпер, вынести из gm-runner)
+- `src/shared/lib/agents/gm-runner.ts` (рефакторинг: использовать общий хелпер вместо локального)
+- `src/shared/lib/agents/builder-runner.ts`
+
+1. Вынести `buildStudySummary` + `STUDY_TOOLS` из `gm-runner.ts` в общий модуль `study-summary.ts`:
+   - экспорт `buildStudySummary(toolResults, allowedTools)` с параметрами `cap`/`perResult`;
+   - `gm-runner.ts` импортирует его (локальную копию удалить).
+2. В `builder-runner.ts` CHAT-режим (не STUDY/IMPORT):
+   - после `planResult` собрать `studySummary = buildStudySummary(planResult.toolResults ?? [], BUILDER_STUDY_TOOLS)`, где `BUILDER_STUDY_TOOLS` = read-тулы билдера: `read_document`, `get_brain`, `get_builder_guide`, `search_rules`, `glossary_overview`, `get_chat_summary`, `get_gm_notes`, `get_scene_state`, `get_player_sheet`, `get_players`, `resolve_glossary_link`, `explore_archive`, `list_uploaded_files`, `read_file`, `scan_wiki_links`, `validate_links`;
+   - в Pass 2 подставить перед планом: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`;
+   - в builder `EXEC_SYSTEM_PROMPT` добавить: «данные уже изучены выше (## Study summary); не перечитывай документы из сводки — читай только то, чего в ней нет, и пиши (create/update)».
+3. В builder `getPlanTools(builderMode)` (`builder-runner.ts:212`): убрать `get_chat_summary` из набора (саммари уже в контексте). Оставить в полном наборе Pass 2.
+4. В `buildContext` (builder, `builder-runner.ts:359`): при отсутствии summary добавлять `## Chat History Summary\n(нет данных)` вместо пропуска.
+5. В `BUILDER_PLAN_SYSTEM` (`builder-runner.ts:185`): убрать `get_chat_summary` из перечня read-тулов Pass 1.
+6. STUDY/IMPORT-режим билдера НЕ трогаем — там один автономный проход без Plan→Execute.
+
+**Ожидание:** у билдера в CHAT-режиме исчезает дублирование чтения между Plan и Execute (те же ~2–4 вызова на запрос).
+
+---
+
+## Рекомендации Builder-у (НЕ код, на усмотрение пользователя)
+
+Эти правки требуют изменения документов → выполняются через Builder-чат, НЕ в этом коммите:
+
+1. **Мозг-индекс (13.2 КБ) прелоадится в каждый вызов.** Если сжать индекс до 3–4 КБ (оставить политику + роутер, перенести подробности механик в секции `mechanics`), каждый LLM-вызов станет легче на ~2.3K токенов. Выигрыш: ~50K токенов на один ответ. Промпт билдеру: «сожми индекс мозга: оставь только маршрутизацию и политику, унеси дублирующиеся сводки в секции».
+2. **`rules/mechanics — Механики и бой` (25 КБ)** — тянется целиком через `get_brain(topic)`/`read_document`. Разбить на 3–4 под-секции (бой / отдых-смерть-воскрешение / магия-концентрация / NPC-отношения), чтобы модель читала нужный фрагмент, а не весь файл.
+3. Глоссарий (8592 документа) — **не трогаем**.
+
+## Валидация
+
+1. `npx tsc --noEmit` — без ошибок.
+2. `npx eslint src` — без ошибок/warnings.
+3. Прогнать короткий игровой сценарий (2–3 сообщения в game-чате + 1 в personal) при `AGENT_TRACE=1`.
+4. Сравнить с базовыми метриками:
+   - время ответа (сумма plan+exec+final в TraceEvent);
+   - число шагов на батч;
+   - число `read_document` / `get_chat_summary` / `get_brain` на батч;
+   - размер промптов (должны перестать упираться в 20К).
+5. Builder (CHAT-режим): 1–2 запроса в чате билдера — убедиться, что exec не перечитывает документы из study summary, ответ приходит быстрее.
+6. Оценить качество ответа визуально: GM не потерял контекст сцены, лист, роли, броски.
+
+## Риски и откат
+
+- **Риск потери качества:** наибольший у Шага 3 (сводка может оказаться неполной для записи — тогда модель перечитает недостающее через тул, что допустимо) и Шага 5 (урезка промпта).
+- **Builder Шаг 7:** STUDY/IMPORT-режим не меняется; риск ограничен CHAT-режимом билдера. Если билдер перестанет видеть нужные данные — он может дочитать через read_document (допустимо по EXEC-промпту).
+- **Откат:** один коммит → `git revert <sha>`; ветку по AGENTS.md назвать `perf/gm-agent-speed`.
+- Коммит только по явной просьбе пользователя (G20). Если шаг 6/5 ухудшит — исключить их из коммита или revert целиком.

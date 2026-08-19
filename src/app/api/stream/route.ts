@@ -22,13 +22,13 @@ export async function GET() {
   // Step sessions this user may observe.
   const stepSessionIds: string[] = [];
 
-  const personal = await prisma.session.findFirst({
-    where: { playerId: session.userId, type: "personal" },
-    select: { id: true },
-  });
-  if (personal) stepSessionIds.push(personal.id);
-
   if (masterId) {
+    const personal = await prisma.session.findFirst({
+      where: { playerId: session.userId, type: "personal", masterId },
+      select: { id: true },
+    });
+    if (personal) stepSessionIds.push(personal.id);
+
     if (isAdmin) {
       const gameSession = await prisma.session.findFirst({
         where: { masterId, type: "game" },

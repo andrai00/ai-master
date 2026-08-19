@@ -158,9 +158,13 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async (content: string, files: File[]) => {
       if (!sessionId || !content.trim()) return;
-      await sendMutation.mutateAsync({ sessionId, content });
+      const result = await sendMutation.mutateAsync({ sessionId, content });
+      if (!result.success) {
+        queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+        notification.error({ title: t(result.error || "errors.unknownError") });
+      }
     },
-    [sessionId, sendMutation]
+    [sessionId, sendMutation, queryClient, notification, t]
   );
 
   const handleDelete = useCallback(

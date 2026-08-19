@@ -18,7 +18,7 @@ export const gmGetSceneStateTool = {
     });
 
     return doc
-      ? { id: doc.id, title: doc.title, content: doc.content, updatedAt: doc.updatedAt.toISOString() }
-      : { scene: null };
+      ? { id: doc.id, title: doc.title, content: doc.content, updatedAt: doc.updatedAt.toISOString(), source: "game_hidden" }
+      : { scene: null, source: "game_hidden" };
   },
 };

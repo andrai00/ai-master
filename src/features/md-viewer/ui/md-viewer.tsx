@@ -66,7 +66,11 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
   // separator row BEFORE header (| --- | before | Header |).
   const cleanContent = useMemo(() => {
     let c = content.replace(/^[ \t]*>[ \t]*(\|[^\n]+)/gm, "$1");
-    c = c.replace(/^(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/gm, "$2$1");
+    // Swap separator+header ONLY when the separator starts a table block
+    // (preceded by blank line / start / non-table line). A separator directly
+    // after a header belongs to a CORRECT table — never touch it, otherwise
+    // the first DATA row gets swapped and the header falls out of the table.
+    c = c.replace(/(^|\n\n)(\|[ \t]*:?-{3,}:?[ \t]*\|[^\n]*\n)(\|[^-\n][^\n]*\|[^\n]*\n)/g, "$1$3$2");
     // rehype-raw strips empty <a> without href — rewrite to <span>
     c = c.replace(/<a id=/g, "<span id=");
     c = c.replace(/<\/a>/g, "</span>");

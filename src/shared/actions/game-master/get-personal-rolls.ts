@@ -36,7 +36,7 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
   }
 
   const personalSession = await prisma.session.findFirst({
-    where: { playerId: session.userId, type: "personal" },
+    where: { playerId: session.userId, type: "personal", masterId: activeGame.currentMasterId },
     select: { id: true },
   });
   if (!personalSession) return [];

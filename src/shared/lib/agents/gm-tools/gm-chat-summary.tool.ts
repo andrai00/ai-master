@@ -14,7 +14,9 @@ export const getChatSummaryTool = {
       where: { masterId: activeGame.currentMasterId },
       select: { content: true, preview: true },
     });
-    return summary ?? { content: "", preview: "" };
+    return summary
+      ? { ...summary, source: "chat_summary" }
+      : { content: "", preview: "", source: "chat_summary" };
   },
 };
 

@@ -1,4 +1,4 @@
-import { generateText, isStepCount, isLoopFinished, type StepResult, type ModelMessage, type ToolSet } from "ai";
+import { generateText, isStepCount, isLoopFinished, type StepResult, type ToolSet } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -29,7 +29,8 @@ import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions } from "./reply-tools";
+import { clearActions, recordActions } from "./reply-tools";
+import { compressMessages } from "./context-compress";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -110,10 +111,6 @@ Your available tools are listed in the context for the current mode. Use get_bui
 - Tool calls (search_rules, get_brain, create_document, update_document, scan_wiki_links, …) are invisible system actions. NEVER describe them in your reply text — no "я нашёл документ", "проверил базу", "создал файл", "заменил ссылки".
 - Your reply is ONLY the summary/result the admin needs. What you did with tools is implied; write the outcome, not the system actions.
 
-## Deliver your reply
-- Your answer reaches the chat ONLY when you call \`send_reply\` with the full text. Do not finish with plain text — call send_reply.
-- BEFORE send_reply, call \`review_draft\`. It shows EVERY action you took this turn and the recent documents. Compare your draft with it: if you say you created or updated a document, the action must be in the list and the document in the recent documents. If something is missing, do it now, then send_reply.
-
 ## Proactive document links
 - Always back up your chat answers with clickable wiki-links to the documents you reference: [[<document-id>]] or [[<document-id>|text]].
 - Only link GLOSSARY documents (rules) — never brain, game_hidden or game_visible.
@@ -172,7 +169,62 @@ async function createProvider() {
 // Tools
 // ---------------------------------------------------------------------------
 
-function getTools(builderMode: string, sessionId: string): ToolSet {
+const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study the admin's request using ONLY the read-only tools provided — you cannot create, update, delete, import or reply yet.
+
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how THIS game is organized and where things live. The brain usually answers most questions about structure and what already exists.
+2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, get_chat_summary, plus your mode's read-only tools).
+3. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
+4. Decide what must be created/updated and outline the reply.
+
+Do NOT call any write/import tools in this phase. Return only the plan.`;
+
+const PLAN_SYSTEM_PROMPT = `
+## Planning phase (Pass 1)
+You are in the PLANNING phase. Study the situation (read-only tools only). Do NOT create or update anything yet. Return a short plan (up to ~400 words) in this format:
+STUDY: <what you studied> | RECORD: <what and where to write> | REPLY: <outline of the reply>`;
+
+const EXEC_SYSTEM_PROMPT = `
+
+## Execution phase (Pass 2)
+Execute the plan strictly. Create/update documents as planned, then write your FINAL reply — this is the text the admin will see.`;
+
+const EMPTY_RETRY_PROMPT =
+  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
+
+/** Pass 1 — read-only tools per mode: study and plan. No writes, no deletes. */
+function getPlanTools(builderMode: string): ToolSet {
+  const shared: ToolSet = {
+    search_rules: gmSearchRulesTool,
+    get_brain: gmGetBrainTool,
+    read_document: readDocumentTool,
+    get_builder_guide: getBuilderGuideTool,
+    get_chat_summary: getChatSummaryTool,
+  };
+
+  if (builderMode === "memory") {
+    return {
+      ...shared,
+      get_gm_notes: gmGetGmNotesTool,
+      get_scene_state: builderGetSceneStateTool,
+      get_player_sheet: builderGetPlayerSheetTool,
+      get_players: gmGetPlayersTool,
+      resolve_glossary_link: gmResolveGlossaryLinkTool,
+    };
+  }
+
+  // brain mode
+  return {
+    ...shared,
+    explore_archive: exploreArchiveTool,
+    list_uploaded_files: listUploadedFilesTool,
+    read_file: readFileTool,
+    scan_wiki_links: scanWikiLinksTool,
+    validate_links: validateLinksTool,
+  };
+}
+
+function getTools(builderMode: string): ToolSet {
   const shared = {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -182,8 +234,6 @@ function getTools(builderMode: string, sessionId: string): ToolSet {
     get_builder_guide: getBuilderGuideTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
-    send_reply: makeSendReplyTool(sessionId, "builder", "builder_message_sent"),
-    review_draft: makeReviewDraftTool(sessionId, "builder"),
   };
 
   if (builderMode === "memory") {
@@ -238,16 +288,20 @@ async function buildContext(sessionId: string) {
       : `\n\n## Your tools (BRAIN mode)\nsearch_rules, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1).
+  let dynamic = "";
+
   if (activeGame) {
     const master = await prisma.master.findUnique({
       where: { id: activeGame.currentMasterId },
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
   // Load chat summary to inject into context
   const summary = await prisma.chatSummary.findFirst({
@@ -273,7 +327,7 @@ async function buildContext(sessionId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -285,10 +339,15 @@ async function buildContext(sessionId: string) {
 
   // Prepend summary as a system context message if it exists
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
-  return { messages, system: systemPrompt, builderMode };
+  // Full prompt for Pass 2 (execution).
+  const system = systemPrompt + dynamic;
+  // Short prompt for Pass 1 (planning) — study-only, no write/import rules.
+  const planSystem = BUILDER_PLAN_SYSTEM + dynamic;
+
+  return { messages, system, planSystem, builderMode };
 }
 
 // ---------------------------------------------------------------------------
@@ -350,8 +409,6 @@ export async function runBuilderAgent(
   clearActions(sessionId);
   resetCancellation();
 
-  const cutoffTime = new Date();
-
   try {
     // --- Phase: prepare ---
     const ctx = await buildContext(sessionId);
@@ -390,9 +447,10 @@ export async function runBuilderAgent(
     // --- Emit started: all clients see the bubble now ---
     emitStarted(sessionId);
     const isStudy = fileIds.length > 0;
-    console.log(`[builder] generateText start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
+    console.log(`[builder] start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
 
-    const tools = getTools(ctx.builderMode, sessionId);
+    const tools = getTools(ctx.builderMode);
+    const planTools = getPlanTools(ctx.builderMode);
 
     // Retry loop: up to 5 attempts for transient errors
     const MAX_RETRIES = 5;
@@ -400,14 +458,16 @@ export async function runBuilderAgent(
     let lastError: unknown;
 
     const runGenerate = (
-      msgs: Array<{ role: "user" | "assistant"; content: string }>
+      msgs: Array<{ role: "user" | "assistant"; content: string }>,
+      sys: string = ctx.system,
+      toolSet: ToolSet = tools
     ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> =>
       generateText({
         model,
-        system: ctx.system,
+        system: sys,
         messages: msgs,
-        tools,
-        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(80),
+        tools: toolSet,
+        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(100),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
             // Check abort before doing anything
             if (ac.signal.aborted) {
@@ -415,142 +475,121 @@ export async function runBuilderAgent(
               return {};
             }
 
-            // Count tool calls for summary (used by both compression paths)
-            let created = 0, updated = 0, searched = 0, listed = 0;
-            for (const s of allSteps ?? []) {
-              for (const c of (s.toolCalls ?? [])) {
-                switch (c.toolName) {
-                  case "create_document": created++; break;
-                  case "update_document": updated++; break;
-                  case "search_rules": searched++; break;
-                  case "list_uploaded_files": listed++; break;
-                }
-              }
-            }
-
             // Periodic status log every 10 steps
             const stepIdx = (allSteps ?? []).length;
             if (isStudy || stepIdx % 10 === 0) {
               const totalMsgs = allMsgs.length;
               const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} created=${created} updated=${updated} mode=${isStudy ? "STUDY" : "CHAT"}`);
+              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} mode=${isStudy ? "STUDY" : "CHAT"}`);
             }
 
-            // --- THRESHOLD-BASED COMPRESSION ---
-            const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-            const estimated = totalChars / 4;
-            if (estimated < compressThreshold) {
-              if (isStudy) console.log(`[builder] prepareStep no-compress — step=${stepIdx} totalMsgs=${allMsgs.length} estimated=${Math.round(estimated)} tokens`);
-              return {};
+            // --- THRESHOLD-BASED COMPRESSION (shared module) ---
+            const compressed = compressMessages({
+              messages: allMsgs,
+              steps: allSteps,
+              threshold: compressThreshold,
+            });
+            if (compressed) {
+              const estimated = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0) / 4;
+              console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.messages.length} msgs, ~${Math.round(estimated/1000)}K→~${Math.round(estimated/compressed.messages.length/1000)}K tokens`);
+              return { messages: compressed.messages };
             }
-
-            // Compress: keep system + last admin message + pin last tool step.
-            // Summarize everything in between into one message.
-            const systemMsg = allMsgs.find(m => m.role === "system");
-            const adminMsgs = allMsgs.filter(m => m.role === "user");
-            const lastAdmin = adminMsgs[adminMsgs.length - 1];
-
-            // Pin last step (current processing — never compress)
-            const lastTool = allMsgs[allMsgs.length - 1];
-
-            const summary = [
-              "[Compressed — previous steps]",
-              created ? `Created ${created} documents` : "",
-              updated ? `Updated ${updated} documents` : "",
-              searched ? `Searched ${searched} times` : "",
-              listed ? `Listed files ${listed} times` : "",
-            ].filter(Boolean).join(". ");
-
-            const compressed: ModelMessage[] = [];
-            if (systemMsg) compressed.push(systemMsg as ModelMessage);
-            if (lastAdmin) compressed.push(lastAdmin as ModelMessage);
-            compressed.push({ role: "assistant" as const, content: summary });
-            if (lastTool) compressed.push(lastTool as ModelMessage);
-
-            console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.length} msgs, ${Math.round(estimated/1000)}K→~${Math.round(totalChars/4/compressed.length/1000)}K tokens`);
-            return { messages: compressed };
+            return {};
           },
           abortSignal: ac.signal,
           onStepFinish: async (event: StepResult<typeof tools>) => {
-            console.log(`[builder] RAW onStepFinish — ${JSON.stringify({ hasToolCalls: "toolCalls" in event, hasToolResults: "toolResults" in event, keys: Object.keys(event), stepNumber: (event as Record<string,unknown>).stepNumber, finishReason: (event as Record<string,unknown>).finishReason, text: (event as Record<string,unknown>).text })}`);
             const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
             if (calls?.length) {
               recordActions(sessionId, calls);
-              for (let i = 0; i < calls.length; i++) {
+              for (const call of calls) {
                 try {
-                  const call = calls[i];
-                  const toolName = call.toolName as string;
-                  emitStep(sessionId, toolName);
+                  emitStep(sessionId, call.toolName as string);
                 } catch (e) {
-                  console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${calls[i]?.toolName} error=${e instanceof Error ? e.message : String(e)}`);
+                  console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
                 }
               }
             }
           },
       });
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        result = await runGenerate(messages);
-        console.log(`[builder] generateText raw result — ${JSON.stringify({ text: result.text?.slice(0, 200), finishReason: (result as unknown as Record<string,unknown>).finishReason, steps: (result as unknown as {steps?: unknown[]}).steps?.length, usage: (result as unknown as Record<string,unknown>).usage })}`);
-        break; // success — exit retry loop
-      } catch (err: unknown) {
-        lastError = err;
-        console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`);
+    const runWithRetries = async (
+      msgs: Array<{ role: "user" | "assistant"; content: string }>,
+      sys: string = ctx.system,
+      toolSet: ToolSet = tools
+    ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> => {
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const r = await runGenerate(msgs, sys, toolSet);
+          console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string,unknown>).finishReason, steps: (r as unknown as {steps?: unknown[]}).steps?.length, usage: (r as unknown as Record<string,unknown>).usage })}`);
+          return r;
+        } catch (err: unknown) {
+          lastError = err;
+          console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`);
 
-        // Never retry user stop
-        if (err instanceof Error && err.name === "AbortError") throw err;
-        if (err instanceof DOMException && err.name === "AbortError") throw err;
+          // Never retry user stop
+          if (err instanceof Error && err.name === "AbortError") throw err;
+          if (err instanceof DOMException && err.name === "AbortError") throw err;
 
-        // Also check our cancellation flag
-        if ((err as Error)?.message === "errors.cancelled") throw err;
+          // Also check our cancellation flag
+          if ((err as Error)?.message === "errors.cancelled") throw err;
 
-        // Don't retry config errors
-        const msg = err instanceof Error ? err.message : "";
-        if (msg.includes("not configured")) throw err;
+          // Don't retry config errors
+          const msg = err instanceof Error ? err.message : "";
+          if (msg.includes("not configured")) throw err;
 
-        // Last attempt — give up
-        if (attempt === MAX_RETRIES) throw err;
+          // Last attempt — give up
+          if (attempt === MAX_RETRIES) throw err;
 
-        // Emit retry step to SSE
-        emitStep(sessionId, "retry", `${attempt + 1}/${MAX_RETRIES}`);
-        console.warn(`[builder] Attempt ${attempt} failed, retrying in ${2 ** (attempt - 1)}s: ${msg}`);
-        await new Promise((r) => setTimeout(r, 2 ** (attempt - 1) * 1000));
+          // Emit retry step to SSE
+          emitStep(sessionId, "retry", `${attempt + 1}/${MAX_RETRIES}`);
+          console.warn(`[builder] Attempt ${attempt} failed, retrying in ${2 ** (attempt - 1)}s: ${msg}`);
+          await new Promise((r) => setTimeout(r, 2 ** (attempt - 1) * 1000));
+        }
       }
+      throw lastError; // should never happen
+    };
+
+    let builderText: string | null = null;
+
+    if (!isStudy) {
+      // CHAT mode: Plan → Execute two passes. Pass 1 uses the SHORT planning
+      // prompt and read-only plan tools; Pass 2 gets the full prompt.
+      const planResult = await runWithRetries(messages, ctx.planSystem + PLAN_SYSTEM_PROMPT, planTools);
+      const planText = planResult.text?.trim() ?? "";
+      console.log(`[builder] PLAN done — session=${sessionId} textLen=${planText.length}`);
+
+      const execResult = await runWithRetries(
+        planText
+          ? [...messages, { role: "user", content: `Выполни план: ${planText}` }]
+          : messages,
+        ctx.system + EXEC_SYSTEM_PROMPT
+      );
+      builderText = execResult.text?.trim() ?? null;
+      console.log(`[builder] EXEC done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
+    } else {
+      // IMPORT/STUDY mode: single long autonomous pass (import logic untouched).
+      result = await runWithRetries(messages);
+      builderText = result.text?.trim() ?? null;
+      console.log(`[builder] STUDY done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
     }
-
-    if (!result) throw lastError; // should never happen
-
-    // --- Success: save builder message + log response ---
-    const prisma = getPrisma();
-
-    // Was a reply actually delivered this run (a successful send_reply saved a message)?
-    const deliveredCount = () =>
-      prisma.message.count({ where: { sessionId, role: "builder", createdAt: { gte: cutoffTime } } });
-
-    let builderText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
-    const finishReason = (result as unknown as Record<string, unknown>)?.finishReason ?? "unknown";
-    const stepArr = (result as unknown as { steps?: Array<unknown> })?.steps;
-    console.log(`[builder] generateText done — session=${sessionId} steps=${stepArr?.length ?? "?"} finishReason=${finishReason} textLen=${builderText?.length ?? 0}`);
 
     // The model ended without a reply — re-run once forcing it to deliver.
-    if (!builderText && (await deliveredCount()) === 0) {
-      const retryResult = await runGenerate([
+    if (!builderText) {
+      console.log("[builder] RETRY empty reply");
+      const retryResult = await runWithRetries([
         ...messages,
-        { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
+        { role: "user", content: EMPTY_RETRY_PROMPT },
       ]);
-      if ((await deliveredCount()) === 0) {
-        const retryText = retryResult.text?.trim();
-        if (retryText) builderText = retryText;
-      }
+      builderText = retryResult.text?.trim() ?? null;
     }
 
-    // Last resort — still nothing delivered: short fallback so the bubble never ends silently.
-    if (!builderText && (await deliveredCount()) === 0) {
+    // Last resort — short fallback so the bubble never ends silently.
+    if (!builderText) {
       builderText = "Не удалось сформировать ответ. Попробуй ещё раз.";
     }
 
     if (builderText) {
+      const prisma = getPrisma();
       await prisma.message.create({
         data: {
           sessionId,
@@ -562,6 +601,7 @@ export async function runBuilderAgent(
     }
 
     // Auto-summarize if 20+ unsummarized with text content
+    const prisma = getPrisma();
     const allUnsummarized = await prisma.message.findMany({
       where: { sessionId, summarized: false },
       orderBy: { createdAt: "asc" },

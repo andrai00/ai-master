@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmPersonalPresentRollCheckTool = {
   description: "MANDATORY for player dice rolls. Call this tool whenever a player needs to roll dice — this is the ONLY way to give them a roll button. Do NOT write fake button text or dice emojis instead. Use count>1 for multiple identical rolls — all rolled from ONE button.",
@@ -17,10 +18,13 @@ export const gmPersonalPresentRollCheckTool = {
     const currentUser = await getSession();
     if (!currentUser) throw new Error("errors.forbidden");
 
+    const activeGame = await getActiveGame();
+    if (!activeGame) throw new Error("errors.noGame");
+
     const prisma = getPrisma();
 
     const personalSession = await prisma.session.findFirst({
-      where: { playerId: currentUser.userId, type: "personal" },
+      where: { playerId: currentUser.userId, type: "personal", masterId: activeGame.currentMasterId },
       select: { id: true },
     });
     if (!personalSession) throw new Error("errors.sessionNotFound");

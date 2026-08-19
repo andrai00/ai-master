@@ -1,4 +1,4 @@
-import { generateText, isStepCount, type ModelMessage } from "ai";
+import { generateText, isStepCount, type ModelMessage, type ToolSet } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { mkdirSync, appendFileSync } from "fs";
 import path from "path";
@@ -23,8 +23,8 @@ import { gmPresentRollCheckTool } from "./gm-tools/gm-present-roll-check.tool";
 import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
-import { gmUpdateMemoryTool } from "./gm-tools/gm-update-memory.tool";
-import { makeSendReplyTool, makeReviewDraftTool, clearActions, recordActions, getActions, promisesRoll, revealsPlotInfo } from "./reply-tools";
+import { gmDeleteDocumentTool } from "./gm-tools/gm-delete-document.tool";
+import { clearActions, recordActions, getActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import {
@@ -36,6 +36,7 @@ import {
   emitStopped,
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { compressMessages } from "./context-compress";
 
 export { emitStopped } from "./step-tracker";
 
@@ -82,6 +83,12 @@ export function stopProcessing(sessionId: string): void {
   g.delete(sessionId);
 }
 
+/** True while a GM generation is running for this session. Used by send
+ * actions to reject new messages during processing. */
+export function isProcessing(sessionId: string): boolean {
+  return getGuard().has(sessionId);
+}
+
 async function createProvider() {
   const prisma = getPrisma();
   const config = await prisma.appConfig.findUnique({ where: { id: "singleton" } });
@@ -109,11 +116,11 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep(sessionId: string, toolsCount: number) {
+function makePrepareStep() {
   let cachedLimit = 128_000;
   let limitLoaded = false;
 
-  return async ({ messages: allMsgs }: { messages: ModelMessage[] }) => {
+  return async ({ messages: allMsgs, steps }: { messages: ModelMessage[]; steps?: Array<{ toolCalls?: Array<{ toolName?: string }> }> }) => {
     try {
       if (!limitLoaded) {
         cachedLimit = await getContextLimit();
@@ -124,26 +131,11 @@ function makePrepareStep(sessionId: string, toolsCount: number) {
     }
 
     const compressThreshold = cachedLimit * 0.7;
-    const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-    if (totalChars / 4 < compressThreshold) return {};
-
-    const systemMsg = allMsgs.find(m => m.role === "system");
-    const userMsgs = allMsgs.filter(m => m.role === "user");
-    const lastUser = userMsgs[userMsgs.length - 1];
-    const lastMsg = allMsgs[allMsgs.length - 1];
-
-    return {
-      messages: [
-        ...(systemMsg ? [systemMsg] : []),
-        ...(lastUser ? [lastUser] : []),
-        { role: "assistant" as const, content: `[Compressed — ${toolsCount} tools available. Use get_rolls, search_rules, get_brain and get_player_sheet for context.]` },
-        ...(lastMsg && lastMsg !== lastUser ? [lastMsg] : []),
-      ].filter(Boolean) as ModelMessage[],
-    };
+    return compressMessages({ messages: allMsgs, steps, threshold: compressThreshold }) ?? {};
   };
 }
 
-function getGameTools(sessionId: string) {
+function getGameTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -165,13 +157,11 @@ function getGameTools(sessionId: string) {
     update_chat_summary: updateChatSummaryTool,
     get_players: gmGetPlayersTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
-    update_memory: gmUpdateMemoryTool,
-    send_reply: makeSendReplyTool(sessionId, "master", "game_message_sent"),
-    review_draft: makeReviewDraftTool(sessionId, "game"),
+    delete_document: gmDeleteDocumentTool,
   };
 }
 
-function getPersonalTools(sessionId: string) {
+function getPersonalTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
     get_brain: gmGetBrainTool,
@@ -190,11 +180,73 @@ function getPersonalTools(sessionId: string) {
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
-    update_memory: gmUpdateMemoryTool,
-    send_reply: makeSendReplyTool(sessionId, "master", "personal_message_sent"),
-    review_draft: makeReviewDraftTool(sessionId, "personal"),
+    delete_document: gmDeleteDocumentTool,
   };
 }
+
+/** Pass 1 — read-only tools: study and plan. No writes, no rolls, no replies. */
+function getPlanTools(kind: "game" | "personal"): ToolSet {
+  const base: ToolSet = {
+    search_rules: gmSearchRulesTool,
+    get_brain: gmGetBrainTool,
+    get_gm_notes: gmGetGmNotesTool,
+    get_player_sheet: gmGetPlayerSheetTool,
+    read_document: gmReadDocumentTool,
+    get_rolls: kind === "game" ? gmGetRollsTool : gmPersonalGetRollsTool,
+    get_chat_summary: getChatSummaryTool,
+    resolve_glossary_link: gmResolveGlossaryLinkTool,
+  };
+  if (kind === "game") {
+    return {
+      ...base,
+      get_scene_state: gmGetSceneStateTool,
+      get_players: gmGetPlayersTool,
+    };
+  }
+  return base;
+}
+
+const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
+
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game, where things live, and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data), get_rolls (rolls), get_chat_summary (history). These cover the situation as it actually is.
+3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+
+## Sources
+Every result is tagged with "source": glossary (rules — shareable), game_visible (that player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), players, chat_summary. Plan only what may be told; keep game_hidden facts hidden.
+
+Do NOT call any write/roll tools in this phase. Return only the plan.`;
+
+const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
+
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+2. Then study this player's data and your memory: get_player_sheet (no argument), get_rolls, get_chat_summary, get_gm_notes. These cover the situation as it actually is.
+3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+
+## Sources
+Every result is tagged with "source": glossary (rules — shareable), game_visible (this player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), chat_summary. Plan only what may be told; keep game_hidden facts hidden.
+
+Do NOT call any write/roll tools in this phase. Return only the plan.`;
+
+const PLAN_SYSTEM_PROMPT = `
+## Planning phase (Pass 1)
+You are in the PLANNING phase. Study the situation (brain index FIRST, then the documents you need). Do NOT write anything, do NOT issue rolls, do NOT answer in the chat. Return a short plan (up to ~400 words) in this format:
+STUDY: <what you studied> | RECORD: <what and where to write> | ROLLS: <which rolls to assign> | REPLY: <outline of the reply>`;
+
+const EXEC_SYSTEM_PROMPT = `
+
+## Execution phase (Pass 2)
+Execute the plan strictly. Write memory/character sheet as planned, issue the planned rolls (present_roll_check), then write your FINAL reply — this is the text the player will see.`;
+
+const IDLE_USER_PROMPT =
+  "Новых сообщений и бросков нет. Не придумывай действия — кратко спроси игрока, что он хочет делать.";
+
+const EMPTY_RETRY_PROMPT =
+  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
 
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
@@ -202,7 +254,7 @@ async function buildRollsContext(
 ): Promise<{ completed: Array<{ role: "user"; content: string }>; note: string }> {
   const completedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
-    select: { id: true, checkName: true, diceExpression: true, result: true, playerId: true, completedAt: true },
+    select: { id: true, checkName: true, diceExpression: true, result: true, detail: true, playerId: true, completedAt: true },
     orderBy: { completedAt: "asc" },
     take: 10,
   });
@@ -230,9 +282,13 @@ async function buildRollsContext(
   // confirm_rolls, so a result is never silently lost.
   const completed = completedRolls.map((r) => {
     const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
+    // Include `detail` (the per-die breakdown the player sees on hover) so
+    // the GM knows WHICH dice were rolled — e.g. a natural 20 vs a boosted
+    // result, or which die in a pool succeeded.
+    const detail = r.detail ? ` (${r.detail})` : "";
     return {
       role: "user" as const,
-      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}`,
+      content: `🆕 🎲 [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
     };
   });
 
@@ -255,7 +311,9 @@ async function buildGameContext(sessionId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  let systemPrompt = GM_GAME_SYSTEM;
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1): current game, pending rolls, summary, new count.
+  let dynamic = "";
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -263,15 +321,13 @@ async function buildGameContext(sessionId: string) {
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
-
-  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) systemPrompt += rollsCtx.note;
+  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -279,7 +335,7 @@ async function buildGameContext(sessionId: string) {
   });
 
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
   const recent = await prisma.message.findMany({
@@ -305,7 +361,7 @@ async function buildGameContext(sessionId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -321,7 +377,24 @@ async function buildGameContext(sessionId: string) {
   // Completed rolls are the player's latest action — append as the last user turns.
   messages.push(...rollsCtx.completed);
 
-  return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
+  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  const system =
+    GM_GAME_SYSTEM +
+    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.` +
+    dynamic;
+
+  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
+  const planSystem = GM_PLAN_SYSTEM + dynamic;
+
+  return {
+    messages,
+    system,
+    planSystem,
+    activeGame,
+    masterId: activeGame?.currentMasterId ?? "",
+    newCount,
+    hasCompletedRolls: rollsCtx.completed.length > 0,
+  };
 }
 
 async function buildPersonalContext(sessionId: string, playerId: string) {
@@ -329,7 +402,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  let systemPrompt = GM_PERSONAL_SYSTEM;
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1).
+  let dynamic = "";
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -337,16 +412,14 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
-  systemPrompt += `\n- Player ID: ${playerId}\n`;
-
-  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
+  dynamic += `\n- Player ID: ${playerId}\n`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) systemPrompt += rollsCtx.note;
+  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -354,7 +427,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   });
 
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
   const recent = await prisma.message.findMany({
@@ -374,7 +447,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -387,7 +460,24 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   // Completed rolls are the player's latest action — append as the last user turns.
   messages.push(...rollsCtx.completed);
 
-  return { messages, system: systemPrompt, activeGame, masterId: activeGame?.currentMasterId ?? "" };
+  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  const system =
+    GM_PERSONAL_SYSTEM +
+    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.` +
+    dynamic;
+
+  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
+  const planSystem = GM_PLAN_SYSTEM_PERSONAL + dynamic;
+
+  return {
+    messages,
+    system,
+    planSystem,
+    activeGame,
+    masterId: activeGame?.currentMasterId ?? "",
+    newCount,
+    hasCompletedRolls: rollsCtx.completed.length > 0,
+  };
 }
 
 async function autoSummarize(sessionId: string): Promise<void> {
@@ -415,8 +505,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
   initSession(sessionId);
   clearActions(sessionId);
 
-  const cutoffTime = new Date();
-
   try {
     const ctx = await buildGameContext(sessionId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
@@ -433,157 +521,90 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     }
 
     const model = await createProvider();
-    const tools = getGameTools(sessionId);
+    const planTools = getPlanTools("game");
+    const tools = getGameTools();
 
     emitStarted(sessionId);
-    gmLog(`START session=${sessionId} msgs=${existingMessages.length}`);
-    console.log(`[gm-game] generateText start — session=${sessionId} msgs=${existingMessages.length}`);
+    gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls}`);
 
-    const result = await generateText({
-      model,
-      system: ctx.system,
-      messages: existingMessages,
-      tools,
-      stopWhen: isStepCount(40),
-      abortSignal: ac.signal,
-      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-      onStepFinish: async (event) => {
-        const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-        if (calls?.length) {
-          recordActions(sessionId, calls);
-          gmLog(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
-          for (const call of calls) {
-            emitStep(sessionId, call.toolName as string);
-          }
-        }
-      },
-    });
+    let gmText: string | null = null;
 
-    const prisma = getPrisma();
-    const finishReason = (result as unknown as { finishReason?: string })?.finishReason ?? "?";
-
-    // Was a reply actually delivered this run (a successful send_reply saved a message)?
-    const deliveredCount = () =>
-      prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
-
-    let delivered = await deliveredCount();
-    let gmText = delivered > 0 ? null : (result.text?.trim() ?? null);
-    gmLog(`FINISH reason=${finishReason} textLen=${result.text?.length ?? 0} delivered=${delivered} actions=[${getActions(sessionId).join(",")}]`);
-
-    // Roll-promise guard: if the reply says the player must roll but no roll
-    // was created this run and none is pending, re-run once so the button
-    // really exists. (Safety net — the model sometimes writes button text
-    // without calling present_roll_check.)
-    if (gmText && promisesRoll(gmText)) {
-      const rollCreated =
-        (await prisma.roll.count({ where: { sessionId, createdAt: { gte: cutoffTime } } })) > 0;
-      const hasAssigned = (await prisma.roll.count({ where: { sessionId, status: "assigned" } })) > 0;
-      if (!rollCreated && !hasAssigned) {
-        gmLog("ROLL GUARD retry (button promised, no roll)");
-        const retry = await generateText({
-          model,
-          system: ctx.system,
-          messages: [
-            ...existingMessages,
-            { role: "user", content: "🛑 Ты написал, что игрок должен сделать бросок, но не вызвал present_roll_check — кнопки не существует. Обязательно вызови present_roll_check и только потом заверши ответ." },
-          ],
-          tools,
-          stopWhen: isStepCount(40),
-          abortSignal: ac.signal,
-          prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-          onStepFinish: async (event) => {
-            const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-            if (calls?.length) {
-              recordActions(sessionId, calls);
-              gmLog(`ROLL GUARD STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
-              for (const call of calls) {
-                emitStep(sessionId, call.toolName as string);
-              }
-            }
-          },
-        });
-        delivered = await deliveredCount();
-        const retryText = retry.text?.trim();
-        gmText = delivered > 0 ? null : (retryText || gmText);
-        gmLog(`ROLL GUARD DONE delivered=${delivered} textLen=${retry.text?.length ?? 0} rollCreated=${rollCreated} hasAssigned=${hasAssigned}`);
-      }
-    }
-
-    // Memory guard: if the reply reveals plot information but the GM did not
-    // record it (update_memory was not called this run), re-run once so the
-    // fact lands in the Game Memory document.
-    if (gmText && revealsPlotInfo(gmText) && !getActions(sessionId).includes("update_memory")) {
-      gmLog("MEMORY GUARD retry (plot info revealed, no memory record)");
-      const retry = await generateText({
+    // Gate — nothing new to act on: one short call, no planning pass.
+    // Read-only tools: the model must not invent actions or write anything.
+    if (ctx.newCount === 0 && !ctx.hasCompletedRolls) {
+      gmLog("GATE idle — no new msgs/rolls");
+      const idle = await generateText({
         model,
         system: ctx.system,
-        messages: [
-          ...existingMessages,
-          { role: "user", content: "🛑 Ты раскрыл игроку важную информацию (тайну/факт/находку), но не записал её в свою память — update_memory не вызывался. Вызови update_memory, добавь запись (факт или тайну), затем заверши ответ." },
-        ],
-        tools,
-        stopWhen: isStepCount(40),
+        messages: [...existingMessages, { role: "user", content: IDLE_USER_PROMPT }],
+        tools: planTools,
+        stopWhen: isStepCount(10),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-        onStepFinish: async (event) => {
-          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-          if (calls?.length) {
-            recordActions(sessionId, calls);
-            gmLog(`MEMORY GUARD STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
-            for (const call of calls) {
-              emitStep(sessionId, call.toolName as string);
-            }
-          }
-        },
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, gmLog),
       });
-      delivered = await deliveredCount();
-      const retryText = retry.text?.trim();
-      gmText = delivered > 0 ? null : (retryText || gmText);
-      gmLog(`MEMORY GUARD DONE delivered=${delivered} textLen=${retry.text?.length ?? 0}`);
+      gmText = idle.text?.trim() ?? null;
+    } else {
+      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
+      // prompt; the full operating instructions are only needed in Pass 2.
+      gmLog("PLAN start");
+      const planResult = await generateText({
+        model,
+        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
+        messages: existingMessages,
+        tools: planTools,
+        stopWhen: isStepCount(20),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, gmLog),
+      });
+      const planText = planResult.text?.trim() ?? "";
+      gmLog(`PLAN done textLen=${planText.length}`);
+
+      // Pass 2 — execute the plan (full tools). Empty plan is fine — run
+      // without injection rather than failing.
+      gmLog("EXEC start");
+      const execResult = await generateText({
+        model,
+        system: ctx.system + EXEC_SYSTEM_PROMPT,
+        messages: planText
+          ? [...existingMessages, { role: "user", content: `Выполни план: ${planText}` }]
+          : existingMessages,
+        tools,
+        stopWhen: isStepCount(100),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, gmLog),
+      });
+      gmText = execResult.text?.trim() ?? null;
+      gmLog(`EXEC done textLen=${gmText?.length ?? 0} actions=[${getActions(sessionId).join(",")}]`);
     }
 
-    // The model ended without a reply (no send_reply, no text) — re-run once
-    // forcing it to deliver via send_reply.
-    if (!gmText && delivered === 0) {
+    // Retry empty reply — only for a real run (Pass 2 / idle), never silently.
+    if (!gmText) {
       gmLog("RETRY empty reply");
       const retry = await generateText({
         model,
         system: ctx.system,
-        messages: [
-          ...existingMessages,
-          { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
-        ],
+        messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
         tools,
-        stopWhen: isStepCount(40),
+        stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-        onStepFinish: async (event) => {
-          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-          if (calls?.length) {
-            recordActions(sessionId, calls);
-            gmLog(`RETRY STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
-            for (const call of calls) {
-              emitStep(sessionId, call.toolName as string);
-            }
-          }
-        },
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, gmLog),
       });
-      delivered = await deliveredCount();
-      if (delivered === 0) {
-        const retryText = retry.text?.trim();
-        if (retryText) gmText = retryText;
-      }
-      gmLog(`RETRY DONE delivered=${delivered} textLen=${retry.text?.length ?? 0}`);
+      gmText = retry.text?.trim() ?? null;
+      gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
     }
 
-    // Last resort — still nothing delivered: save a short fallback so the
-    // thinking bubble never ends silently.
-    if (!gmText && delivered === 0) {
+    // Last resort — short fallback so the thinking bubble never ends silently.
+    if (!gmText) {
       gmText = "Не удалось сформировать ответ. Попробуй ещё раз.";
       gmLog("FALLBACK empty reply");
     }
 
     if (gmText) {
+      const prisma = getPrisma();
       await prisma.message.create({
         data: {
           sessionId,
@@ -593,30 +614,12 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         },
       });
       broadcastGameEvent("game_message_sent", { sessionId });
-      gmLog(`SAVE len=${gmText.length} delivered=${delivered}`);
+      gmLog(`SAVE len=${gmText.length}`);
     }
 
     await autoSummarize(sessionId);
     gmLog("DONE");
     emitDone(sessionId);
-
-    const newMessages = await prisma.message.findMany({
-      where: { sessionId, createdAt: { gt: cutoffTime } },
-      select: { role: true },
-    });
-
-    const hasNewPlayerMessages = newMessages.some(
-      m => (m.role === "player" || m.role === "admin")
-    );
-
-    if (hasNewPlayerMessages) {
-      gmLog("RECURSIVE new player msgs arrived");
-      endProcessing(sessionId);
-      runGameMasterBatch(sessionId).catch((e) => {
-        console.error("[gm-game] recursive batch failed:", e);
-      });
-      return;
-    }
 
   } catch (err: unknown) {
     if (err instanceof Error && (err.name === "AbortError" || err.message === "errors.cancelled")) {
@@ -640,8 +643,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   initSession(sessionId);
   clearActions(sessionId);
 
-  const cutoffTime = new Date();
-
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
@@ -656,141 +657,87 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     }
 
     const model = await createProvider();
-    const tools = getPersonalTools(sessionId);
+    const planTools = getPlanTools("personal");
+    const tools = getPersonalTools();
 
     emitStarted(sessionId);
-    console.log(`[gm-personal] generateText start — session=${sessionId} playerId=${playerId} tools=${JSON.stringify(Object.keys(tools))} msgs=${existingMessages.length}`);
-    const result = await generateText({
-      model,
-      system: ctx.system,
-      messages: existingMessages,
-      tools,
-      stopWhen: isStepCount(30),
-      abortSignal: ac.signal,
-      prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-      onStepFinish: async (event) => {
-        const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-        if (calls?.length) {
-          recordActions(sessionId, calls);
-          for (const call of calls) {
-            emitStep(sessionId, call.toolName as string);
-          }
-        }
-      },
-    });
+    console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls}`);
 
-    const personalSteps = (result as unknown as { steps?: unknown[] }).steps;
-    console.log(`[gm-personal] generateText done — steps=${personalSteps?.length ?? "?"} textLen=${result.text?.length ?? 0}`);
+    let gmText: string | null = null;
 
-    const prisma = getPrisma();
+    // Gate — nothing new to act on: one short call, no planning pass.
+    // Read-only tools: the model must not invent actions or write anything.
+    if (ctx.newCount === 0 && !ctx.hasCompletedRolls) {
+      console.log("[gm-personal] GATE idle — no new msgs/rolls");
+      const idle = await generateText({
+        model,
+        system: ctx.system,
+        messages: [...existingMessages, { role: "user", content: IDLE_USER_PROMPT }],
+        tools: planTools,
+        stopWhen: isStepCount(10),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+      });
+      gmText = idle.text?.trim() ?? null;
+    } else {
+      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
+      // prompt; the full operating instructions are only needed in Pass 2.
+      console.log("[gm-personal] PLAN start");
+      const planResult = await generateText({
+        model,
+        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
+        messages: existingMessages,
+        tools: planTools,
+        stopWhen: isStepCount(20),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+      });
+      const planText = planResult.text?.trim() ?? "";
+      console.log(`[gm-personal] PLAN done textLen=${planText.length}`);
 
-    // Was a reply actually delivered this run (a successful send_reply saved a message)?
-    const deliveredCount = () =>
-      prisma.message.count({ where: { sessionId, role: "master", createdAt: { gte: cutoffTime } } });
-
-    let gmText = (await deliveredCount()) > 0 ? null : (result.text?.trim() ?? null);
-
-    // Roll-promise guard: if the reply says the player must roll but no roll
-    // was created this run and none is pending, re-run once so the button
-    // really exists.
-    if (gmText && promisesRoll(gmText)) {
-      const rollCreated =
-        (await prisma.roll.count({ where: { sessionId, createdAt: { gte: cutoffTime } } })) > 0;
-      const hasAssigned = (await prisma.roll.count({ where: { sessionId, status: "assigned" } })) > 0;
-      if (!rollCreated && !hasAssigned) {
-        const retry = await generateText({
-          model,
-          system: ctx.system,
-          messages: [
-            ...existingMessages,
-            { role: "user", content: "🛑 Ты написал, что игрок должен сделать бросок, но не вызвал present_roll_check — кнопки не существует. Обязательно вызови present_roll_check и только потом заверши ответ." },
-          ],
-          tools,
-          stopWhen: isStepCount(30),
-          abortSignal: ac.signal,
-          prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-          onStepFinish: async (event) => {
-            const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-            if (calls?.length) {
-              recordActions(sessionId, calls);
-              for (const call of calls) {
-                emitStep(sessionId, call.toolName as string);
-              }
-            }
-          },
-        });
-        if ((await deliveredCount()) === 0) {
-          const retryText = retry.text?.trim();
-          if (retryText) gmText = retryText;
-        }
-      }
+      // Pass 2 — execute the plan (full tools).
+      console.log("[gm-personal] EXEC start");
+      const execResult = await generateText({
+        model,
+        system: ctx.system + EXEC_SYSTEM_PROMPT,
+        messages: planText
+          ? [...existingMessages, { role: "user", content: `Выполни план: ${planText}` }]
+          : existingMessages,
+        tools,
+        stopWhen: isStepCount(100),
+        abortSignal: ac.signal,
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
+      });
+      gmText = execResult.text?.trim() ?? null;
+      console.log(`[gm-personal] EXEC done textLen=${gmText?.length ?? 0}`);
     }
 
-    // Memory guard: if the reply reveals plot information but the GM did not
-    // record it (update_memory was not called this run), re-run once.
-    if (gmText && revealsPlotInfo(gmText) && !getActions(sessionId).includes("update_memory")) {
+    // Retry empty reply — only for a real run, never silently.
+    if (!gmText) {
+      console.log("[gm-personal] RETRY empty reply");
       const retry = await generateText({
         model,
         system: ctx.system,
-        messages: [
-          ...existingMessages,
-          { role: "user", content: "🛑 Ты раскрыл игроку важную информацию (тайну/факт/находку), но не записал её в свою память — update_memory не вызывался. Вызови update_memory, добавь запись (факт или тайну), затем заверши ответ." },
-        ],
+        messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
         tools,
-        stopWhen: isStepCount(30),
+        stopWhen: isStepCount(100),
         abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-        onStepFinish: async (event) => {
-          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-          if (calls?.length) {
-            recordActions(sessionId, calls);
-            for (const call of calls) {
-              emitStep(sessionId, call.toolName as string);
-            }
-          }
-        },
+        prepareStep: makePrepareStep(),
+        onStepFinish: makeStepLogger(sessionId, (l) => console.log(`[gm-personal] ${l}`)),
       });
-      if ((await deliveredCount()) === 0) {
-        const retryText = retry.text?.trim();
-        if (retryText) gmText = retryText;
-      }
+      gmText = retry.text?.trim() ?? null;
     }
 
-    // The model ended without a reply — re-run once forcing it to deliver.
-    if (!gmText && (await deliveredCount()) === 0) {
-      const retry = await generateText({
-        model,
-        system: ctx.system,
-        messages: [
-          ...existingMessages,
-          { role: "user", content: "🛑 Ты закончил, но не отправил ответ (ни send_reply, ни текста). Вызови send_reply с полным текстом твоего ответа." },
-        ],
-        tools,
-        stopWhen: isStepCount(30),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, Object.keys(tools).length),
-        onStepFinish: async (event) => {
-          const calls = (event as Record<string, unknown>).toolCalls as Array<{ toolName?: string }> | undefined;
-          if (calls?.length) {
-            recordActions(sessionId, calls);
-            for (const call of calls) {
-              emitStep(sessionId, call.toolName as string);
-            }
-          }
-        },
-      });
-      if ((await deliveredCount()) === 0) {
-        const retryText = retry.text?.trim();
-        if (retryText) gmText = retryText;
-      }
-    }
-
-    // Last resort — still nothing delivered: short fallback so the bubble never ends silently.
-    if (!gmText && (await deliveredCount()) === 0) {
+    // Last resort — short fallback so the bubble never ends silently.
+    if (!gmText) {
       gmText = "Не удалось сформировать ответ. Попробуй ещё раз.";
     }
 
     if (gmText) {
+      const prisma = getPrisma();
       await prisma.message.create({
         data: {
           sessionId,
@@ -816,4 +763,17 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   } finally {
     endProcessing(sessionId);
   }
+}
+
+function makeStepLogger(sessionId: string, log?: (line: string) => void) {
+  return async (event: Record<string, unknown>) => {
+    const calls = event.toolCalls as Array<{ toolName?: string }> | undefined;
+    if (calls?.length) {
+      recordActions(sessionId, calls);
+      if (log) log(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
+      for (const call of calls) {
+        emitStep(sessionId, call.toolName as string);
+      }
+    }
+  };
 }

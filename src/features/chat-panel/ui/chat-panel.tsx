@@ -384,11 +384,47 @@ export const ChatPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
 
+  // Auto-scroll to the newest message only when already near the bottom.
+  // If the user scrolled up, do NOT yank them down — show the "jump to
+  // bottom" button instead.
+  const [atBottom, setAtBottom] = useState(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const SCROLL_BOTTOM_THRESHOLD = 80;
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = dist < SCROLL_BOTTOM_THRESHOLD;
+    setAtBottom(nearBottom);
+    setShowScrollToBottom(!nearBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    setAtBottom(true);
+    setShowScrollToBottom(false);
+  }, []);
+
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && atBottom) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+    // `typing`/`liveStep` re-render the thinking bubble after the message
+    // list — re-scroll so it stays visible when the user is at the bottom.
+    // When scrolled up, `atBottom` is false and we leave the position alone.
+  }, [messages, atBottom, typing, liveStep]);
+
+  // Reset near-bottom when switching chats (session change). State reset is
+  // done during render (documented React pattern).
+  const [prevStepsSessionId, setPrevStepsSessionId] = useState(stepsSessionId);
+  if (prevStepsSessionId !== stepsSessionId) {
+    setPrevStepsSessionId(stepsSessionId);
+    setAtBottom(true);
+    setShowScrollToBottom(false);
+  }
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -617,7 +653,7 @@ export const ChatPanel = ({
           </div>
         </div>
       )}
-      <div className={styles.inner} ref={scrollRef}>
+      <div className={styles.inner} ref={scrollRef} onScroll={handleScroll}>
         <div className={styles.messages}>
           {grouped.map((group) => {
             if (group.event) {
@@ -672,6 +708,20 @@ export const ChatPanel = ({
             </div>
           )}
         </div>
+        {showScrollToBottom && (
+          <div className={styles.scrollToBottomWrap}>
+            <Tooltip title={t("chat.scrollToBottom")} placement="top">
+              <button
+                type="button"
+                className={styles.scrollToBottomBtn}
+                onClick={scrollToBottom}
+                aria-label={t("chat.scrollToBottom")}
+              >
+                <DownOutlined />
+              </button>
+            </Tooltip>
+          </div>
+        )}
       </div>
       {rollStrip}
       {footerAction && (

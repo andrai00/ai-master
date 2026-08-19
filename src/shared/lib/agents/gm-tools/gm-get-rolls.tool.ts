@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { getSession } from "@/src/shared/lib/auth/session";
 
 export const gmGetRollsTool = {
   description: "View session rolls for game chat. Returns assigned (unrolled) and completed (unconsumed) rolls by default. Use filter='history' to see ALL completed rolls including already confirmed ones (e.g. for disputes or re-checking old results).",
@@ -34,7 +35,7 @@ export const gmGetRollsTool = {
       select: { id: true, checkName: true, diceExpression: true, status: true, result: true, detail: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count, source: "rolls" }));
   },
 };
 
@@ -51,7 +52,7 @@ export const gmPersonalGetRollsTool = {
     if (!activeGame) throw new Error("errors.noGame");
 
     const personalSession = await prisma.session.findFirst({
-      where: { masterId: activeGame.currentMasterId, type: "personal" },
+      where: { masterId: activeGame.currentMasterId, type: "personal", playerId: (await getSession())?.userId },
       select: { id: true },
     });
     if (!personalSession) return [];
@@ -67,6 +68,6 @@ export const gmPersonalGetRollsTool = {
       select: { id: true, checkName: true, diceExpression: true, status: true, result: true, detail: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count, source: "rolls" }));
   },
 };

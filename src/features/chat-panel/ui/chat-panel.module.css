@@ -53,6 +53,56 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  position: relative;
+}
+
+/* Floating "jump to bottom" button — shown when the user scrolled up.
+   Sticky inside the scroll area so it stays at the visible bottom; aligned
+   to the right edge of the centered chat column (var(--content-width)). */
+.scrollToBottomWrap {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0 20px;
+  pointer-events: none;
+  height: 0;
+}
+
+.scrollToBottomBtn {
+  pointer-events: auto;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.scrollToBottomBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-active);
+  border-color: var(--text-dim);
+}
+
+@media (max-width: 767px) {
+  .scrollToBottomWrap {
+    padding: 0 12px;
+  }
 }
 
 .messages {

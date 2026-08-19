@@ -19,6 +19,6 @@ export const gmGetGmNotesTool = {
       take: 50,
     });
 
-    return docs;
+    return docs.map((d) => ({ ...d, source: "game_hidden" }));
   },
 };

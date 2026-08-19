@@ -50,7 +50,13 @@ Add to the brain a memory-organization note for the GM (e.g. in _index or a rule
 
 After importing the glossary, call glossary_overview() to learn the actual types and counts of this game's glossary, and write them into rules/doc_org (type: 'doc_org') or the _index: "Glossary types: monster, spell, item, ... — use search_rules(query, type) to filter by type." This lets the GM search the glossary efficiently instead of dumping it.
 
-Save templates (type: 'dice_template') for common rolls: attack, damage, save, skill, initiative.`,
+Save templates (type: 'dice_template') for common rolls: attack, damage, save, skill, initiative.
+
+## Brain structure rules — sizes, splitting, no duplicates (IMPORTANT)
+1. **Section size limit: ~6-7 KB max.** If a topic grows beyond that, SPLIT it into sub-sections rules/<subtopic> and keep each sub-section focused. Example for D&D-like systems: instead of one huge rules/mechanics, create rules/combat (attacks, crits, initiative), rules/rest_death (rest, death saves, resurrection, inspiration), rules/magic (spellcasting, concentration, components), rules/npc_relations (attitude shifts) — so the GM reads only the fragment it needs via get_brain(topic) / read_document instead of a whole 20-25 KB file.
+2. **The _index is NAVIGATION + POLICY only (3-5 KB).** Keep: the router, the character creation order, message routing, and a short policy. Do NOT copy the summaries of the sections into the index.
+3. **One topic — one place.** Never duplicate content between _index and sections, or between sections. The full text lives in exactly one section; everything else references it via [[id]] wiki-links. Duplicates make the preloaded index huge and confuse the GM about which text is authoritative.
+4. **After creating or splitting sections**: update the router in _index (point query types to the new sections) and run scan_wiki_links → replace_wiki_links so old links to split sections now point to the correct new ones.`,
 
   formula: `## Formula System
 Character sheets store computed values:

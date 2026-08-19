@@ -214,7 +214,7 @@ const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the s
 
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data), get_rolls (rolls), get_chat_summary (history). These cover the situation as it actually is.
+2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data), get_chat_summary (history). These cover the situation as it actually is. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 
@@ -227,7 +227,7 @@ const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the
 
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study this player's data and your memory: get_player_sheet (no argument), get_rolls, get_chat_summary, get_gm_notes. These cover the situation as it actually is.
+2. Then study this player's data and your memory: get_player_sheet (no argument), get_chat_summary, get_gm_notes. These cover the situation as it actually is. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 
@@ -430,7 +430,7 @@ async function buildGameContext(sessionId: string) {
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
     GM_GAME_SYSTEM +
-    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.` +
+    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events.` +
     dynamic;
 
   // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
@@ -523,7 +523,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
     GM_PERSONAL_SYSTEM +
-    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.` +
+    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries.` +
     dynamic;
 
   // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.

@@ -636,6 +636,7 @@ export async function runBuilderAgent(
 
     if (builderText) {
       const prisma = getPrisma();
+      emitStep(sessionId, "final");
       await prisma.message.create({
         data: {
           sessionId,

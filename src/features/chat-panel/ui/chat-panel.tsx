@@ -13,7 +13,6 @@ import {
   HistoryOutlined,
   CodeOutlined,
   ClearOutlined,
-  FileTextOutlined,
   UnorderedListOutlined,
   FileAddOutlined,
   EditOutlined,
@@ -250,8 +249,6 @@ function groupMessages(messages: IMessage[]) {
 function getStepIcon(tool: string): ReactNode {
   const iconStyle = { fontSize: 12, marginRight: 2, opacity: 0.6 };
   switch (tool) {
-    case "read_parsed_file":
-      return <FileTextOutlined style={iconStyle} />;
     case "list_uploaded_files":
       return <UnorderedListOutlined style={iconStyle} />;
     case "create_document":
@@ -261,6 +258,8 @@ function getStepIcon(tool: string): ReactNode {
     case "read_document":
       return <ReadOutlined style={iconStyle} />;
     case "search_rules":
+      return <SearchOutlined style={iconStyle} />;
+    case "glossary_overview":
       return <SearchOutlined style={iconStyle} />;
     case "get_brain":
       return <BookOutlined style={iconStyle} />;
@@ -274,10 +273,6 @@ function getStepIcon(tool: string): ReactNode {
       return <TeamOutlined style={iconStyle} />;
     case "resolve_glossary_link":
       return <LinkOutlined style={iconStyle} />;
-    case "update_file_summary":
-      return <CommentOutlined style={iconStyle} />;
-    case "file_parsing":
-      return <LoadingOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:

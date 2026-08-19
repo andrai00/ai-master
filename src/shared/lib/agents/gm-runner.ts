@@ -661,6 +661,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
     if (gmText) {
       const prisma = getPrisma();
+      emitStep(sessionId, "final");
       await prisma.message.create({
         data: {
           sessionId,
@@ -794,6 +795,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     if (gmText) {
       const prisma = getPrisma();
+      emitStep(sessionId, "final");
       await prisma.message.create({
         data: {
           sessionId,

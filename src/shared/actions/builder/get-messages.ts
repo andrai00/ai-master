@@ -36,7 +36,7 @@ export async function getBuilderMessagesAction(
   const [messages, total] = await Promise.all([
     prisma.message.findMany({
       where: { sessionId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {

@@ -363,10 +363,12 @@ async function buildContext(sessionId: string) {
   // Fetch only unsummarized messages (summarized ones are replaced by the summary)
   const recent = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 20,
     select: { role: true, content: true, createdAt: true },
   });
+  // desc → chronological (oldest first) for the model.
+  recent.reverse();
 
   // Admin messages newer than the last builder reply are NEW (unanswered).
   let lastBuilderAt: Date | null = null;

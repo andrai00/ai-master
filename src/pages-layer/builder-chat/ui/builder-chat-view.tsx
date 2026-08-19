@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Table, App, Segmented, Tooltip, Button } from "antd";
 import { SettingOutlined, DatabaseOutlined, PaperClipOutlined, RobotOutlined } from "@ant-design/icons";
@@ -135,23 +135,33 @@ export const BuilderChatView = () => {
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
 
-  const mapMsg = (m: IBuilderMessage): IMessage => ({
-    id: m.id,
-    sender: m.role === "builder" ? t("chat.builderLabel") : (m.senderDisplayName || t("admin.roleAdmin")),
-    role: m.role,
-    text: m.content,
-    summarized: m.summarized,
-    avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
-    attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
-    prefix: m.attachedFiles?.length ? (
-      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
-        <PaperClipOutlined style={{ fontSize: 10, marginRight: 4 }} />
-        {m.attachedFiles.map((f) => truncateName(f.filename)).join(", ")}
-      </div>
-    ) : undefined,
-  });
+  const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
 
-  const messages: IMessage[] = msgData && "messages" in msgData ? msgData.messages.map(mapMsg) : [];
+  const messages: IMessage[] = useMemo(() => {
+    if (rawMessages.length === 0) return [];
+    const mapMsg = (m: IBuilderMessage): IMessage => ({
+      id: m.id,
+      sender: m.role === "builder" ? t("chat.builderLabel") : (m.senderDisplayName || t("admin.roleAdmin")),
+      role: m.role,
+      text: m.content,
+      summarized: m.summarized,
+      avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
+      attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
+      prefix: m.attachedFiles?.length ? (
+        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+          <PaperClipOutlined style={{ fontSize: 10, marginRight: 4 }} />
+          {m.attachedFiles.map((f) => truncateName(f.filename)).join(", ")}
+        </div>
+      ) : undefined,
+    });
+    return rawMessages
+      .map(mapMsg)
+      .sort((a, b) => {
+        const aTs = new Date(rawMessages.find(m => m.id === a.id)?.createdAt ?? 0).getTime();
+        const bTs = new Date(rawMessages.find(m => m.id === b.id)?.createdAt ?? 0).getTime();
+        return aTs - bTs;
+      });
+  }, [rawMessages, t]);
 
   // --- Send: upload files → save message → let SSE drive the rest ---
   const handleSend = useCallback(

@@ -386,7 +386,7 @@ async function buildGameContext(sessionId: string) {
 
   const recent = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 30,
     select: {
       role: true,
@@ -396,6 +396,8 @@ async function buildGameContext(sessionId: string) {
       sender: { select: { displayName: true } },
     },
   });
+  // desc → chronological (oldest first) for the model.
+  recent.reverse();
 
   // Messages from players newer than the last master reply are NEW (unanswered).
   let lastMasterAt: Date | null = null;
@@ -486,10 +488,12 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   const recent = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 20,
     select: { role: true, content: true, senderId: true, createdAt: true },
   });
+  // desc → chronological (oldest first) for the model.
+  recent.reverse();
 
   // The player's messages newer than the last master reply are NEW (unanswered).
   let lastMasterAt: Date | null = null;

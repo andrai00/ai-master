@@ -59,6 +59,7 @@ export const gmReadDocumentTool = {
         type: doc.type,
         summary: doc.summary,
         playerId: doc.playerId,
+        source: doc.category,
         text,
         offset: safeOffset,
         length: text.length,
@@ -68,6 +69,6 @@ export const gmReadDocumentTool = {
       };
     }
 
-    return { ...doc, ...formulaData };
+    return { ...doc, source: doc.category, ...formulaData };
   },
 };

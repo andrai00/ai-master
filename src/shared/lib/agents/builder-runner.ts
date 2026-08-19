@@ -449,7 +449,7 @@ export async function runBuilderAgent(
         system: sys,
         messages: msgs,
         tools: toolSet,
-        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(80),
+        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(100),
           prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
             // Check abort before doing anything
             if (ac.signal.aborted) {

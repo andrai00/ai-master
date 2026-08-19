@@ -31,6 +31,6 @@ export const gmGetPlayerSheetTool = {
       orderBy: { updatedAt: "desc" },
     });
 
-    return { playerId: pid, documents: docs };
+    return { playerId: pid, documents: docs.map((d) => ({ ...d, source: "game_visible" })) };
   },
 };

@@ -28,7 +28,7 @@ export const gmGetBrainTool = {
         select: { id: true, title: true, type: true, content: true },
       });
       if (!doc) return { matches: [] };
-      return { matches: [{ id: doc.id, title: doc.title, type: doc.type, content: doc.content }] };
+      return { matches: [{ id: doc.id, title: doc.title, type: doc.type, content: doc.content, source: "brain" }] };
     }
 
     const docs = await prisma.document.findMany({
@@ -41,11 +41,11 @@ export const gmGetBrainTool = {
 
     return {
       index: indexDoc
-        ? { id: indexDoc.id, title: indexDoc.title, type: indexDoc.type, content: indexDoc.content }
+        ? { id: indexDoc.id, title: indexDoc.title, type: indexDoc.type, content: indexDoc.content, source: "brain" }
         : null,
       sections: docs
         .filter((d) => d.id !== indexDoc?.id)
-        .map((d) => ({ id: d.id, title: d.title, type: d.type, summary: d.summary })),
+        .map((d) => ({ id: d.id, title: d.title, type: d.type, summary: d.summary, source: "brain" })),
     };
   },
 };

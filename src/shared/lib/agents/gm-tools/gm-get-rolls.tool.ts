@@ -35,7 +35,7 @@ export const gmGetRollsTool = {
       select: { id: true, checkName: true, diceExpression: true, status: true, result: true, detail: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count, source: "rolls" }));
   },
 };
 
@@ -68,6 +68,6 @@ export const gmPersonalGetRollsTool = {
       select: { id: true, checkName: true, diceExpression: true, status: true, result: true, detail: true, playerId: true, count: true },
     });
 
-    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count }));
+    return rolls.map(r => ({ id: r.id, checkName: r.checkName, expression: r.diceExpression, status: r.status, result: r.result, detail: r.detail, playerId: r.playerId, count: r.count, source: "rolls" }));
   },
 };

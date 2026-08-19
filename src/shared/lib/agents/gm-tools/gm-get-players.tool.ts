@@ -49,6 +49,7 @@ export const gmGetPlayersTool = {
       role: p.role,
       documentCount: docCountMap.get(p.id) ?? 0,
       lastMessageAt: lastMsgMap.get(p.id)?.toISOString() ?? null,
+      source: "players",
     }));
   },
 };

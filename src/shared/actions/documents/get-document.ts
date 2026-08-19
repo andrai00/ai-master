@@ -23,14 +23,26 @@ export async function getDocumentAction(docId: string): Promise<IDocumentData | 
   if (!masterId) return null;
 
   const prisma = getPrisma();
+
+  if (session.role !== "admin") {
+    // A player may only open documents they have access to: their own
+    // game_visible data, shared game_visible docs, and the glossary (rules).
+    // brain / game_hidden stay private to the master.
+    const access = await prisma.gameAccess.findUnique({
+      where: { userId_masterId: { userId: session.userId, masterId } },
+    });
+    if (!access) return null;
+  }
+
   const doc = await prisma.document.findFirst({
     where: session.role === "admin"
       ? { id: docId, masterId }
       : {
           id: docId,
           masterId,
-          category: "game_visible",
+          category: { in: ["game_visible", "glossary"] },
           OR: [
+            { category: "glossary" },
             { playerId: session.userId },
             { playerId: null },
             { access: { some: { userId: session.userId } } },

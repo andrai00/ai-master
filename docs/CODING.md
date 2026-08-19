@@ -1,7 +1,7 @@
 # Правила кодинга: ai-master
 
 > **См. также:**
-> - `docs/GOLDEN-RULES.md` — незыблемые правила (G1..G39), нарушение = баг
+> - `docs/GOLDEN-RULES.md` — незыблемые правила (G1..G43), нарушение = баг
 > - `docs/ANTI-PATTERNS.md` — каталог ошибок: Bad → Why → Good
 > - `docs/COMPLETION-GATE.md` — чеклист перед коммитом
 
@@ -266,8 +266,34 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 
 Общий модуль `src/shared/lib/agents/context-compress.ts` (`compressMessages`) используется билдером и GM через `prepareStep` в `generateText`. Хук вызывается перед каждым шагом:
 - Оценить токены (`сообщения.length / 4`)
-- Сравнить с `contextLimit × 0.7` (из AppConfig, авто-дефолт по провайдеру)
+- Сравнить с `Math.min(contextLimit × 0.7, 24_000)` (порог капится, иначе 128K × 0.7 = 89.6K никогда не срабатывает на реальных промптах)
 - При превышении: оставить system + последнее сообщение админа + **текущий tool-шаг** (не сжимать!), остальное заменить на саммари
+
+### Study summary: Pass 1 → Pass 2 (без дублирования чтения)
+
+Оба агента (GM, Builder) работают в две фазы Plan → Execute. Результаты read-тулов Pass 1 передаются в Pass 2, чтобы модель не перечитывала те же данные (до 6 дублей чтения на батч = лишние LLM-вызовы по 30-100 сек).
+
+- Модуль: `src/shared/lib/agents/study-summary.ts` → `buildStudySummary(toolResults, allowedTools)`
+- Наборы: `STUDY_TOOLS` (gm-runner), `BUILDER_STUDY_TOOLS` (builder-runner)
+- Кап: 1500 символов на результат, 12К суммарно
+- Вставка в Pass 2: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`
+- `EXEC_SYSTEM_PROMPT` запрещает перечитывать документы из сводки
+- См. G40.
+
+### Лимиты чтения документов: GM капит, Builder читает полностью
+
+- **GM** (`gm-read-document.tool.ts`): `Math.min(args.limit ?? 3000, 8000)` — защита контекста от больших секций. GM не создаёт документы.
+- **Builder** (`read-document.tool.ts`): полное чтение при отсутствии `offset`/`limit` — билдер создаёт/редактирует/разбивает документы, нужен полный текст. Кап заставлял дробить 25 КБ на 4 вызова (4 LLM-шага вместо 1).
+- См. G41.
+
+### Структура мозгов (правила для билдера)
+
+Правила записаны в гайд билдера (`get_builder_guide.tool.ts`, topic `brain` → «Brain structure rules»):
+- Секция ≤ ~6-7 КБ; темы больше — на под-секции `rules/<подтема>`
+- `_index` — навигация + политика (3-5 КБ), без сводок секций
+- Одна тема — одно место, дубли запрещены, ссылки `[[id]]`
+- После разбивки — обновить роутер в `_index` и перенаправить wiki-ссылки (`scan_wiki_links`/`replace_wiki_links`)
+- См. G42.
 
 ### Builder Agent: ретраи
 
@@ -309,9 +335,15 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 
 При `AGENT_TRACE=1` пишется таблица `TraceEvent` (`src/shared/lib/agents/trace.ts` → `traceAgent`): каждый промт (system+messages), каждый тул-вызов (имя+аргументы), финальный ответ, ошибки — с тегом чата/фазы/sessionId. Лимиты: args ≤2К, result ≤4К, prompt ≤20К. Без флага ничего не пишется; после анализа флаг убрать и дропнуть таблицу.
 
+Важно:
+- **Аргументы тулов**: AI SDK v7 кладёт их в `call.input`, не `call.args`. Писать `JSON.stringify(call.input ?? call.args ?? {})` — иначе `args: {}`.
+- **elapsedMs**: реальный замер `performance.now()` вокруг `generateText` (фазы plan/exec/idle/retry/final) — без него тайминги бесполезны.
+- Замеры времени между шагами: `SELECT strftime('%H:%M:%S',createdAt) ts, phase, stepIndex, toolName FROM TraceEvent WHERE sessionId=... ORDER BY createdAt;`
+
 ```sql
 SELECT phase, toolName, args FROM TraceEvent WHERE sessionId='...' ORDER BY createdAt;
 SELECT phase, stepIndex, prompt FROM TraceEvent WHERE prompt IS NOT NULL ORDER BY createdAt;
+SELECT phase, elapsedMs FROM TraceEvent WHERE elapsedMs IS NOT NULL AND sessionId='...' ORDER BY createdAt;
 ```
 
 ### Блокировка действий во время обдумывания

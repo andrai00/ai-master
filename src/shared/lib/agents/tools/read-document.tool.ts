@@ -48,7 +48,7 @@ export const readDocumentTool = {
     z.object({
       id: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire' or '/spells/207-faerie_fire.md'). If contains '/' or ends with '.md' — treated as path/title, auto-resolved to UUID."),
       offset: z.number().optional().describe("Character offset for chunked reading (default 0)"),
-      limit: z.number().optional().describe("Max characters for chunked reading (default 5000 — pass offset to continue reading)"),
+      limit: z.number().optional().describe("Max characters for chunked reading (default 5000); omit both offset and limit to read the whole document"),
     })
   ),
   execute: async (args: { id: string; offset?: number; limit?: number }) => {
@@ -109,26 +109,9 @@ export const readDocumentTool = {
       };
     }
 
-    // Full read without a limit would dump the whole document into the
-    // context (large docs can be 20-25KB). Return the first slice by default;
-    // the model continues with offset when it needs more.
-    const offset = 0;
-    const limit = 5000;
-    const totalSize = doc.content.length;
-    const chunk = doc.content.slice(offset, limit);
-    return {
-      id: doc.id,
-      title: doc.title,
-      category: doc.category,
-      type: doc.type,
-      summary: doc.summary,
-      text: chunk,
-      offset,
-      length: chunk.length,
-      totalSize,
-      hasMore: chunk.length < totalSize,
-      toc,
-      ...formulaData,
-    };
+    // Full read: the Builder creates, edits and splits documents, so it needs
+    // the WHOLE content in one call. No hard cap here — capping forced the
+    // model to re-read a 25KB doc in 4 chunks (4 LLM steps instead of 1).
+    return { ...doc, source: doc.category, toc, ...formulaData };
   },
 };

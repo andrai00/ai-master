@@ -11,7 +11,7 @@ export const gmReadDocumentTool = {
     z.object({
       id: z.string().describe("Document ID (UUID)"),
       offset: z.number().optional().describe("Character offset for reading a section (default 0)"),
-      limit: z.number().optional().describe("Max characters of text to return (default 3000)"),
+      limit: z.number().optional().describe("Max characters of text to return (default 3000, hard cap 8000)"),
     })
   ),
   execute: async (args: { id: string; offset?: number; limit?: number }) => {
@@ -48,8 +48,9 @@ export const gmReadDocumentTool = {
 
     // Always return a slice: default limit prevents dumping huge documents
     // (e.g. a 25KB mechanics section) into the model context in one call.
+    // `limit` is hard-capped so the model cannot request the whole document.
     const offset = args.offset ?? 0;
-    const limit = args.limit ?? 3000;
+    const limit = Math.min(args.limit ?? 3000, 8000);
     const totalSize = doc.content.length;
     const safeOffset = Math.min(offset, totalSize);
     const text = doc.content.slice(safeOffset, safeOffset + limit);

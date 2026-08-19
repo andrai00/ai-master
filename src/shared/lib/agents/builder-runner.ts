@@ -169,8 +169,17 @@ async function createProvider() {
 // Tools
 // ---------------------------------------------------------------------------
 
-const PLAN_SYSTEM_PROMPT = `
+const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study the admin's request using ONLY the read-only tools provided — you cannot create, update, delete, import or reply yet.
 
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how THIS game is organized and where things live. The brain usually answers most questions about structure and what already exists.
+2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, get_chat_summary, plus your mode's read-only tools).
+3. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
+4. Decide what must be created/updated and outline the reply.
+
+Do NOT call any write/import tools in this phase. Return only the plan.`;
+
+const PLAN_SYSTEM_PROMPT = `
 ## Planning phase (Pass 1)
 You are in the PLANNING phase. Study the situation (read-only tools only). Do NOT create or update anything yet. Return a short plan (up to ~400 words) in this format:
 STUDY: <what you studied> | RECORD: <what and where to write> | REPLY: <outline of the reply>`;
@@ -279,16 +288,20 @@ async function buildContext(sessionId: string) {
       : `\n\n## Your tools (BRAIN mode)\nsearch_rules, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1).
+  let dynamic = "";
+
   if (activeGame) {
     const master = await prisma.master.findUnique({
       where: { id: activeGame.currentMasterId },
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
   // Load chat summary to inject into context
   const summary = await prisma.chatSummary.findFirst({
@@ -314,7 +327,7 @@ async function buildContext(sessionId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -326,10 +339,15 @@ async function buildContext(sessionId: string) {
 
   // Prepend summary as a system context message if it exists
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
-  return { messages, system: systemPrompt, builderMode };
+  // Full prompt for Pass 2 (execution).
+  const system = systemPrompt + dynamic;
+  // Short prompt for Pass 1 (planning) — study-only, no write/import rules.
+  const planSystem = BUILDER_PLAN_SYSTEM + dynamic;
+
+  return { messages, system, planSystem, builderMode };
 }
 
 // ---------------------------------------------------------------------------
@@ -534,8 +552,9 @@ export async function runBuilderAgent(
     let builderText: string | null = null;
 
     if (!isStudy) {
-      // CHAT mode: Plan → Execute two passes. Pass 1 uses read-only plan tools.
-      const planResult = await runWithRetries(messages, ctx.system + PLAN_SYSTEM_PROMPT, planTools);
+      // CHAT mode: Plan → Execute two passes. Pass 1 uses the SHORT planning
+      // prompt and read-only plan tools; Pass 2 gets the full prompt.
+      const planResult = await runWithRetries(messages, ctx.planSystem + PLAN_SYSTEM_PROMPT, planTools);
       const planText = planResult.text?.trim() ?? "";
       console.log(`[builder] PLAN done — session=${sessionId} textLen=${planText.length}`);
 

@@ -206,6 +206,32 @@ function getPlanTools(kind: "game" | "personal"): ToolSet {
   return base;
 }
 
+const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
+
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game, where things live, and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data), get_rolls (rolls), get_chat_summary (history). These cover the situation as it actually is.
+3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+
+## Sources
+Every result is tagged with "source": glossary (rules — shareable), game_visible (that player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), players, chat_summary. Plan only what may be told; keep game_hidden facts hidden.
+
+Do NOT call any write/roll tools in this phase. Return only the plan.`;
+
+const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
+
+Procedure:
+1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+2. Then study this player's data and your memory: get_player_sheet (no argument), get_rolls, get_chat_summary, get_gm_notes. These cover the situation as it actually is.
+3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+4. Decide what must be written/updated, which rolls are needed, and outline the reply.
+
+## Sources
+Every result is tagged with "source": glossary (rules — shareable), game_visible (this player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), chat_summary. Plan only what may be told; keep game_hidden facts hidden.
+
+Do NOT call any write/roll tools in this phase. Return only the plan.`;
+
 const PLAN_SYSTEM_PROMPT = `
 ## Planning phase (Pass 1)
 You are in the PLANNING phase. Study the situation (brain index FIRST, then the documents you need). Do NOT write anything, do NOT issue rolls, do NOT answer in the chat. Return a short plan (up to ~400 words) in this format:
@@ -285,7 +311,9 @@ async function buildGameContext(sessionId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  let systemPrompt = GM_GAME_SYSTEM;
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1): current game, pending rolls, summary, new count.
+  let dynamic = "";
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -293,15 +321,13 @@ async function buildGameContext(sessionId: string) {
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
-
-  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) systemPrompt += rollsCtx.note;
+  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -309,7 +335,7 @@ async function buildGameContext(sessionId: string) {
   });
 
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
   const recent = await prisma.message.findMany({
@@ -335,7 +361,7 @@ async function buildGameContext(sessionId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -351,9 +377,19 @@ async function buildGameContext(sessionId: string) {
   // Completed rolls are the player's latest action — append as the last user turns.
   messages.push(...rollsCtx.completed);
 
+  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  const system =
+    GM_GAME_SYSTEM +
+    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.` +
+    dynamic;
+
+  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
+  const planSystem = GM_PLAN_SYSTEM + dynamic;
+
   return {
     messages,
-    system: systemPrompt,
+    system,
+    planSystem,
     activeGame,
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
@@ -366,7 +402,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  let systemPrompt = GM_PERSONAL_SYSTEM;
+  // Dynamic context shared by both the full system prompt (Pass 2) and the
+  // short planning prompt (Pass 1).
+  let dynamic = "";
 
   if (activeGame) {
     const master = await prisma.master.findUnique({
@@ -374,16 +412,14 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
       select: { name: true, description: true },
     });
     if (master) {
-      systemPrompt += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
+      dynamic += `\n\n## Current Game\n- Name: ${master.name}\n- Description: ${master.description ?? "none"}\n`;
     }
   }
-  if (sess) systemPrompt += `\n- Admin: ${sess.displayName || sess.login}\n`;
-  systemPrompt += `\n- Player ID: ${playerId}\n`;
-
-  systemPrompt += `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.`;
+  if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
+  dynamic += `\n- Player ID: ${playerId}\n`;
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
-  if (rollsCtx.note) systemPrompt += rollsCtx.note;
+  if (rollsCtx.note) dynamic += rollsCtx.note;
 
   const summary = await prisma.chatSummary.findFirst({
     where: { masterId: activeGame?.currentMasterId ?? "" },
@@ -391,7 +427,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   });
 
   if (summary?.content) {
-    systemPrompt += `\n\n## Chat History Summary\n${summary.content}\n`;
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
   }
 
   const recent = await prisma.message.findMany({
@@ -411,7 +447,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   ).length;
 
   if (newCount > 0) {
-    systemPrompt += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
+    dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet — process them in this response. Messages marked with 🆕 below are new.`;
   }
 
   const messages = recent.map((m) => {
@@ -424,9 +460,19 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   // Completed rolls are the player's latest action — append as the last user turns.
   messages.push(...rollsCtx.completed);
 
+  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  const system =
+    GM_PERSONAL_SYSTEM +
+    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.` +
+    dynamic;
+
+  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
+  const planSystem = GM_PLAN_SYSTEM_PERSONAL + dynamic;
+
   return {
     messages,
-    system: systemPrompt,
+    system,
+    planSystem,
     activeGame,
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
@@ -499,11 +545,12 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       });
       gmText = idle.text?.trim() ?? null;
     } else {
-      // Pass 1 — study and plan (read-only tools).
+      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
+      // prompt; the full operating instructions are only needed in Pass 2.
       gmLog("PLAN start");
       const planResult = await generateText({
         model,
-        system: ctx.system + PLAN_SYSTEM_PROMPT,
+        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
         messages: existingMessages,
         tools: planTools,
         stopWhen: isStepCount(20),
@@ -634,11 +681,12 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       });
       gmText = idle.text?.trim() ?? null;
     } else {
-      // Pass 1 — study and plan (read-only tools).
+      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
+      // prompt; the full operating instructions are only needed in Pass 2.
       console.log("[gm-personal] PLAN start");
       const planResult = await generateText({
         model,
-        system: ctx.system + PLAN_SYSTEM_PROMPT,
+        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
         messages: existingMessages,
         tools: planTools,
         stopWhen: isStepCount(20),

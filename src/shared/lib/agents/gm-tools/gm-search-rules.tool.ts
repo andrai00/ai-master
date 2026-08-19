@@ -5,34 +5,43 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmSearchRulesTool = {
   description:
-    "Search RULES (glossary) by keywords. The glossary is a huge read-only corpus — never dump it into the conversation. Returns matching ids, titles and snippets; read a full document with read_document afterwards. Use for rules, spells, items, monsters, conditions — anything from the game rules.",
+    "Search RULES (glossary) by keywords. The glossary is a huge read-only corpus — never dump it into the conversation. Returns matching ids, titles, snippets, and how many total matches there are; read a full document with read_document afterwards. Optionally filter by a document type (see glossary_overview for the list of types). Use for rules, spells, items, monsters, conditions — anything from the game rules. If total is much larger than returned, narrow the query or filter by type.",
   inputSchema: zodSchema(
     z.object({
       query: z.string().describe("Search query — a keyword or phrase from the rules"),
+      type: z.string().optional().describe("Optional filter: only search documents of this type (e.g. 'monster', 'spell', 'item'). Use glossary_overview to see available types."),
+      limit: z.number().optional().describe("Max results to return (default 20, max 50)"),
     })
   ),
-  execute: async (args: { query: string }) => {
+  execute: async (args: { query: string; type?: string; limit?: number }) => {
     const activeGame = await getActiveGame();
     if (!activeGame) throw new Error("errors.noGame");
 
     const prisma = getPrisma();
-    const docs = await prisma.document.findMany({
-      where: {
-        masterId: activeGame.currentMasterId,
-        category: "glossary",
-        status: "active",
-        OR: [
-          { title: { contains: args.query } },
-          { summary: { contains: args.query } },
-          { content: { contains: args.query } },
-        ],
-      },
-      select: { id: true, title: true, type: true, summary: true, content: true },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    });
+    const take = Math.min(Math.max(args.limit ?? 20, 1), 50);
+    const where = {
+      masterId: activeGame.currentMasterId,
+      category: "glossary" as const,
+      status: "active" as const,
+      ...(args.type ? { type: args.type } : {}),
+      OR: [
+        { title: { contains: args.query } },
+        { summary: { contains: args.query } },
+        { content: { contains: args.query } },
+      ],
+    };
 
-    return docs.map((d) => {
+    const [docs, total] = await Promise.all([
+      prisma.document.findMany({
+        where,
+        select: { id: true, title: true, type: true, summary: true, content: true },
+        orderBy: { updatedAt: "desc" },
+        take,
+      }),
+      prisma.document.count({ where }),
+    ]);
+
+    const results = docs.map((d) => {
       const idx = d.content.toLowerCase().indexOf(args.query.toLowerCase());
       let snippet = "";
       if (idx !== -1) {
@@ -42,5 +51,7 @@ export const gmSearchRulesTool = {
       }
       return { id: d.id, title: d.title, type: d.type, summary: d.summary, snippet: snippet || null, source: "glossary" };
     });
+
+    return { total, returned: results.length, docs: results };
   },
 };

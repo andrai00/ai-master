@@ -24,6 +24,7 @@ import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmDeleteDocumentTool } from "./gm-tools/gm-delete-document.tool";
+import { gmGlossaryOverviewTool } from "./gm-tools/gm-glossary-overview.tool";
 import { clearActions, recordActions, getActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
@@ -138,6 +139,7 @@ function makePrepareStep() {
 function getGameTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
+    glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     get_gm_notes: gmGetGmNotesTool,
     get_scene_state: gmGetSceneStateTool,
@@ -164,6 +166,7 @@ function getGameTools(): ToolSet {
 function getPersonalTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
+    glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     get_gm_notes: gmGetGmNotesTool,
     get_player_sheet: gmGetPlayerSheetTool,
@@ -188,6 +191,7 @@ function getPersonalTools(): ToolSet {
 function getPlanTools(kind: "game" | "personal"): ToolSet {
   const base: ToolSet = {
     search_rules: gmSearchRulesTool,
+    glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     get_gm_notes: gmGetGmNotesTool,
     get_player_sheet: gmGetPlayerSheetTool,
@@ -209,9 +213,9 @@ function getPlanTools(kind: "game" | "personal"): ToolSet {
 const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
 
 Procedure:
-1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game, where things live, and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
 2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data), get_rolls (rolls), get_chat_summary (history). These cover the situation as it actually is.
-3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 
 ## Sources
@@ -222,9 +226,9 @@ Do NOT call any write/roll tools in this phase. Return only the plan.`;
 const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
 
 Procedure:
-1. Read your brain index FIRST (get_brain) — it tells you how to run THIS game and what to check. The brain itself usually answers most questions: what to do, how to resolve actions, where the needed info is kept.
+1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
 2. Then study this player's data and your memory: get_player_sheet (no argument), get_rolls, get_chat_summary, get_gm_notes. These cover the situation as it actually is.
-3. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
+3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 
 ## Sources
@@ -306,6 +310,42 @@ async function buildRollsContext(
   return { completed, note };
 }
 
+/**
+ * Builds a compact brain summary for the system prompt: the index file
+ * content (if present) plus the list of sections with their types and
+ * summaries. Injected directly into the context so Pass 1 knows the brain
+ * structure immediately — get_brain(topic) is then only needed to read a
+ * section in full.
+ */
+async function buildBrainContext(
+  prisma: ReturnType<typeof getPrisma>,
+  masterId: string
+): Promise<string> {
+  const docs = await prisma.document.findMany({
+    where: { masterId, category: "brain", status: "active" },
+    select: { id: true, title: true, type: true, summary: true, content: true },
+    orderBy: [{ type: "asc" }, { title: "asc" }],
+  });
+  if (docs.length === 0) return "";
+
+  const indexDoc = docs.find((d) => d.type === "_index") ?? null;
+
+  let out = `\n\n## Brain (preloaded)\n`;
+  if (indexDoc) {
+    out += `- Index (${indexDoc.title}): ${indexDoc.content}\n`;
+  } else {
+    out += `- Index: NOT FOUND (no _index document in brain). Use get_brain() to inspect.\n`;
+  }
+  const sections = docs.filter((d) => d.id !== indexDoc?.id);
+  if (sections.length > 0) {
+    out += `- Sections:\n`;
+    for (const s of sections) {
+      out += `  - ${s.title} [type: ${s.type}]${s.summary ? ` — ${s.summary}` : ""}\n`;
+    }
+  }
+  return out;
+}
+
 async function buildGameContext(sessionId: string) {
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
@@ -325,6 +365,12 @@ async function buildGameContext(sessionId: string) {
     }
   }
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
+
+  // Brain structure is preloaded into the prompt — Pass 1 sees it without a
+  // tool call; get_brain(topic) is only for reading a section in full.
+  if (activeGame) {
+    dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
+  }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
   if (rollsCtx.note) dynamic += rollsCtx.note;
@@ -382,7 +428,7 @@ async function buildGameContext(sessionId: string) {
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
     GM_GAME_SYSTEM +
-    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.` +
+    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_rolls to check roll results. Use get_players to track which players are active. Use update_chat_summary to save summaries of key events.` +
     dynamic;
 
   // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
@@ -419,6 +465,12 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   }
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
   dynamic += `\n- Player ID: ${playerId}\n`;
+
+  // Brain structure is preloaded into the prompt — Pass 1 sees it without a
+  // tool call; get_brain(topic) is only for reading a section in full.
+  if (activeGame) {
+    dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
+  }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
   if (rollsCtx.note) dynamic += rollsCtx.note;
@@ -467,7 +519,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
     GM_PERSONAL_SYSTEM +
-    `\n\nPriority: read get_brain FIRST — your operating instructions tell you how to run this game and how to use the glossary for THIS system. Then use search_rules for specific rules, get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.` +
+    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls to check this player's roll results. Use update_chat_summary to save summaries.` +
     dynamic;
 
   // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.

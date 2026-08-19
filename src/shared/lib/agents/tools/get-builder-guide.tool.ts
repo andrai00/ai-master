@@ -44,6 +44,8 @@ Required brain docs (create for every game system):
 
 Add to the brain a memory-organization note for the GM (e.g. in _index or a rules/game_memory doc): which memory categories THIS game needs (facts, secrets, plans, npc, rumors...), how to structure them, and when to clean them up. The GM maintains these records live during the game via write_note / create_document / update_document.
 
+After importing the glossary, call glossary_overview() to learn the actual types and counts of this game's glossary, and write them into rules/doc_org (type: 'doc_org') or the _index: "Glossary types: monster, spell, item, ... — use search_rules(query, type) to filter by type." This lets the GM search the glossary efficiently instead of dumping it.
+
 Save templates (type: 'dice_template') for common rolls: attack, damage, save, skill, initiative.`,
 
   formula: `## Formula System

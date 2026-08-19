@@ -25,6 +25,7 @@ import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
 import { gmSearchRulesTool } from "./gm-tools/gm-search-rules.tool";
+import { gmGlossaryOverviewTool } from "./gm-tools/gm-glossary-overview.tool";
 import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
@@ -172,9 +173,9 @@ async function createProvider() {
 const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study the admin's request using ONLY the read-only tools provided — you cannot create, update, delete, import or reply yet.
 
 Procedure:
-1. Read your brain index FIRST (get_brain) — it tells you how THIS game is organized and where things live. The brain usually answers most questions about structure and what already exists.
+1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
 2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, get_chat_summary, plus your mode's read-only tools).
-3. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
+3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
 4. Decide what must be created/updated and outline the reply.
 
 Do NOT call any write/import tools in this phase. Return only the plan.`;
@@ -196,6 +197,7 @@ const EMPTY_RETRY_PROMPT =
 function getPlanTools(builderMode: string): ToolSet {
   const shared: ToolSet = {
     search_rules: gmSearchRulesTool,
+    glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     read_document: readDocumentTool,
     get_builder_guide: getBuilderGuideTool,
@@ -227,6 +229,7 @@ function getPlanTools(builderMode: string): ToolSet {
 function getTools(builderMode: string): ToolSet {
   const shared = {
     search_rules: gmSearchRulesTool,
+    glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     read_document: readDocumentTool,
     create_document: createDocumentTool,
@@ -266,6 +269,41 @@ function getTools(builderMode: string): ToolSet {
 // Context
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a compact brain summary for the system prompt: the index file
+ * content (if present) plus the list of sections with their types and
+ * summaries. Preloaded into the context so the planning phase knows the brain
+ * structure without a tool call; get_brain(topic) reads a section in full.
+ */
+async function buildBrainContext(
+  prisma: ReturnType<typeof getPrisma>,
+  masterId: string
+): Promise<string> {
+  const docs = await prisma.document.findMany({
+    where: { masterId, category: "brain", status: "active" },
+    select: { id: true, title: true, type: true, summary: true, content: true },
+    orderBy: [{ type: "asc" }, { title: "asc" }],
+  });
+  if (docs.length === 0) return "";
+
+  const indexDoc = docs.find((d) => d.type === "_index") ?? null;
+
+  let out = `\n\n## Brain (preloaded)\n`;
+  if (indexDoc) {
+    out += `- Index (${indexDoc.title}): ${indexDoc.content}\n`;
+  } else {
+    out += `- Index: NOT FOUND (no _index document in brain). Use get_brain() to inspect.\n`;
+  }
+  const sections = docs.filter((d) => d.id !== indexDoc?.id);
+  if (sections.length > 0) {
+    out += `- Sections:\n`;
+    for (const s of sections) {
+      out += `  - ${s.title} [type: ${s.type}]${s.summary ? ` — ${s.summary}` : ""}\n`;
+    }
+  }
+  return out;
+}
+
 async function buildContext(sessionId: string) {
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
@@ -284,8 +322,8 @@ async function buildContext(sessionId: string) {
 
   const toolsNote =
     builderMode === "memory"
-      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
-      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
+      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
+      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
   // Dynamic context shared by both the full system prompt (Pass 2) and the
@@ -302,6 +340,12 @@ async function buildContext(sessionId: string) {
     }
   }
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
+
+  // Brain structure is preloaded into the prompt so Pass 1 knows the brain
+  // layout immediately; get_brain(topic) reads a section in full.
+  if (activeGame) {
+    dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
+  }
 
   // Load chat summary to inject into context
   const summary = await prisma.chatSummary.findFirst({

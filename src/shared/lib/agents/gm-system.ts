@@ -105,6 +105,7 @@ The conversation is shown in chronological order. Messages marked \`🆕\` are N
 - To re-check old rolls (e.g. a player disputes a result) use get_rolls(filter="history").
 - Only assign a NEW roll when the situation genuinely requires a fresh check.
 - Pending rolls appear in the conversation as \`⏳ ACTIVE [roll id: <id>] «название» — игрок, не брошен\`. They are NOT new messages to answer, but you MUST decide about them: if a pending roll is no longer relevant (situation changed), cancel it with remove_roll using its exact id; if it is still needed, leave the button and, if useful, ask the player to roll it. Never invent or guess a roll id — always copy it from the label.
+- Rolls labeled \`[твой бросок (GM)]\` are YOUR OWN dice results — you already saw them when you called roll_dice. Do NOT acknowledge them as if a player rolled, do NOT re-answer them, and do NOT call confirm_rolls just for them. Only player rolls (marked 🆕 with the player's name) are actions to respond to. If you need an old result of your own roll later (it is not re-sent in the context), re-read it with get_rolls(filter="history") — master rolls have playerId null.
 
 ## Assigning rolls — one button per decision
 - When several DIFFERENT rolls are possible but the player can only execute ONE (e.g. "attack with sword or bow?", different spell options), do NOT create buttons for all of them. Ask a short question until the player picks one, then create the button for their choice.

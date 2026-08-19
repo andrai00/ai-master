@@ -224,7 +224,7 @@ Procedure:
 2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
-5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one.
+5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one. Rolls labeled [твой бросок (GM)] are YOUR OWN — ignore them in the plan (they need no response).
 6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
 
 ## Sources
@@ -282,12 +282,16 @@ const STUDY_TOOLS = new Set([
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
   sessionId: string
-): Promise<{ completed: Array<{ role: "user"; content: string }>; assigned: Array<{ role: "user"; content: string }> }> {
+): Promise<{
+  completed: Array<{ role: "user"; content: string }>;
+  assigned: Array<{ role: "user"; content: string }>;
+  masterRolls: Array<{ role: "user"; content: string }>;
+}> {
   const completedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "completed", consumed: false },
     select: { id: true, checkName: true, diceExpression: true, result: true, detail: true, playerId: true, completedAt: true },
     orderBy: { completedAt: "asc" },
-    take: 10,
+    take: 20,
   });
   const assignedRolls = await prisma.roll.findMany({
     where: { sessionId, status: "assigned" },
@@ -308,22 +312,39 @@ async function buildRollsContext(
     : [];
   const nameById = new Map(users.map((u) => [u.id, u.displayName || u.login]));
 
-  // Completed (unconsumed) rolls become the latest user turn — the model must
-  // answer them, not re-assign. They stay unconsumed until the GM calls
+  // Player completed (unconsumed) rolls become the latest user turn — the model
+  // must answer them, not re-assign. They stay unconsumed until the GM calls
   // confirm_rolls, so a result is never silently lost. Every roll is labeled
   // with its FULL id so the model can target it exactly via remove_roll /
   // confirm_rolls and never confuses several rolls with the same name.
-  const completed = completedRolls.map((r) => {
-    const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
-    // Include `detail` (the per-die breakdown the player sees on hover) so
-    // the GM knows WHICH dice were rolled — e.g. a natural 20 vs a boosted
-    // result, or which die in a pool succeeded.
-    const detail = r.detail ? ` (${r.detail})` : "";
-    return {
-      role: "user" as const,
-      content: `🆕 🎲 [roll id: ${r.id}] [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
-    };
-  });
+  const completed = completedRolls
+    .filter((r) => r.playerId)
+    .map((r) => {
+      const who = nameById.get(r.playerId!) ?? "игрок";
+      // Include `detail` (the per-die breakdown the player sees on hover) so
+      // the GM knows WHICH dice were rolled — e.g. a natural 20 vs a boosted
+      // result, or which die in a pool succeeded.
+      const detail = r.detail ? ` (${r.detail})` : "";
+      return {
+        role: "user" as const,
+        content: `🆕 🎲 [roll id: ${r.id}] [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
+      };
+    });
+
+  // Master completed rolls (playerId = null) are the GM's OWN dice results via
+  // roll_dice — the model already saw the result in the tool return. New master
+  // rolls are created consumed=true and never reach here; legacy ones are
+  // context ONLY (no 🆕), labeled as the model's own, and are NOT counted as
+  // player actions to respond to.
+  const masterRolls = completedRolls
+    .filter((r) => !r.playerId)
+    .map((r) => {
+      const detail = r.detail ? ` (${r.detail})` : "";
+      return {
+        role: "user" as const,
+        content: `🎲 [roll id: ${r.id}] [твой бросок (GM)] «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
+      };
+    });
 
   // Assigned (not yet rolled) rolls are context too — the model must know they
   // are still pending and may keep, cancel (remove_roll) or re-assign them.
@@ -337,7 +358,7 @@ async function buildRollsContext(
     };
   });
 
-  return { completed, assigned };
+  return { completed, assigned, masterRolls };
 }
 
 /**
@@ -455,9 +476,9 @@ async function buildGameContext(sessionId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
-  // Pending assigned rolls are context first (older state), then completed
-  // rolls as the latest user turns the model must answer.
-  messages.push(...rollsCtx.assigned, ...rollsCtx.completed);
+  // Pending assigned rolls and own (master) rolls are context first (older
+  // state), then completed player rolls as the latest user turns to answer.
+  messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =
@@ -551,9 +572,9 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     return { role, content: `${prefix}${m.content}` };
   });
 
-  // Pending assigned rolls are context first (older state), then completed
-  // rolls as the latest user turns the model must answer.
-  messages.push(...rollsCtx.assigned, ...rollsCtx.completed);
+  // Pending assigned rolls and own (master) rolls are context first (older
+  // state), then completed player rolls as the latest user turns to answer.
+  messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
   // Full prompt for Pass 2 (execution) — the complete operating instructions.
   const system =

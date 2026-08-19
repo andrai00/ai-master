@@ -33,8 +33,14 @@ export const gmRollDiceTool = {
             checkName: args.reason,
             diceExpression: args.expression,
             status: "completed",
+            // Master rolls are the GM's own action — the result is already
+            // returned by this tool and narrated in the same turn. consumed=true
+            // keeps them out of the AI context (buildRollsContext) so the model
+            // never mistakes its own roll for a player's action. The UI roll
+            // strip still shows them (it filters by status, not consumed).
             result: result.totals.join(", "),
             detail: result.output,
+            consumed: true,
             completedAt: new Date(),
           },
         });

@@ -47,8 +47,8 @@ export const readDocumentTool = {
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire' or '/spells/207-faerie_fire.md'). If contains '/' or ends with '.md' — treated as path/title, auto-resolved to UUID."),
-      offset: z.number().optional().describe("Character offset for chunked reading (default 0 = full document)"),
-      limit: z.number().optional().describe("Max characters for chunked reading (omit for full document)"),
+      offset: z.number().optional().describe("Character offset for chunked reading (default 0)"),
+      limit: z.number().optional().describe("Max characters for chunked reading (default 5000 — pass offset to continue reading)"),
     })
   ),
   execute: async (args: { id: string; offset?: number; limit?: number }) => {
@@ -109,6 +109,26 @@ export const readDocumentTool = {
       };
     }
 
-    return { ...doc, toc, ...formulaData };
+    // Full read without a limit would dump the whole document into the
+    // context (large docs can be 20-25KB). Return the first slice by default;
+    // the model continues with offset when it needs more.
+    const offset = 0;
+    const limit = 5000;
+    const totalSize = doc.content.length;
+    const chunk = doc.content.slice(offset, limit);
+    return {
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      type: doc.type,
+      summary: doc.summary,
+      text: chunk,
+      offset,
+      length: chunk.length,
+      totalSize,
+      hasMore: chunk.length < totalSize,
+      toc,
+      ...formulaData,
+    };
   },
 };

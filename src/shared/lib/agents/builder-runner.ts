@@ -32,6 +32,7 @@ import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
+import { buildStudySummary } from "./study-summary";
 import { traceAgent } from "./trace";
 
 // ---------------------------------------------------------------------------
@@ -182,7 +183,7 @@ const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study th
 
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, get_chat_summary, plus your mode's read-only tools).
+2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, plus your mode's read-only tools). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
 4. Decide what must be created/updated and outline the reply.
 
@@ -196,10 +197,31 @@ STUDY: <what you studied> | RECORD: <what and where to write> | REPLY: <outline 
 const EXEC_SYSTEM_PROMPT = `
 
 ## Execution phase (Pass 2)
-Execute the plan strictly. Create/update documents as planned, then write your FINAL reply — this is the text the admin will see.`;
+Execute the plan strictly. The data you studied in the planning phase is provided above in the "## Study summary" block — do NOT re-read it. Do NOT call read_document / get_brain / get_gm_notes / get_player_sheet / get_scene_state / search_rules again for documents already listed in the summary. Use the tools to write (create/update documents, import, scan/replace links) or read a NEW document that is NOT in the summary — then re-read only that specific one. Create/update documents as planned, then write your FINAL reply — this is the text the admin will see.`;
 
 const EMPTY_RETRY_PROMPT =
   "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
+
+/** Read-only tools available in builder Pass 1 — their results may be carried
+ * into Pass 2 so the model does not re-read the same data. */
+const BUILDER_STUDY_TOOLS = new Set([
+  "read_document",
+  "get_brain",
+  "get_builder_guide",
+  "search_rules",
+  "glossary_overview",
+  "get_chat_summary",
+  "get_gm_notes",
+  "get_scene_state",
+  "get_player_sheet",
+  "get_players",
+  "resolve_glossary_link",
+  "explore_archive",
+  "list_uploaded_files",
+  "read_file",
+  "scan_wiki_links",
+  "validate_links",
+]);
 
 /** Pass 1 — read-only tools per mode: study and plan. No writes, no deletes. */
 function getPlanTools(builderMode: string): ToolSet {
@@ -209,7 +231,6 @@ function getPlanTools(builderMode: string): ToolSet {
     get_brain: gmGetBrainTool,
     read_document: readDocumentTool,
     get_builder_guide: getBuilderGuideTool,
-    get_chat_summary: getChatSummaryTool,
   };
 
   if (builderMode === "memory") {
@@ -396,6 +417,8 @@ async function buildContext(sessionId: string) {
   // Prepend summary as a system context message if it exists
   if (summary?.content) {
     dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
+  } else {
+    dynamic += `\n\n## Chat History Summary\n(нет данных — истории старее видимого окна нет)\n`;
   }
 
   // Full prompt for Pass 2 (execution).
@@ -498,7 +521,9 @@ export async function runBuilderAgent(
 
     // Read context limit from config (with auto-defaults per provider)
     const contextLimit = await getContextLimit();
-    const compressThreshold = contextLimit * 0.7; // start compressing at 70%
+    // Effective compression threshold: 70% of the limit, capped so compression
+    // actually engages on long runs (a plain 128K × 0.7 never fires).
+    const compressThreshold = Math.min(contextLimit * 0.7, 24_000);
 
     // --- Emit started: all clients see the bubble now ---
     emitStarted(sessionId);
@@ -558,12 +583,13 @@ export async function runBuilderAgent(
           },
           abortSignal: ac.signal,
           onStepFinish: async (event: StepResult<typeof tools>) => {
-            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string; args?: unknown }> | undefined;
+            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string; input?: unknown; args?: unknown }> | undefined;
             if (calls?.length) {
               recordActions(sessionId, calls);
               for (const call of calls) {
                 try {
-                  traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.args ?? {}) });
+                  // AI SDK v7 puts tool arguments in `input` (not `args`).
+                  traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.input ?? call.args ?? {}) });
                   emitStep(sessionId, call.toolName as string);
                 } catch (e) {
                   console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
@@ -580,16 +606,17 @@ export async function runBuilderAgent(
       phase: string = isStudy ? "study" : "chat"
     ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const attemptStart = performance.now();
         try {
           const r = await runGenerate(msgs, sys, toolSet, phase);
-          traceAgent({ chat: "builder", sessionId, phase, result: r.text?.slice(0, 4000), elapsedMs: 0 });
+          traceAgent({ chat: "builder", sessionId, phase, result: r.text?.slice(0, 4000), elapsedMs: Math.round(performance.now() - attemptStart) });
           console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string,unknown>).finishReason, steps: (r as unknown as {steps?: unknown[]}).steps?.length, usage: (r as unknown as Record<string,unknown>).usage })}`);
           return r;
         } catch (err: unknown) {
           lastError = err;
           const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${errMsg.slice(0, 200)}`);
-          traceAgent({ chat: "builder", sessionId, phase, error: errMsg, elapsedMs: 0 });
+          traceAgent({ chat: "builder", sessionId, phase, error: errMsg, elapsedMs: Math.round(performance.now() - attemptStart) });
 
           // Never retry user stop
           if (err instanceof Error && err.name === "AbortError") throw err;
@@ -623,9 +650,21 @@ export async function runBuilderAgent(
       const planText = planResult.text?.trim() ?? "";
       console.log(`[builder] PLAN done — session=${sessionId} textLen=${planText.length}`);
 
+      // Carry the data Pass 1 already read into Pass 2 so the model does not
+      // re-read the same documents.
+      const studySummary = planText
+        ? buildStudySummary(planResult.toolResults ?? [], BUILDER_STUDY_TOOLS)
+        : "";
+
       const execResult = await runWithRetries(
         planText
-          ? [...messages, { role: "user", content: `Выполни план: ${planText}` }]
+          ? [
+              ...messages,
+              {
+                role: "user",
+                content: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`,
+              },
+            ]
           : messages,
         ctx.system + EXEC_SYSTEM_PROMPT,
         tools,

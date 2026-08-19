@@ -5,10 +5,10 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export const gmGetBrainTool = {
   description:
-    "Read YOUR operating instructions (brain documents). The brain is small — usually an index file plus a few sections — and defines how to run this game, the character creation order, and message routing. Call get_brain() first to get the index and section list; optionally pass a topic to read one section in full. Do NOT search the glossary for instructions — they live here.",
+    "Read YOUR operating instructions (brain documents). The brain is small — usually an index file plus a few sections — and defines how to run this game, the character creation order, and message routing. Call get_brain() first to get the index and section list; optionally pass a topic to read one section (first 4000 chars + hasMore). Do NOT search the glossary for instructions — they live here.",
   inputSchema: zodSchema(
     z.object({
-      topic: z.string().optional().describe("Optional — a section title or topic to read in full"),
+      topic: z.string().optional().describe("Optional — a section title or topic to read in full (first 4000 chars; continue with read_document(id, offset))"),
     })
   ),
   execute: async (args: { topic?: string }) => {
@@ -28,7 +28,19 @@ export const gmGetBrainTool = {
         select: { id: true, title: true, type: true, content: true },
       });
       if (!doc) return { matches: [] };
-      return { matches: [{ id: doc.id, title: doc.title, type: doc.type, content: doc.content, source: "brain" }] };
+      const limit = 4000;
+      const text = doc.content.slice(0, limit);
+      return {
+        matches: [{
+          id: doc.id,
+          title: doc.title,
+          type: doc.type,
+          content: text,
+          totalSize: doc.content.length,
+          hasMore: text.length < doc.content.length,
+          source: "brain",
+        }],
+      };
     }
 
     const docs = await prisma.document.findMany({

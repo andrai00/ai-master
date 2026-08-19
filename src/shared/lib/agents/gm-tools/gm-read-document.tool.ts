@@ -6,12 +6,12 @@ import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 
 export const gmReadDocumentTool = {
-  description: "Read a document by ID. Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Optional offset/limit slice only the returned text (formulas are still computed on the full document). Omit offset/limit for a whole read.",
+  description: "Read a document by ID. Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID)"),
       offset: z.number().optional().describe("Character offset for reading a section (default 0)"),
-      limit: z.number().optional().describe("Max characters of text to return (omit for the whole document)"),
+      limit: z.number().optional().describe("Max characters of text to return (default 3000)"),
     })
   ),
   execute: async (args: { id: string; offset?: number; limit?: number }) => {
@@ -46,29 +46,27 @@ export const gmReadDocumentTool = {
       formulaErrors: errors.length > 0 ? errors : undefined,
     };
 
-    if (args.offset !== undefined || args.limit !== undefined) {
-      const offset = args.offset ?? 0;
-      const limit = args.limit ?? 5000;
-      const totalSize = doc.content.length;
-      const safeOffset = Math.min(offset, totalSize);
-      const text = doc.content.slice(safeOffset, safeOffset + limit);
-      return {
-        id: doc.id,
-        title: doc.title,
-        category: doc.category,
-        type: doc.type,
-        summary: doc.summary,
-        playerId: doc.playerId,
-        source: doc.category,
-        text,
-        offset: safeOffset,
-        length: text.length,
-        totalSize,
-        hasMore: safeOffset + text.length < totalSize,
-        ...formulaData,
-      };
-    }
-
-    return { ...doc, source: doc.category, ...formulaData };
+    // Always return a slice: default limit prevents dumping huge documents
+    // (e.g. a 25KB mechanics section) into the model context in one call.
+    const offset = args.offset ?? 0;
+    const limit = args.limit ?? 3000;
+    const totalSize = doc.content.length;
+    const safeOffset = Math.min(offset, totalSize);
+    const text = doc.content.slice(safeOffset, safeOffset + limit);
+    return {
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      type: doc.type,
+      summary: doc.summary,
+      playerId: doc.playerId,
+      source: doc.category,
+      text,
+      offset: safeOffset,
+      length: text.length,
+      totalSize,
+      hasMore: safeOffset + text.length < totalSize,
+      ...formulaData,
+    };
   },
 };

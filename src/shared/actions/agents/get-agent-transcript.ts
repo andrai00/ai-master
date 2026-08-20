@@ -2,6 +2,7 @@
 
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
+import { getActiveGame } from "@/src/shared/lib/db/active-game";
 
 export interface ITranscriptRow {
   id: string;
@@ -19,8 +20,9 @@ export interface ITranscriptRow {
 
 /**
  * Returns the agent's internal transcript for a session (tool calls, args,
- * results, partial text). Only available in debug mode (AGENT_DEBUG=1 env)
- * and for the admin role — exactly like the "internals" Cursor/Kilo show.
+ * results, partial text). Only available in debug mode (AGENT_DEBUG=1 env),
+ * for the admin role, and only for the CURRENT game's session — exactly like
+ * the "internals" Cursor/Kilo show.
  */
 export async function getAgentTranscriptAction(
   sessionId: string
@@ -32,6 +34,17 @@ export async function getAgentTranscriptAction(
   if (!session || session.role !== "admin") return { error: "errors.forbidden", enabled: false };
 
   const prisma = getPrisma();
+  const activeGame = await getActiveGame();
+
+  const s = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { masterId: true },
+  });
+  // Filter by the current game: never leak another game's internals.
+  if (!s || !activeGame || s.masterId !== activeGame.currentMasterId) {
+    return { error: "errors.noGame", enabled: true };
+  }
+
   const rows = await prisma.agentTranscript.findMany({
     where: { sessionId },
     orderBy: { seq: "asc" },

@@ -346,7 +346,7 @@ async function buildContext(sessionId: string) {
   const messages = await buildTranscript(sessionId, { markNew: (id) => newIds.has(id) });
 
   // Study journal: previously read documents (survives compression).
-  dynamic += await buildStudyJournalContext(sessionId);
+  dynamic += await buildStudyJournalContext(sessionId, activeGame?.currentMasterId ?? "");
 
   const system = systemPrompt + dynamic;
 

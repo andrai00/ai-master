@@ -381,7 +381,7 @@ async function buildGameContext(sessionId: string) {
   messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
   // Study journal: previously read documents (survives compression).
-  dynamic += await buildStudyJournalContext(sessionId);
+  dynamic += await buildStudyJournalContext(sessionId, activeGame?.currentMasterId ?? "");
 
   // Full system prompt (Pass) — the complete operating instructions.
   const system =
@@ -466,7 +466,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
-  dynamic += await buildStudyJournalContext(sessionId);
+  dynamic += await buildStudyJournalContext(sessionId, activeGame?.currentMasterId ?? "");
 
   const system =
     GM_PERSONAL_SYSTEM +

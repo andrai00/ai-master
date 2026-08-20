@@ -330,8 +330,12 @@ export async function buildTranscript(
 /**
  * Compact block of previously studied documents (DocumentRead journal) injected
  * into the context — "you already read X, changed after reading: yes/no".
+ * Documents are always filtered by the current game (masterId).
  */
-export async function buildStudyJournalContext(sessionId: string): Promise<string> {
+export async function buildStudyJournalContext(
+  sessionId: string,
+  masterId: string
+): Promise<string> {
   const prisma = getPrisma();
   const reads = await prisma.documentRead.findMany({
     where: { sessionId },
@@ -341,7 +345,7 @@ export async function buildStudyJournalContext(sessionId: string): Promise<strin
   if (reads.length === 0) return "";
 
   const docs = await prisma.document.findMany({
-    where: { id: { in: reads.map((r) => r.documentId) } },
+    where: { id: { in: reads.map((r) => r.documentId) }, masterId },
     select: { id: true, title: true, updatedAt: true },
   });
   const docById = new Map(docs.map((d) => [d.id, d]));

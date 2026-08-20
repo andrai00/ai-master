@@ -185,6 +185,14 @@ Examples of CORRECT links:
 - **Index documents**: every category should have an index document listing all its sub-documents with links.
 - **Brain documents**: link from brain docs to the glossary docs they reference.
 - **Templates**: templates that reference other sections should include links.
+- **Opportunistic, not a dedicated pass**: add links while writing a document, using ids/paths you already have from studying — do NOT run a separate "find every link" task. One link per reference is enough.
+- **Broken link is fine**: if a target was deleted or renamed, [[id|text]] renders as plain text — move on, fix later if it becomes relevant, never loop on it.
+- **Allowed targets by document kind:**
+  - brain → glossary + other brain docs
+  - glossary → glossary (cross-references between rules)
+  - game_hidden (memory mode) → glossary + game_visible + brain (rarely needed)
+  - game_visible (memory mode) → glossary ONLY — never brain or game_hidden (players open these)
+- **No loops when studying**: if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the id you already have.
 
 ### How to use links for navigation
 

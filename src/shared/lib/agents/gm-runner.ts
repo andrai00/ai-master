@@ -228,6 +228,7 @@ Procedure:
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one. Rolls labeled [твой бросок (GM)] are YOUR OWN — ignore them in the plan (they need no response).
 6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
+7. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
 
 ## Sources
 Every result is tagged with "source": glossary (rules — shareable), game_visible (that player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), players, chat_summary. Plan only what may be told; keep game_hidden facts hidden.
@@ -245,6 +246,7 @@ Procedure:
 4. Decide what must be written/updated, which rolls are needed, and outline the reply.
 5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one.
 6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
+7. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
 
 ## Sources
 Every result is tagged with "source": glossary (rules — shareable), game_visible (this player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), chat_summary. Plan only what may be told; keep game_hidden facts hidden.

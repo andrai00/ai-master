@@ -190,6 +190,7 @@ Procedure:
 2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, plus your mode's read-only tools). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it.
 3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
 4. Decide what must be created/updated and outline the reply.
+5. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
 
 Do NOT call any write/import tools in this phase. Return only the plan.`;
 

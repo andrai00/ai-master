@@ -559,6 +559,10 @@ export const ChatPanel = ({
         </div>
       );
     }
+    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
+    const runChain = runRows
+      ? [...new Set(runRows.filter((r) => r.kind === "tool-call").map((r) => r.toolName).filter((v): v is string => !!v))].join(" → ")
+      : "";
     return (
     <div
       key={msg.id}
@@ -626,10 +630,13 @@ export const ChatPanel = ({
               </Tooltip>
             )}
           </div>
-          {msg.runId && debugRows && debugRows[msg.runId] && (
+          {runRows && (
             <details className={styles.debugBlock}>
-              <summary>{t("chat.debugInternals")}</summary>
-              {debugRows[msg.runId].map((row) => (
+              <summary>
+                {t("chat.debugInternals")}
+                {runChain ? <span className={styles.debugChain}> · {runChain}</span> : null}
+              </summary>
+              {runRows.map((row) => (
                 <div key={row.id} className={styles.debugRow}>
                   <span className={styles.debugKind}>{row.kind}{row.status === "aborted" ? " (aborted)" : ""}</span>
                   {row.toolName && <code>{row.toolName}</code>}

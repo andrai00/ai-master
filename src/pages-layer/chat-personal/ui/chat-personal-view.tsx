@@ -12,6 +12,8 @@ import { usePersonalMessages } from "@/src/shared/api/game-master/use-personal-m
 import { useSendPersonalMessage } from "@/src/shared/api/game-master/use-send-personal-message";
 import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delete-personal-message";
 import { useClearPersonalChat } from "@/src/shared/api/game-master/useClearPersonalChat";
+import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
 import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
 import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/stop-master-response";
@@ -57,7 +59,18 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   }, [sessionId, queryClient]);
 
   const { data: msgData } = usePersonalMessages(sessionId, page);
+  const { data: transcriptData } = useAgentTranscript(sessionId ?? undefined);
   const sendMutation = useSendPersonalMessage();
+
+  const debugRows = useMemo(() => {
+    if (!transcriptData || !("rows" in transcriptData)) return undefined;
+    const map: Record<string, ITranscriptRow[]> = {};
+    for (const r of transcriptData.rows) {
+      if (!r.runId) continue;
+      (map[r.runId] ??= []).push(r);
+    }
+    return map;
+  }, [transcriptData]);
   const deleteMutation = useDeletePersonalMessage();
   const clearMutation = useClearPersonalChat();
   const shareMutation = useShareMessage();
@@ -123,6 +136,8 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
       role: m.role,
       text: m.content,
       summarized: m.summarized,
+      plan: m.plan,
+      runId: m.runId ?? undefined,
       avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     });
     const msgList: IPersonalMessage[] = msgData && "messages" in msgData ? msgData.messages : [];
@@ -258,6 +273,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId}
+        debugRows={debugRows}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}
         onStepsDone={handleStepsDone}

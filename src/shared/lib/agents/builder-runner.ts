@@ -1,4 +1,4 @@
-import { generateText, isStepCount, isLoopFinished, type StepResult, type ToolSet } from "ai";
+import { streamText, isStepCount, isLoopFinished, type StepResult, type ToolSet, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
@@ -19,7 +19,7 @@ import { builderGetSceneStateTool } from "./tools/get-scene-state.tool";
 import { builderGetPlayerSheetTool } from "./tools/get-player-sheet.tool";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
-  emitStopping, emitStopped,
+  emitStopping, emitStopped, emitText,
 } from "./step-tracker";
 import { resetCancellation, throwIfCancelled } from "./parse-cancel";
 import { getBuilderGuideTool } from "./tools/get-builder-guide.tool";
@@ -30,10 +30,13 @@ import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
+import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
-import { buildStudySummary } from "./study-summary";
 import { traceAgent } from "./trace";
+import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
+import { scheduleSummarize } from "./chat-summarizer";
+import { PLAN_MODE_SYSTEM, getPlanTools } from "./plan-mode";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -84,6 +87,12 @@ function loadSystemPrompt(): string {
   return `You are the Builder — the agent that sets up an AI Game Master for tabletop RPGs.
 
 Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
+
+## How to work — one pass
+- Study first: read/search what you need (read_document, search_rules, get_brain, get_gm_notes, get_player_sheet, get_scene_state, explore_archive).
+- Then act with write/import tools. Then write the FINAL reply — the text the admin sees.
+- Never re-read a document you have already read in this conversation — it is in your context. Re-read only something genuinely new or changed.
+- No planning report: tools and reads are invisible. Your reply is only the result.
 
 ## Who you are
 You configure the AI Master that will run games. Read rule files → build glossary (rules) → write brain (instructions for AI Master). You don't run the game — you prepare the AI Master.
@@ -181,91 +190,13 @@ async function createProvider() {
 // Tools
 // ---------------------------------------------------------------------------
 
-const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study the admin's request using ONLY the read-only tools provided — you cannot create, update, delete, import or reply yet.
-
-Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
-
-Procedure:
-1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, plus your mode's read-only tools). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it.
-3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific existing rule, mechanic, item, class or duplicate check — do NOT search the glossary proactively "just in case". Read the brain first: it tells you where things live and when a lookup is needed. Never dump or skim the glossary.
-4. Decide what must be created/updated and outline the reply.
-5. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
-
-Do NOT call any write/import tools in this phase. Return only the plan.`;
-
-const PLAN_SYSTEM_PROMPT = `
-## Planning phase (Pass 1)
-You are in the PLANNING phase. Study the situation (read-only tools only). Do NOT create or update anything yet. Return a short plan (up to ~400 words) in this format:
-STUDY: <what you studied> | RECORD: <what and where to write> | REPLY: <outline of the reply>`;
-
-const EXEC_SYSTEM_PROMPT = `
-
-## Execution phase (Pass 2)
-Execute the plan strictly. The data you studied in the planning phase is provided above in the "## Study summary" block — do NOT re-read it. Do NOT call read_document / get_brain / get_gm_notes / get_player_sheet / get_scene_state / search_rules again for documents already listed in the summary. Use the tools to write (create/update documents, import, scan/replace links) or read a NEW document that is NOT in the summary — then re-read only that specific one. Create/update documents as planned, then write your FINAL reply — this is the text the admin will see.`;
-
-const EMPTY_RETRY_PROMPT =
-  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
-
-/** Read-only tools available in builder Pass 1 — their results may be carried
- * into Pass 2 so the model does not re-read the same data. */
-const BUILDER_STUDY_TOOLS = new Set([
-  "read_document",
-  "get_brain",
-  "get_builder_guide",
-  "search_rules",
-  "glossary_overview",
-  "get_chat_summary",
-  "get_gm_notes",
-  "get_scene_state",
-  "get_player_sheet",
-  "get_players",
-  "resolve_glossary_link",
-  "explore_archive",
-  "list_uploaded_files",
-  "read_file",
-  "scan_wiki_links",
-  "validate_links",
-]);
-
-/** Pass 1 — read-only tools per mode: study and plan. No writes, no deletes. */
-function getPlanTools(builderMode: string): ToolSet {
-  const shared: ToolSet = {
-    search_rules: gmSearchRulesTool,
-    glossary_overview: gmGlossaryOverviewTool,
-    get_brain: gmGetBrainTool,
-    read_document: readDocumentTool,
-    get_builder_guide: getBuilderGuideTool,
-  };
-
-  if (builderMode === "memory") {
-    return {
-      ...shared,
-      get_gm_notes: gmGetGmNotesTool,
-      get_scene_state: builderGetSceneStateTool,
-      get_player_sheet: builderGetPlayerSheetTool,
-      get_players: gmGetPlayersTool,
-      resolve_glossary_link: gmResolveGlossaryLinkTool,
-    };
-  }
-
-  // brain mode
-  return {
-    ...shared,
-    explore_archive: exploreArchiveTool,
-    list_uploaded_files: listUploadedFilesTool,
-    read_file: readFileTool,
-    scan_wiki_links: scanWikiLinksTool,
-    validate_links: validateLinksTool,
-  };
-}
-
 function getTools(builderMode: string): ToolSet {
   const shared = {
     search_rules: gmSearchRulesTool,
     glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     read_document: readDocumentTool,
+    list_all_documents: listAllDocumentsTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
     get_builder_guide: getBuilderGuideTool,
@@ -306,7 +237,7 @@ function getTools(builderMode: string): ToolSet {
 /**
  * Builds a compact brain summary for the system prompt: the index file
  * content (if present) plus the list of sections with their types and
- * summaries. Preloaded into the context so the planning phase knows the brain
+ * summaries. Preloaded into the context so the model knows the brain
  * structure without a tool call; get_brain(topic) reads a section in full.
  */
 async function buildBrainContext(
@@ -360,8 +291,6 @@ async function buildContext(sessionId: string) {
       : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
-  // Dynamic context shared by both the full system prompt (Pass 2) and the
-  // short planning prompt (Pass 1).
   let dynamic = "";
 
   if (activeGame) {
@@ -375,8 +304,6 @@ async function buildContext(sessionId: string) {
   }
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  // Brain structure is preloaded into the prompt so Pass 1 knows the brain
-  // layout immediately; get_brain(topic) reads a section in full.
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
   }
@@ -386,25 +313,28 @@ async function buildContext(sessionId: string) {
     where: { masterId: activeGame?.currentMasterId ?? "" },
     select: { content: true },
   });
+  if (summary?.content) {
+    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
+  } else {
+    dynamic += `\n\n## Chat History Summary\n(нет данных — истории старее видимого окна нет)\n`;
+  }
 
-  // Fetch only unsummarized messages (summarized ones are replaced by the summary)
-  const recent = await prisma.message.findMany({
+  // Detect NEW (unanswered) admin messages: newer than the last builder reply.
+  const msgMeta = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: { role: true, content: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, role: true, createdAt: true },
   });
-  // desc → chronological (oldest first) for the model.
-  recent.reverse();
-
-  // Admin messages newer than the last builder reply are NEW (unanswered).
   let lastBuilderAt: Date | null = null;
-  for (const m of recent) {
+  for (const m of msgMeta) {
     if (m.role === "builder" && (!lastBuilderAt || m.createdAt > lastBuilderAt)) lastBuilderAt = m.createdAt;
   }
-  const newCount = recent.filter(
-    (m) => m.role === "admin" && (!lastBuilderAt || m.createdAt > lastBuilderAt)
-  ).length;
+  const newIds = new Set(
+    msgMeta
+      .filter((m) => m.role === "admin" && (!lastBuilderAt || m.createdAt > lastBuilderAt))
+      .map((m) => m.id)
+  );
+  const newCount = newIds.size;
 
   if (newCount > 0) {
     dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the admin that you have NOT answered yet. The conversation below is in chronological order: messages marked 🆕 are NEW and are what you must answer now; messages without 🆕 are PAST history (context only — do not re-respond to them).`;
@@ -412,26 +342,21 @@ async function buildContext(sessionId: string) {
     dynamic += `\n\nAll messages below are PAST history (context only). There is nothing new to answer.`;
   }
 
-  const messages = recent.map((m) => {
-    const role = (m.role === "admin" ? "user" : "assistant") as "user" | "assistant";
-    const isNew = role === "user" && (!lastBuilderAt || m.createdAt > lastBuilderAt);
-    const content = role === "user" ? `${isNew ? "🆕 " : ""}${m.content}` : m.content;
-    return { role, content };
-  });
+  // Full transcript: chat messages + per-run tool calls/results.
+  const messages = await buildTranscript(sessionId, { markNew: (id) => newIds.has(id) });
 
-  // Prepend summary as a system context message if it exists
-  if (summary?.content) {
-    dynamic += `\n\n## Chat History Summary\n${summary.content}\n`;
-  } else {
-    dynamic += `\n\n## Chat History Summary\n(нет данных — истории старее видимого окна нет)\n`;
-  }
+  // Study journal: previously read documents (survives compression).
+  dynamic += await buildStudyJournalContext(sessionId);
 
-  // Full prompt for Pass 2 (execution).
   const system = systemPrompt + dynamic;
-  // Short prompt for Pass 1 (planning) — study-only, no write/import rules.
-  const planSystem = BUILDER_PLAN_SYSTEM + dynamic;
 
-  return { messages, system, planSystem, builderMode };
+  return {
+    messages,
+    system,
+    builderMode,
+    masterId: activeGame?.currentMasterId ?? "",
+    newUserMessageIds: [...newIds],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -481,10 +406,25 @@ function classifyError(err: unknown): string {
   return "errors.unknownError";
 }
 
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof Error && err.name === "AbortError") ||
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err as Error | null)?.message === "errors.cancelled"
+  );
+}
+
+type TStreamRes = ReturnType<typeof streamText<ToolSet>>;
+type TStreamSteps = Awaited<TStreamRes["steps"]>;
+
+const EMPTY_RETRY_PROMPT =
+  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
+
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
-  fileIds: string[] = []
+  fileIds: string[] = [],
+  opts: { planMode?: boolean } = {}
 ): Promise<void> {
   const ac = startProcessing(sessionId);
   if (!ac) return; // already processing
@@ -493,10 +433,30 @@ export async function runBuilderAgent(
   clearActions(sessionId);
   resetCancellation();
 
+  let runId = "";
+  let userMessageIds: string[] = [];
+  const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+  const isPlan = opts.planMode === true;
+
   try {
     // --- Phase: prepare ---
     const ctx = await buildContext(sessionId);
     throwIfCancelled();
+    userMessageIds = ctx.newUserMessageIds;
+
+    if (isPlan) {
+      ctx.system += PLAN_MODE_SYSTEM;
+    } else {
+      // Agent mode: inject the latest plan so it gets executed.
+      const lastPlan = await getPrisma().message.findFirst({
+        where: { sessionId, plan: true },
+        orderBy: { createdAt: "desc" },
+        select: { content: true },
+      });
+      if (lastPlan?.content) {
+        ctx.system += `\n\n## Plan to execute\n${lastPlan.content}\n\nExecute this plan now.`;
+      }
+    }
 
     if (fileIds.length === 0) {
       ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Answer the user's question as a normal assistant.";
@@ -516,10 +476,12 @@ export async function runBuilderAgent(
       fileHint = `\n\n[Attached files: ${names}. Use list_uploaded_files() to see them and explore_archive() to view directory structure.]`;
     }
 
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = [
-      ...ctx.messages,
-      { role: "user", content: userMessage + fileHint },
-    ];
+    // The user's message is already in the transcript (Message table) — do NOT
+    // append it again. For imports, append only the file hint.
+    const messages: ModelMessage[] = [...ctx.messages];
+    if (fileIds.length > 0) {
+      messages.push({ role: "user", content: fileHint.trim() });
+    }
 
     const model = await createProvider();
     throwIfCancelled();
@@ -533,155 +495,138 @@ export async function runBuilderAgent(
     // --- Emit started: all clients see the bubble now ---
     emitStarted(sessionId);
     const isStudy = fileIds.length > 0;
-    console.log(`[builder] start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length} stepLimit=${isStudy ? "none" : "80"}`);
+    console.log(`[builder] start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length}`);
 
-    const tools = getTools(ctx.builderMode);
-    const planTools = getPlanTools(ctx.builderMode);
+    const tools = isPlan ? getPlanTools("builder") : getTools(ctx.builderMode);
+    runId = createRunId();
 
     // Retry loop: up to 5 attempts for transient errors
     const MAX_RETRIES = 5;
-    let result: Awaited<ReturnType<typeof generateText<typeof tools>>> | undefined;
-    let lastError: unknown;
 
-    const runGenerate = (
-      msgs: Array<{ role: "user" | "assistant"; content: string }>,
+    const runGenerate = async (
+      msgs: ModelMessage[],
       sys: string = ctx.system,
       toolSet: ToolSet = tools,
       phase: string = isStudy ? "study" : "chat"
-    ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> =>
-      generateText({
+    ): Promise<{ text: string; steps: TStreamSteps }> => {
+      const result = streamText({
         model,
         system: sys,
         messages: msgs,
         tools: toolSet,
-        stopWhen: fileIds.length > 0 ? isLoopFinished() : isStepCount(100),
-          prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
-            // Check abort before doing anything
-            if (ac.signal.aborted) {
-              console.log(`[builder] ABORT SIGNAL TRIGGERED in prepareStep — session=${sessionId}`);
-              return {};
-            }
-
-            const stepIdx = (allSteps ?? []).length;
-            // Diagnostic: log the exact prompt the model sees before this step.
-            traceAgent({ chat: "builder", sessionId, phase, stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
-
-            // Periodic status log every 10 steps
-            if (isStudy || stepIdx % 10 === 0) {
-              const totalMsgs = allMsgs.length;
-              const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-              console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} mode=${isStudy ? "STUDY" : "CHAT"}`);
-            }
-
-            // --- THRESHOLD-BASED COMPRESSION (shared module) ---
-            const compressed = compressMessages({
-              messages: allMsgs,
-              steps: allSteps,
-              threshold: compressThreshold,
-            });
-            if (compressed) {
-              const estimated = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0) / 4;
-              console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.messages.length} msgs, ~${Math.round(estimated/1000)}K→~${Math.round(estimated/compressed.messages.length/1000)}K tokens`);
-              return { messages: compressed.messages };
-            }
+        stopWhen: (input) =>
+          isLoopFinished()(input) || isStepCount(100)(input),
+        prepareStep: ({ messages: allMsgs, steps: allSteps }) => {
+          // Check abort before doing anything
+          if (ac.signal.aborted) {
             return {};
-          },
-          abortSignal: ac.signal,
-          onStepFinish: async (event: StepResult<typeof tools>) => {
-            const calls = (event as Record<string,unknown>).toolCalls as Array<{ toolName?: string; input?: unknown; args?: unknown }> | undefined;
-            if (calls?.length) {
-              recordActions(sessionId, calls);
-              for (const call of calls) {
-                try {
-                  // AI SDK v7 puts tool arguments in `input` (not `args`).
-                  traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.input ?? call.args ?? {}) });
-                  emitStep(sessionId, call.toolName as string);
-                } catch (e) {
-                  console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
-                }
+          }
+
+          const stepIdx = (allSteps ?? []).length;
+          // Diagnostic: log the exact prompt the model sees before this step.
+          traceAgent({ chat: "builder", sessionId, phase, stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
+
+          // Periodic status log every 10 steps
+          if (isStudy || stepIdx % 10 === 0) {
+            const totalMsgs = allMsgs.length;
+            const totalChars = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+            console.log(`[builder] step=${stepIdx} msgs=${totalMsgs} chars=${totalChars} mode=${isStudy ? "STUDY" : "CHAT"}`);
+          }
+
+          // --- THRESHOLD-BASED COMPRESSION (shared module) ---
+          const compressed = compressMessages({
+            messages: allMsgs,
+            steps: allSteps,
+            threshold: compressThreshold,
+          });
+          if (compressed) {
+            const estimated = allMsgs.reduce((s, m) => s + (typeof m.content === "string" ? m.content.length : 0), 0) / 4;
+            console.log(`[builder] Context compressed: ${allMsgs.length}→${compressed.messages.length} msgs, ~${Math.round(estimated/1000)}K→~${Math.round(estimated/compressed.messages.length/1000)}K tokens`);
+            return { messages: compressed.messages };
+          }
+          return {};
+        },
+        abortSignal: ac.signal,
+        onStepFinish: async (event: StepResult<typeof tools>) => {
+          const calls = (event as Record<string, unknown>).toolCalls as Array<Record<string, unknown>> | undefined;
+          if (calls?.length) {
+            liveSteps.push({ toolCalls: calls });
+            recordActions(sessionId, calls as Array<{ toolName?: string }>);
+            for (const call of calls) {
+              try {
+                // AI SDK v7 puts tool arguments in `input` (not `args`).
+                traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
+                emitStep(sessionId, call.toolName as string);
+              } catch (e) {
+                console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
               }
             }
-          },
+          }
+        },
+        onChunk: ({ chunk }) => {
+          if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
+        },
       });
+      const text = await result.text;
+      const steps = await result.steps;
+      return { text, steps };
+    };
 
     const runWithRetries = async (
-      msgs: Array<{ role: "user" | "assistant"; content: string }>,
+      msgs: ModelMessage[],
       sys: string = ctx.system,
       toolSet: ToolSet = tools,
       phase: string = isStudy ? "study" : "chat"
-    ): Promise<Awaited<ReturnType<typeof generateText<typeof tools>>>> => {
+    ): Promise<{ text: string; steps: TStreamSteps }> => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         const attemptStart = performance.now();
         try {
           const r = await runGenerate(msgs, sys, toolSet, phase);
           traceAgent({ chat: "builder", sessionId, phase, result: r.text?.slice(0, 4000), elapsedMs: Math.round(performance.now() - attemptStart) });
-          console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string,unknown>).finishReason, steps: (r as unknown as {steps?: unknown[]}).steps?.length, usage: (r as unknown as Record<string,unknown>).usage })}`);
+          console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string, unknown>).finishReason, steps: (r as unknown as { steps?: unknown[] }).steps?.length, usage: (r as unknown as Record<string, unknown>).usage })}`);
           return r;
         } catch (err: unknown) {
-          lastError = err;
           const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${errMsg.slice(0, 200)}`);
           traceAgent({ chat: "builder", sessionId, phase, error: errMsg, elapsedMs: Math.round(performance.now() - attemptStart) });
 
-          // Never retry user stop
-          if (err instanceof Error && err.name === "AbortError") throw err;
-          if (err instanceof DOMException && err.name === "AbortError") throw err;
-
-          // Also check our cancellation flag
-          if ((err as Error)?.message === "errors.cancelled") throw err;
-
-          // Don't retry config errors
-          const msg = err instanceof Error ? err.message : "";
-          if (msg.includes("not configured")) throw err;
+          // Never retry user stop or cancellation
+          if (isAbortError(err)) throw err;
+          if (errMsg.includes("not configured")) throw err;
 
           // Last attempt — give up
           if (attempt === MAX_RETRIES) throw err;
 
           // Emit retry step to SSE
           emitStep(sessionId, "retry", `${attempt + 1}/${MAX_RETRIES}`);
-          console.warn(`[builder] Attempt ${attempt} failed, retrying in ${2 ** (attempt - 1)}s: ${msg}`);
-          await new Promise((r) => setTimeout(r, 2 ** (attempt - 1) * 1000));
+          console.warn(`[builder] Attempt ${attempt} failed, retrying in 1.5s: ${errMsg}`);
+          await new Promise((r) => setTimeout(r, 1500));
         }
       }
-      throw lastError; // should never happen
+      throw new Error("errors.unknownError"); // should never happen
     };
 
+    // --- Single agentic loop: study → act → reply ---
     let builderText: string | null = null;
+    let resultSteps: TStreamSteps = [];
 
-    if (!isStudy) {
-      // CHAT mode: Plan → Execute two passes. Pass 1 uses the SHORT planning
-      // prompt and read-only plan tools; Pass 2 gets the full prompt.
-      const planResult = await runWithRetries(messages, ctx.planSystem + PLAN_SYSTEM_PROMPT, planTools, "plan");
-      const planText = planResult.text?.trim() ?? "";
-      console.log(`[builder] PLAN done — session=${sessionId} textLen=${planText.length}`);
-
-      // Carry the data Pass 1 already read into Pass 2 so the model does not
-      // re-read the same documents.
-      const studySummary = planText
-        ? buildStudySummary(planResult.toolResults ?? [], BUILDER_STUDY_TOOLS)
-        : "";
-
-      const execResult = await runWithRetries(
-        planText
-          ? [
-              ...messages,
-              {
-                role: "user",
-                content: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`,
-              },
-            ]
-          : messages,
-        ctx.system + EXEC_SYSTEM_PROMPT,
-        tools,
-        "exec"
-      );
-      builderText = execResult.text?.trim() ?? null;
-      console.log(`[builder] EXEC done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
-    } else {
-      // IMPORT/STUDY mode: single long autonomous pass (import logic untouched).
-      result = await runWithRetries(messages, ctx.system, tools, "study");
+    try {
+      const result = await runWithRetries(messages, ctx.system, tools, isStudy ? "study" : "chat");
+      resultSteps = result.steps;
       builderText = result.text?.trim() ?? null;
-      console.log(`[builder] STUDY done — session=${sessionId} textLen=${builderText?.length ?? 0}`);
+      console.log(`[builder] DONE — session=${sessionId} textLen=${builderText?.length ?? 0}`);
+    } catch (err) {
+      if (isAbortError(err)) {
+        // Stop: persist what managed to run (aborted, debug-only), start fresh next turn.
+        try {
+          await persistRun({ sessionId, runId, steps: liveSteps, status: "aborted" });
+        } catch (e) {
+          console.error(`[builder] persist aborted failed — ${e instanceof Error ? e.message : String(e)}`);
+        }
+        emitStopped(sessionId);
+        return;
+      }
+      throw err;
     }
 
     // The model ended without a reply — re-run once forcing it to deliver.
@@ -691,6 +636,7 @@ export async function runBuilderAgent(
         ...messages,
         { role: "user", content: EMPTY_RETRY_PROMPT },
       ], ctx.system, tools, "retry");
+      resultSteps = retryResult.steps;
       builderText = retryResult.text?.trim() ?? null;
     }
 
@@ -699,49 +645,36 @@ export async function runBuilderAgent(
       builderText = "Не удалось сформировать ответ. Попробуй ещё раз.";
     }
 
-    if (builderText) {
-      const prisma = getPrisma();
-      emitStep(sessionId, "final");
-      await prisma.message.create({
-        data: {
-          sessionId,
-          senderId: (await getSession())?.userId ?? "",
-          role: "builder",
-          content: builderText,
-        },
-      });
-    }
-
-    // Auto-summarize if 20+ unsummarized with text content
+    // Save the final message + full transcript atomically.
     const prisma = getPrisma();
-    const allUnsummarized = await prisma.message.findMany({
-      where: { sessionId, summarized: false },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, role: true, content: true },
+    emitStep(sessionId, "final");
+    const created = await prisma.message.create({
+      data: {
+        sessionId,
+        senderId: (await getSession())?.userId ?? "",
+        role: "builder",
+        content: builderText,
+        plan: isPlan,
+      },
     });
-    const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
-    if (withText.length >= 20) {
-      const toSummarize = withText.slice(0, 20);
-      await prisma.message.updateMany({
-        where: { id: { in: toSummarize.map(m => m.id) } },
-        data: { summarized: true },
-      });
-      emitStep(sessionId, "summarize");
-    }
+
+    await persistRun({
+      sessionId,
+      runId,
+      steps: resultSteps,
+      finalMessageId: created.id,
+      finalText: builderText,
+      userMessageIds,
+    });
+
+    // Background auto-summarization when the session grows.
+    scheduleSummarize(ctx.masterId, sessionId);
 
     emitDone(sessionId);
 
   } catch (err: unknown) {
-    // Check if aborted
-    if (err instanceof Error && err.name === "AbortError") {
-      console.log(`[builder] ABORTED — session=${sessionId} name=${err.name} message=${err.message}`);
-      emitStopped(sessionId);
-      return;
-    }
-
-    // Check if cancelled by our flag
-    if (err instanceof DOMException && err.name === "AbortError") {
-      console.log(`[builder] DOM ABORTED — session=${sessionId}`);
+    if (isAbortError(err)) {
+      console.log(`[builder] ABORTED — session=${sessionId} name=${err instanceof Error ? err.name : "?"} message=${err instanceof Error ? err.message : String(err)}`);
       emitStopped(sessionId);
       return;
     }

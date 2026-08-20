@@ -43,6 +43,7 @@ import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -164,6 +165,8 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
+  plan?: boolean;
+  runId?: string;
   attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
   isRollEntry?: boolean;
@@ -219,6 +222,8 @@ interface IChatPanelProps {
   rollStrip?: ReactNode;
   /** Sender name shown on the typing bubble (defaults to Builder label) */
   typingSender?: string;
+  /** Debug mode (AGENT_DEBUG=1): per-run agent transcript rows for the internals block */
+  debugRows?: Record<string, ITranscriptRow[]>;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -314,7 +319,7 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
-  inputPrefix, footerAction, rollStrip, typingSender,
+  inputPrefix, footerAction, rollStrip, typingSender, debugRows,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -328,6 +333,7 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [streamedText, setStreamedText] = useState("");
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -356,6 +362,7 @@ export const ChatPanel = ({
       switch (data.type) {
         case "started":
           started = true;
+          setStreamedText("");
           onStepsStart?.();
           break;
         case "step": {
@@ -366,6 +373,9 @@ export const ChatPanel = ({
           queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
           break;
         }
+        case "text":
+          if (data.detail) setStreamedText((prev) => prev + data.detail);
+          break;
         case "stopping":
           setLiveStep(null);
           break;
@@ -373,9 +383,11 @@ export const ChatPanel = ({
         case "stopped":
           started = false;
           setLiveStep(null);
+          setStreamedText("");
           onStepsDone?.();
           break;
         case "error":
+          setStreamedText("");
           onStepsError?.(data.message ?? t("errors.unknownError"));
           break;
       }
@@ -559,7 +571,10 @@ export const ChatPanel = ({
         className={styles.msgAvatar}
       />
       <div className={styles.msgContent}>
-        <div className={styles.sender}>{msg.sender}</div>
+        <div className={styles.sender}>
+          {msg.sender}
+          {msg.plan && <Tag color="gold" style={{ marginLeft: 8 }}>{t("chat.planTag")}</Tag>}
+        </div>
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}
@@ -611,6 +626,20 @@ export const ChatPanel = ({
               </Tooltip>
             )}
           </div>
+          {msg.runId && debugRows && debugRows[msg.runId] && (
+            <details className={styles.debugBlock}>
+              <summary>{t("chat.debugInternals")}</summary>
+              {debugRows[msg.runId].map((row) => (
+                <div key={row.id} className={styles.debugRow}>
+                  <span className={styles.debugKind}>{row.kind}{row.status === "aborted" ? " (aborted)" : ""}</span>
+                  {row.toolName && <code>{row.toolName}</code>}
+                  {row.args && <pre>{shortenDebug(row.args)}</pre>}
+                  {row.result && <pre>{shortenDebug(row.result)}</pre>}
+                  {row.content && <pre>{shortenDebug(row.content)}</pre>}
+                </div>
+              ))}
+            </details>
+          )}
         </div>
       </div>
     </div>
@@ -698,6 +727,8 @@ export const ChatPanel = ({
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
                   {stopping ? (
                     <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>
+                  ) : streamedText ? (
+                    <div className={styles.streamText}>{streamedText}</div>
                   ) : liveStep ? (
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}
@@ -879,4 +910,9 @@ function truncateFileName(name: string): string {
   const base = name.slice(0, dot);
   if (name.length <= 28) return name;
   return base.slice(0, 20) + "…" + ext;
+}
+
+/** Truncate long debug payloads for the internals block */
+function shortenDebug(value: string, max = 600): string {
+  return value.length > max ? value.slice(0, max) + "…" : value;
 }

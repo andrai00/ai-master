@@ -100,9 +100,51 @@ model Message {
   summarized    Boolean  @default(false)
   hasFiles      Boolean  @default(false)
   attachedFiles String   @default("[]")  // JSON: [{fileId: string, filename: string}]
+  plan          Boolean  @default(false) // plan-mode message ("План" card)
+  runId         String?  // id of the agent run this message belongs to
   createdAt     DateTime @default(now())
   session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, runId])
+}
+
+// Full per-run transcript of an agent: user text, tool calls, tool results,
+// and final text — reconstructed into the model context on each turn (like
+// Claude Code's JSONL session transcripts). Only for agent internals; the
+// chat UI shows Message rows only.
+model AgentTranscript {
+  id         String   @id @default(uuid())
+  sessionId  String
+  runId      String              // groups all rows of one run
+  seq        Int                 // order of rows within the session
+  kind       String              // "user" | "text" | "tool-call" | "tool-result"
+  toolName   String?             // tool-call only
+  toolCallId String?             // pairs tool-call <-> tool-result
+  args       String?             // tool-call input (JSON)
+  result     String?             // tool-result output
+  content    String?             // user / text content
+  messageId  String?             // link to Message for user/final rows
+  status     String   @default("done") // "done" | "aborted"
+  summarized Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([sessionId, seq])
+  @@index([sessionId, runId])
+  @@index([sessionId, summarized])
+}
+
+// Journal of documents the agent already read in a session — a compact hint
+// injected into the context after compression ("you read X, changed: yes/no").
+// It is NOT the storage of studied content (that lives in AgentTranscript).
+model DocumentRead {
+  id         String   @id @default(uuid())
+  sessionId  String
+  documentId String
+  readAt     DateTime @default(now())
+
+  @@unique([sessionId, documentId])
+  @@index([sessionId])
 }
 
 model UploadedFile {

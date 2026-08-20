@@ -8,7 +8,8 @@ import { runBuilderAgent } from "@/src/shared/lib/agents/builder-runner";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 
 export async function requestBuilderResponseAction(
-  sessionId: string
+  sessionId: string,
+  planMode = false
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
@@ -50,9 +51,9 @@ export async function requestBuilderResponseAction(
 
   broadcastGameEvent("gm_response_requested", { sessionId });
 
-  enqueueBuilderJob(sessionId, content, fileIds).catch((err) => {
+  enqueueBuilderJob(sessionId, content, fileIds, planMode).catch((err) => {
     console.error("[builder] Failed to enqueue:", err);
-    runBuilderAgent(sessionId, content, fileIds).catch((e) => {
+    runBuilderAgent(sessionId, content, fileIds, { planMode }).catch((e) => {
       console.error("[builder] Background processing crashed:", e);
     });
   });

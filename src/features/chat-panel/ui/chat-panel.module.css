@@ -937,3 +937,56 @@
   background: var(--bg-hover);
   color: var(--text-secondary);
 }
+
+.streamText {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  opacity: 0.8;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debugBlock {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--bg-elevated, rgba(0,0,0,0.03));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.debugBlock summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.debugRow {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.debugRow code {
+  font-size: 11px;
+}
+
+.debugRow pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 10px;
+  opacity: 0.8;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.debugKind {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  opacity: 0.7;
+}

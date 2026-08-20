@@ -34,7 +34,7 @@ export const gmSearchRulesTool = {
     const [docs, total] = await Promise.all([
       prisma.document.findMany({
         where,
-        select: { id: true, title: true, type: true, summary: true, content: true },
+        select: { id: true, title: true, type: true, summary: true, content: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },
         take,
       }),
@@ -49,7 +49,7 @@ export const gmSearchRulesTool = {
         const end = Math.min(d.content.length, idx + args.query.length + 60);
         snippet = (start > 0 ? "..." : "") + d.content.slice(start, end) + (end < d.content.length ? "..." : "");
       }
-      return { id: d.id, title: d.title, type: d.type, summary: d.summary, snippet: snippet || null, source: "glossary" };
+      return { id: d.id, title: d.title, type: d.type, summary: d.summary, snippet: snippet || null, updatedAt: d.updatedAt, source: "glossary" };
     });
 
     return { total, returned: results.length, docs: results };

@@ -1,6 +1,6 @@
 "use client";
 
-export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped";
+export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped" | "text";
 
 export interface IRealtimeStepEvent {
   sessionId: string;
@@ -52,6 +52,9 @@ export function emitStep(sessionId: string, event: IRealtimeStepEvent): void {
       break;
     case "step":
       sessionState.set(sessionId, { processing: true, tool: event.tool, detail: event.detail });
+      break;
+    case "text":
+      sessionState.set(sessionId, { processing: true, detail: event.detail });
       break;
     case "stopping":
       sessionState.set(sessionId, { processing: true });

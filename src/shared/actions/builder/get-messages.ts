@@ -13,6 +13,8 @@ export interface IBuilderMessage {
   summarized: boolean;
   hasFiles: boolean;
   attachedFiles: { fileId: string; filename: string }[];
+  runId?: string | null;
+  plan?: boolean;
   createdAt: Date;
 }
 
@@ -48,6 +50,8 @@ export async function getBuilderMessagesAction(
         summarized: true,
         hasFiles: true,
         attachedFiles: true,
+        runId: true,
+        plan: true,
         createdAt: true,
       },
     }),

@@ -17,6 +17,8 @@ import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/act
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import { requestBuilderResponseAction } from "@/src/shared/actions/builder/request-builder-response";
 import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
+import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
 import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
@@ -50,6 +52,7 @@ export const BuilderChatView = () => {
   const [stopping, setStopping] = useState(false);
   const stoppingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [planMode, setPlanMode] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const prevSessionId = useRef<string | undefined>(undefined);
@@ -131,11 +134,22 @@ export const BuilderChatView = () => {
   }, [sessionId, queryClient]);
 
   const { data: msgData } = useBuilderMessages(sessionId, page);
+  const { data: transcriptData } = useAgentTranscript(sessionId ?? undefined);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
+
+  const debugRows = useMemo(() => {
+    if (!transcriptData || !("rows" in transcriptData)) return undefined;
+    const map: Record<string, ITranscriptRow[]> = {};
+    for (const r of transcriptData.rows) {
+      if (!r.runId) continue;
+      (map[r.runId] ??= []).push(r);
+    }
+    return map;
+  }, [transcriptData]);
 
   const messages: IMessage[] = useMemo(() => {
     if (rawMessages.length === 0) return [];
@@ -145,6 +159,8 @@ export const BuilderChatView = () => {
       role: m.role,
       text: m.content,
       summarized: m.summarized,
+      plan: m.plan,
+      runId: m.runId ?? undefined,
       avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
       attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
       prefix: m.attachedFiles?.length ? (
@@ -208,13 +224,13 @@ export const BuilderChatView = () => {
 
   // --- Request response ---
   const requestMutation = useMutation({
-    mutationFn: () => requestBuilderResponseAction(sessionId!),
+    mutationFn: (pm: boolean) => requestBuilderResponseAction(sessionId!, pm),
   });
 
   const handleRequestResponse = useCallback(async () => {
     if (!sessionId) return;
-    await requestMutation.mutateAsync();
-  }, [sessionId, requestMutation]);
+    await requestMutation.mutateAsync(planMode);
+  }, [sessionId, requestMutation, planMode]);
 
   // --- Delete ---
   const handleDelete = useCallback(
@@ -298,17 +314,30 @@ export const BuilderChatView = () => {
         allowFiles
         acceptFiles=".md,.zip"
         inputPrefix={
+          <>
             <Segmented
               size="small"
               className={styles.modeSwitcher}
               value={mode}
               disabled={typing || stopping}
               onChange={(v) => handleModeChange(v as TBuilderMode)}
-            options={[
-              { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
-              { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
-            ]}
-          />
+              options={[
+                { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
+                { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
+              ]}
+            />
+            <Segmented
+              size="small"
+              className={styles.modeSwitcher}
+              value={planMode ? "plan" : "act"}
+              disabled={typing || stopping}
+              onChange={(v) => setPlanMode(v === "plan")}
+              options={[
+                { label: t("chat.actMode"), value: "act" },
+                { label: t("chat.planMode"), value: "plan" },
+              ]}
+            />
+          </>
         }
         onDelete={handleDelete}
         onHistoryClick={openHistory}
@@ -320,6 +349,7 @@ export const BuilderChatView = () => {
         stopping={stopping}
         footerAction={requestBtn}
         stepsSessionId={sessionId ?? undefined}
+        debugRows={debugRows}
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
         onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}

@@ -3,6 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { cascadeClearSession } from "@/src/shared/lib/agents/transcript";
 
 export async function clearGameChatAction(
   sessionId: string
@@ -18,6 +19,7 @@ export async function clearGameChatAction(
   });
   if (!s || s.type !== "game") return { success: false, error: "errors.sessionNotFound" };
 
+  await cascadeClearSession(sessionId);
   await prisma.message.deleteMany({ where: { sessionId } });
   await prisma.roll.deleteMany({ where: { sessionId } });
 

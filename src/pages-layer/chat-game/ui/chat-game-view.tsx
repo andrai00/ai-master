@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App, Button, Tooltip } from "antd";
+import { Modal, Table, App, Button, Tooltip, Segmented } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
@@ -18,6 +18,8 @@ import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/s
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
+import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 
 const DEFAULT_PAGE_SIZE = 30;
 
@@ -31,6 +33,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [planMode, setPlanMode] = useState(false);
 
   const { data: sessionData } = useGameSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -57,6 +60,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   }, [sessionId, queryClient]);
 
   const { data: msgData } = useGameMessages(sessionId, page);
+  const { data: transcriptData } = useAgentTranscript(sessionId ?? undefined);
   const sendMutation = useSendGameMessage();
   const deleteMutation = useDeleteGameMessage();
   const clearMutation = useClearGameChat();
@@ -68,7 +72,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   }, [sessionId, clearMutation]);
 
   const requestMutation = useMutation({
-    mutationFn: () => requestMasterResponseAction(sessionId!),
+    mutationFn: (pm: boolean) => requestMasterResponseAction(sessionId!, pm),
     onError: (err: Error) => notification.error({ title: err.message }),
   });
 
@@ -108,6 +112,16 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
 
+  const debugRows = useMemo(() => {
+    if (!transcriptData || !("rows" in transcriptData)) return undefined;
+    const map: Record<string, ITranscriptRow[]> = {};
+    for (const r of transcriptData.rows) {
+      if (!r.runId) continue;
+      (map[r.runId] ??= []).push(r);
+    }
+    return map;
+  }, [transcriptData]);
+
   const messages: IMessage[] = useMemo(() => {
     const mapMsg = (m: IGameMessage): IMessage => ({
       id: m.id,
@@ -116,6 +130,8 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
       text: m.content,
       shared: m.shared,
       summarized: m.summarized,
+      plan: m.plan,
+      runId: m.runId ?? undefined,
       avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     });
     const msgs = rawMessages.map(mapMsg);
@@ -173,8 +189,8 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
 
   const handleRequestMaster = useCallback(async () => {
     if (!sessionId) return;
-    await requestMutation.mutateAsync();
-  }, [sessionId, requestMutation]);
+    await requestMutation.mutateAsync(planMode);
+  }, [sessionId, requestMutation, planMode]);
 
   const handleStopMaster = useCallback(async () => {
     if (!sessionId) return;
@@ -249,12 +265,25 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId}
+        debugRows={debugRows}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}
         onStepsDone={handleStepsDone}
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
         footerAction={requestBtn}
+        inputPrefix={isAdmin ? (
+          <Segmented
+            size="small"
+            value={planMode ? "plan" : "act"}
+            disabled={typing || stopping}
+            onChange={(v) => setPlanMode(v === "plan")}
+            options={[
+              { label: t("chat.actMode"), value: "act" },
+              { label: t("chat.planMode"), value: "plan" },
+            ]}
+          />
+        ) : undefined}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id, { onError: (e) => notification.error({ title: t(e instanceof Error ? e.message : "errors.unknownError") }) })} executing={executeRollMutation.isPending} disabled={typing} />}
       />
       <Modal

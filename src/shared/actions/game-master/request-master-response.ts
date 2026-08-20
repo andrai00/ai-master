@@ -7,7 +7,8 @@ import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { runGameMasterBatch } from "@/src/shared/lib/agents/gm-runner";
 
 export async function requestMasterResponseAction(
-  sessionId: string
+  sessionId: string,
+  planMode = false
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session) return { success: false, error: "errors.forbidden" };
@@ -32,7 +33,7 @@ export async function requestMasterResponseAction(
 
   broadcastGameEvent("gm_response_requested", { sessionId });
 
-  runGameMasterBatch(sessionId).catch((e) => {
+  runGameMasterBatch(sessionId, { planMode }).catch((e) => {
     console.error("[gm-game] Background batch processing crashed:", e);
   });
 

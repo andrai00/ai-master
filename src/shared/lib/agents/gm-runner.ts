@@ -1,4 +1,4 @@
-import { generateText, isStepCount, type ModelMessage, type ToolSet } from "ai";
+import { streamText, isStepCount, isLoopFinished, type ModelMessage, type ToolSet } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { mkdirSync, appendFileSync } from "fs";
 import path from "path";
@@ -24,6 +24,7 @@ import { gmGetRollsTool, gmPersonalGetRollsTool } from "./gm-tools/gm-get-rolls.
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmDeleteDocumentTool } from "./gm-tools/gm-delete-document.tool";
+import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { gmGlossaryOverviewTool } from "./gm-tools/gm-glossary-overview.tool";
 import { clearActions, recordActions, getActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
@@ -34,12 +35,14 @@ import {
 } from "./gm-system";
 import {
   initSession, emitStarted, emitStep, emitDone, emitError,
-  emitStopped,
+  emitStopped, emitText,
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
-import { buildStudySummary } from "./study-summary";
 import { traceAgent, type TraceChat } from "./trace";
+import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
+import { scheduleSummarize } from "./chat-summarizer";
+import { PLAN_MODE_SYSTEM, getPlanTools } from "./plan-mode";
 
 export { emitStopped } from "./step-tracker";
 
@@ -137,8 +140,7 @@ function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
     traceAgent({ chat, sessionId, phase, stepIndex: (steps ?? []).length, prompt: JSON.stringify(allMsgs) });
 
     // Effective compression threshold: 70% of the context limit, capped so
-    // compression actually engages on long runs (a plain 128K × 0.7 = 89.6K
-    // never fires on realistic prompts).
+    // compression actually engages on long runs.
     const compressThreshold = Math.min(cachedLimit * 0.7, 24_000);
     return compressMessages({ messages: allMsgs, steps, threshold: compressThreshold }) ?? {};
   };
@@ -148,6 +150,7 @@ function getGameTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
     glossary_overview: gmGlossaryOverviewTool,
+    list_all_documents: listAllDocumentsTool,
     get_brain: gmGetBrainTool,
     get_gm_notes: gmGetGmNotesTool,
     get_scene_state: gmGetSceneStateTool,
@@ -175,6 +178,7 @@ function getPersonalTools(): ToolSet {
   return {
     search_rules: gmSearchRulesTool,
     glossary_overview: gmGlossaryOverviewTool,
+    list_all_documents: listAllDocumentsTool,
     get_brain: gmGetBrainTool,
     get_gm_notes: gmGetGmNotesTool,
     get_player_sheet: gmGetPlayerSheetTool,
@@ -195,95 +199,8 @@ function getPersonalTools(): ToolSet {
   };
 }
 
-/** Pass 1 — read-only tools: study and plan. No writes, no rolls, no replies. */
-function getPlanTools(kind: "game" | "personal"): ToolSet {
-  const base: ToolSet = {
-    search_rules: gmSearchRulesTool,
-    glossary_overview: gmGlossaryOverviewTool,
-    get_brain: gmGetBrainTool,
-    get_gm_notes: gmGetGmNotesTool,
-    get_player_sheet: gmGetPlayerSheetTool,
-    read_document: gmReadDocumentTool,
-    get_rolls: kind === "game" ? gmGetRollsTool : gmPersonalGetRollsTool,
-    resolve_glossary_link: gmResolveGlossaryLinkTool,
-  };
-  if (kind === "game") {
-    return {
-      ...base,
-      get_scene_state: gmGetSceneStateTool,
-      get_players: gmGetPlayersTool,
-    };
-  }
-  return base;
-}
-
-const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
-
-Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
-
-Procedure:
-1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
-3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
-4. Decide what must be written/updated, which rolls are needed, and outline the reply.
-5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one. Rolls labeled [твой бросок (GM)] are YOUR OWN — ignore them in the plan (they need no response).
-6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
-7. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
-
-## Sources
-Every result is tagged with "source": glossary (rules — shareable), game_visible (that player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), players, chat_summary. Plan only what may be told; keep game_hidden facts hidden.
-
-Do NOT call any write/roll tools in this phase. Return only the plan.`;
-
-const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
-
-Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
-
-Procedure:
-1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
-2. Then study this player's data and your memory: get_player_sheet (no argument), get_gm_notes. The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
-3. Use glossary_overview once to see the glossary structure (types + counts) when you need to understand what exists. Use search_rules ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Do NOT search the glossary proactively "just in case": read the brain first, it tells you when a rule lookup is needed and where it lives. Never dump or skim the glossary.
-4. Decide what must be written/updated, which rolls are needed, and outline the reply.
-5. Pending rolls appear in the conversation as ⏳ ACTIVE [roll id: ...] — decide in the plan whether to keep, cancel (remove_roll) or re-assign each one.
-6. If the new messages are QUESTIONS (rules, world, meta, tactics — not game actions), the plan is REPLY only: no RECORD, no ROLLS, no scene advancement.
-7. Do NOT re-read a document you have already read in this batch or that is already in your context (brain preload, study summary, this window). If you catch yourself about to open the same document again, stop — use the id you already have. Re-read only something genuinely new.
-
-## Sources
-Every result is tagged with "source": glossary (rules — shareable), game_visible (this player's data — shareable with them), game_hidden (YOUR secrets — never reveal directly, only through story), brain (instructions — never quote), rolls (results — acknowledge), chat_summary. Plan only what may be told; keep game_hidden facts hidden.
-
-Do NOT call any write/roll tools in this phase. Return only the plan.`;
-
-const PLAN_SYSTEM_PROMPT = `
-## Planning phase (Pass 1)
-You are in the PLANNING phase. Study the situation (brain index FIRST, then the documents you need). Do NOT write anything, do NOT issue rolls, do NOT answer in the chat. Return a short plan (up to ~400 words) in this format:
-STUDY: <what you studied> | RECORD: <what and where to write> | ROLLS: <which rolls to assign> | REPLY: <outline of the reply>`;
-
-const EXEC_SYSTEM_PROMPT = `
-
-## Execution phase (Pass 2)
-Execute the plan strictly. The data you studied in the planning phase is provided above in the "## Study summary" block — do NOT re-read it. Do NOT call get_player_sheet / get_scene_state / get_gm_notes / read_document again for documents already listed in the summary. Use the tools to write (update/create documents, update_char_sheet, set_scene_state), assign rolls (present_roll_check), confirm rolls (confirm_rolls), or read a NEW document that is NOT in the summary — then re-read only that specific one. Write memory/character sheet as planned, issue the planned rolls (present_roll_check), then write your FINAL reply — this is the text the player will see.`;
-
-const IDLE_USER_PROMPT =
-  "Новых сообщений и бросков нет. Не придумывай действия — кратко спроси игрока, что он хочет делать.";
-
 const EMPTY_RETRY_PROMPT =
   "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
-
-/** Read-only tools available in Pass 1 — their results may be carried into
- * Pass 2 so the model does not re-read the same data. */
-const STUDY_TOOLS = new Set([
-  "get_player_sheet",
-  "get_scene_state",
-  "get_gm_notes",
-  "get_chat_summary",
-  "read_document",
-  "get_brain",
-  "search_rules",
-  "get_rolls",
-  "get_players",
-  "glossary_overview",
-  "resolve_glossary_link",
-]);
 
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
@@ -320,16 +237,11 @@ async function buildRollsContext(
 
   // Player completed (unconsumed) rolls become the latest user turn — the model
   // must answer them, not re-assign. They stay unconsumed until the GM calls
-  // confirm_rolls, so a result is never silently lost. Every roll is labeled
-  // with its FULL id so the model can target it exactly via remove_roll /
-  // confirm_rolls and never confuses several rolls with the same name.
+  // confirm_rolls, so a result is never silently lost.
   const completed = completedRolls
     .filter((r) => r.playerId)
     .map((r) => {
       const who = nameById.get(r.playerId!) ?? "игрок";
-      // Include `detail` (the per-die breakdown the player sees on hover) so
-      // the GM knows WHICH dice were rolled — e.g. a natural 20 vs a boosted
-      // result, or which die in a pool succeeded.
       const detail = r.detail ? ` (${r.detail})` : "";
       return {
         role: "user" as const,
@@ -338,10 +250,7 @@ async function buildRollsContext(
     });
 
   // Master completed rolls (playerId = null) are the GM's OWN dice results via
-  // roll_dice — the model already saw the result in the tool return. New master
-  // rolls are created consumed=true and never reach here; legacy ones are
-  // context ONLY (no 🆕), labeled as the model's own, and are NOT counted as
-  // player actions to respond to.
+  // roll_dice — context ONLY (no 🆕).
   const masterRolls = completedRolls
     .filter((r) => !r.playerId)
     .map((r) => {
@@ -352,10 +261,8 @@ async function buildRollsContext(
       };
     });
 
-  // Assigned (not yet rolled) rolls are context too — the model must know they
+  // Assigned (not yet rolled) rolls are context — the model must know they
   // are still pending and may keep, cancel (remove_roll) or re-assign them.
-  // They are NOT marked 🆕 (nothing new to answer), but are labeled with their
-  // full id so the model can act on a specific one.
   const assigned = assignedRolls.map((r) => {
     const who = r.playerId ? (nameById.get(r.playerId) ?? "игрок") : "Мастер";
     return {
@@ -370,7 +277,7 @@ async function buildRollsContext(
 /**
  * Builds a compact brain summary for the system prompt: the index file
  * content (if present) plus the list of sections with their types and
- * summaries. Injected directly into the context so Pass 1 knows the brain
+ * summaries. Injected directly into the context so the model knows the brain
  * structure immediately — get_brain(topic) is then only needed to read a
  * section in full.
  */
@@ -408,8 +315,8 @@ async function buildGameContext(sessionId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  // Dynamic context shared by both the full system prompt (Pass 2) and the
-  // short planning prompt (Pass 1): current game, pending rolls, summary, new count.
+  // Dynamic context shared by the system prompt: current game, pending rolls,
+  // summary, new count, study journal.
   let dynamic = "";
 
   if (activeGame) {
@@ -423,8 +330,6 @@ async function buildGameContext(sessionId: string) {
   }
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
 
-  // Brain structure is preloaded into the prompt — Pass 1 sees it without a
-  // tool call; get_brain(topic) is only for reading a section in full.
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
   }
@@ -442,29 +347,22 @@ async function buildGameContext(sessionId: string) {
     dynamic += `\n\n## Chat History Summary\n(нет данных — истории старее видимого окна нет)\n`;
   }
 
-  const recent = await prisma.message.findMany({
+  // Detect NEW (unanswered) player/admin messages: newer than the last master reply.
+  const msgMeta = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-    select: {
-      role: true,
-      content: true,
-      senderId: true,
-      createdAt: true,
-      sender: { select: { displayName: true } },
-    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, role: true, createdAt: true },
   });
-  // desc → chronological (oldest first) for the model.
-  recent.reverse();
-
-  // Messages from players newer than the last master reply are NEW (unanswered).
   let lastMasterAt: Date | null = null;
-  for (const m of recent) {
+  for (const m of msgMeta) {
     if (m.role === "master" && (!lastMasterAt || m.createdAt > lastMasterAt)) lastMasterAt = m.createdAt;
   }
-  const newCount = recent.filter(
-    (m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt)
-  ).length;
+  const newIds = new Set(
+    msgMeta
+      .filter((m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt))
+      .map((m) => m.id)
+  );
+  const newCount = newIds.size;
 
   if (newCount > 0) {
     dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from players that you have NOT answered yet. The conversation below is in chronological order: messages marked 🆕 are NEW and are what you must answer now; messages without 🆕 are PAST history (context only — do not re-respond to them).`;
@@ -472,36 +370,32 @@ async function buildGameContext(sessionId: string) {
     dynamic += `\n\nAll messages below are PAST history (context only). There is nothing new to answer.`;
   }
 
-  const messages = recent.map((m) => {
-    const role = (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant";
-    const isNew =
-      role === "user" && (!lastMasterAt || m.createdAt > lastMasterAt);
-    const prefix = role === "user"
-      ? `${isNew ? "🆕 " : ""}[${m.sender?.displayName || m.senderId} (id: ${m.senderId})]: `
-      : "";
-    return { role, content: `${prefix}${m.content}` };
+  // Full transcript: chat messages + per-run tool calls/results.
+  const messages = await buildTranscript(sessionId, {
+    markNew: (id) => newIds.has(id),
+    userLabel: ({ senderId, senderDisplayName }) => `[${senderDisplayName || senderId} (id: ${senderId})]: `,
   });
 
   // Pending assigned rolls and own (master) rolls are context first (older
   // state), then completed player rolls as the latest user turns to answer.
   messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
-  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  // Study journal: previously read documents (survives compression).
+  dynamic += await buildStudyJournalContext(sessionId);
+
+  // Full system prompt (Pass) — the complete operating instructions.
   const system =
     GM_GAME_SYSTEM +
-    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events.` +
+    `\n\nWork in one pass: study what you need (read/search tools), then act (write/roll tools), then write the FINAL reply — the text the players see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events.` +
     dynamic;
-
-  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
-  const planSystem = GM_PLAN_SYSTEM + dynamic;
 
   return {
     messages,
     system,
-    planSystem,
     activeGame,
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
+    newUserMessageIds: [...newIds],
     hasCompletedRolls: rollsCtx.completed.length > 0,
     hasPendingRolls: rollsCtx.assigned.length > 0,
   };
@@ -512,8 +406,6 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   const activeGame = await getActiveGame();
   const sess = await getSession();
 
-  // Dynamic context shared by both the full system prompt (Pass 2) and the
-  // short planning prompt (Pass 1).
   let dynamic = "";
 
   if (activeGame) {
@@ -528,8 +420,6 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (sess) dynamic += `\n- Admin: ${sess.displayName || sess.login}\n`;
   dynamic += `\n- Player ID: ${playerId}\n`;
 
-  // Brain structure is preloaded into the prompt — Pass 1 sees it without a
-  // tool call; get_brain(topic) is only for reading a section in full.
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
   }
@@ -547,23 +437,21 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     dynamic += `\n\n## Chat History Summary\n(нет данных — истории старее видимого окна нет)\n`;
   }
 
-  const recent = await prisma.message.findMany({
+  const msgMeta = await prisma.message.findMany({
     where: { sessionId, summarized: false },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: { role: true, content: true, senderId: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, role: true, createdAt: true },
   });
-  // desc → chronological (oldest first) for the model.
-  recent.reverse();
-
-  // The player's messages newer than the last master reply are NEW (unanswered).
   let lastMasterAt: Date | null = null;
-  for (const m of recent) {
+  for (const m of msgMeta) {
     if (m.role === "master" && (!lastMasterAt || m.createdAt > lastMasterAt)) lastMasterAt = m.createdAt;
   }
-  const newCount = recent.filter(
-    (m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt)
-  ).length;
+  const newIds = new Set(
+    msgMeta
+      .filter((m) => (m.role === "admin" || m.role === "player") && (!lastMasterAt || m.createdAt > lastMasterAt))
+      .map((m) => m.id)
+  );
+  const newCount = newIds.size;
 
   if (newCount > 0) {
     dynamic += `\n\n🆕 You have ${newCount} NEW message(s) from the player that you have NOT answered yet. The conversation below is in chronological order: messages marked 🆕 are NEW and are what you must answer now; messages without 🆕 are PAST history (context only — do not re-respond to them).`;
@@ -571,62 +459,91 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
     dynamic += `\n\nAll messages below are PAST history (context only). There is nothing new to answer.`;
   }
 
-  const messages = recent.map((m) => {
-    const role = (m.role === "admin" || m.role === "player" ? "user" : "assistant") as "user" | "assistant";
-    const isNew = role === "user" && (!lastMasterAt || m.createdAt > lastMasterAt);
-    const prefix = role === "user" ? `${isNew ? "🆕 " : ""}[${m.senderId}]: ` : "";
-    return { role, content: `${prefix}${m.content}` };
+  const messages = await buildTranscript(sessionId, {
+    markNew: (id) => newIds.has(id),
+    userLabel: ({ senderId, senderDisplayName }) => `[${senderDisplayName || senderId} (id: ${senderId})]: `,
   });
 
-  // Pending assigned rolls and own (master) rolls are context first (older
-  // state), then completed player rolls as the latest user turns to answer.
   messages.push(...rollsCtx.assigned, ...rollsCtx.masterRolls, ...rollsCtx.completed);
 
-  // Full prompt for Pass 2 (execution) — the complete operating instructions.
+  dynamic += await buildStudyJournalContext(sessionId);
+
   const system =
     GM_PERSONAL_SYSTEM +
-    `\n\nThe brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries.` +
+    `\n\nWork in one pass: study what you need (read/search tools), then act (write/roll tools), then write the FINAL reply — the text the player will see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries.` +
     dynamic;
-
-  // Short prompt for Pass 1 (planning) — study-only, no write/roll rules needed.
-  const planSystem = GM_PLAN_SYSTEM_PERSONAL + dynamic;
 
   return {
     messages,
     system,
-    planSystem,
     activeGame,
     masterId: activeGame?.currentMasterId ?? "",
     newCount,
+    newUserMessageIds: [...newIds],
     hasCompletedRolls: rollsCtx.completed.length > 0,
     hasPendingRolls: rollsCtx.assigned.length > 0,
   };
 }
 
-async function autoSummarize(sessionId: string): Promise<void> {
-  const prisma = getPrisma();
-  const allUnsummarized = await prisma.message.findMany({
-    where: { sessionId, summarized: false },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, role: true, content: true },
-  });
-  const withText = allUnsummarized.filter(m => m.content.trim().length > 0);
-  if (withText.length < 20) return;
-
-  const toSummarize = withText.slice(0, 20);
-
-  await prisma.message.updateMany({
-    where: { id: { in: toSummarize.map(m => m.id) } },
-    data: { summarized: true },
-  });
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof Error && err.name === "AbortError") ||
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err as Error | null)?.message === "errors.cancelled"
+  );
 }
 
-export async function runGameMasterBatch(sessionId: string): Promise<void> {
+type TStreamRes = ReturnType<typeof streamText<ToolSet>>;
+type TStreamSteps = Awaited<TStreamRes["steps"]>;
+
+function makeRunText(
+  sessionId: string,
+  opts: {
+    model: Awaited<ReturnType<typeof createProvider>>;
+    system: string;
+    messages: ModelMessage[];
+    tools: ToolSet;
+    ac: AbortController;
+    chat: TraceChat;
+    phase: string;
+    log: (line: string) => void;
+    liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }>;
+  }
+): Promise<{ text: string; steps: TStreamSteps }> {
+  const result = streamText({
+    model: opts.model,
+    system: opts.system,
+    messages: opts.messages,
+    tools: opts.tools,
+    stopWhen: (input) => isLoopFinished()(input) || isStepCount(100)(input),
+    abortSignal: opts.ac.signal,
+    prepareStep: makePrepareStep(sessionId, opts.chat, opts.phase),
+    onChunk: ({ chunk }) => {
+      if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
+    },
+    onStepFinish: makeStepLogger(sessionId, opts.chat, opts.phase, opts.log, opts.liveSteps),
+  });
+  return (async () => {
+    const text = await result.text;
+    const steps = await result.steps;
+    return { text, steps };
+  })();
+}
+
+export async function runGameMasterBatch(
+  sessionId: string,
+  opts: { planMode?: boolean } = {}
+): Promise<void> {
   const ac = startProcessing(sessionId);
   if (!ac) return;
 
   initSession(sessionId);
   clearActions(sessionId);
+
+  let runId = "";
+  let userMessageIds: string[] = [];
+  const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+  const isPlan = opts.planMode === true;
 
   try {
     const ctx = await buildGameContext(sessionId);
@@ -642,101 +559,87 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       emitDone(sessionId);
       return;
     }
+    userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const planTools = getPlanTools("game");
-    const tools = getGameTools();
+
+    if (isPlan) {
+      ctx.system += PLAN_MODE_SYSTEM;
+    } else {
+      // Agent mode: inject the latest plan so it gets executed.
+      const lastPlan = await getPrisma().message.findFirst({
+        where: { sessionId, plan: true },
+        orderBy: { createdAt: "desc" },
+        select: { content: true },
+      });
+      if (lastPlan?.content) {
+        ctx.system += `\n\n## Plan to execute\n${lastPlan.content}\n\nExecute this plan now.`;
+      }
+    }
+
+    const tools = isPlan ? getPlanTools("game") : getGameTools();
 
     emitStarted(sessionId);
     gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
+    runId = createRunId();
 
-    let gmText: string | null = null;
-    const runStart = performance.now();
-
-    // Gate — nothing new to act on: one short call, no planning pass.
-    // Read-only tools: the model must not invent actions or write anything.
-    // Pending (assigned, unrolled) rolls count as "something to decide on",
-    // so they run a full pass — the model may keep, cancel or re-assign them.
+    // Gate — nothing new to act on: no LLM call at all.
     if (ctx.newCount === 0 && !ctx.hasCompletedRolls && !ctx.hasPendingRolls) {
       gmLog("GATE idle — no new msgs/rolls");
-      const idleStart = performance.now();
-      const idle = await generateText({
-        model,
-        system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: IDLE_USER_PROMPT }],
-        tools: planTools,
-        stopWhen: isStepCount(10),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "game", "idle"),
-        onStepFinish: makeStepLogger(sessionId, "game", "idle", gmLog),
-      });
-      traceAgent({ chat: "game", sessionId, phase: "idle", elapsedMs: Math.round(performance.now() - idleStart) });
-      gmText = idle.text?.trim() ?? null;
-    } else {
-      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
-      // prompt; the full operating instructions are only needed in Pass 2.
-      gmLog("PLAN start");
-      const planStart = performance.now();
-      const planResult = await generateText({
-        model,
-        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
-        messages: existingMessages,
-        tools: planTools,
-        stopWhen: isStepCount(20),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "game", "plan"),
-        onStepFinish: makeStepLogger(sessionId, "game", "plan", gmLog),
-      });
-      const planText = planResult.text?.trim() ?? "";
-      traceAgent({ chat: "game", sessionId, phase: "plan", elapsedMs: Math.round(performance.now() - planStart) });
-      gmLog(`PLAN done textLen=${planText.length}`);
-
-      // Carry the data Pass 1 already read into Pass 2 so the model does not
-      // re-read the same documents (get_player_sheet/scene/notes/read_document).
-      const studySummary = planText ? buildStudySummary(planResult.toolResults ?? [], STUDY_TOOLS) : "";
-
-      // Pass 2 — execute the plan (full tools). Empty plan is fine — run
-      // without injection rather than failing.
-      gmLog("EXEC start");
-      const execStart = performance.now();
-      const execResult = await generateText({
-        model,
-        system: ctx.system + EXEC_SYSTEM_PROMPT,
-        messages: planText
-          ? [
-              ...existingMessages,
-              {
-                role: "user",
-                content: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`,
-              },
-            ]
-          : existingMessages,
-        tools,
-        stopWhen: isStepCount(100),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "game", "exec"),
-        onStepFinish: makeStepLogger(sessionId, "game", "exec", gmLog),
-      });
-      traceAgent({ chat: "game", sessionId, phase: "exec", elapsedMs: Math.round(performance.now() - execStart) });
-      gmText = execResult.text?.trim() ?? null;
-      gmLog(`EXEC done textLen=${gmText?.length ?? 0} actions=[${getActions(sessionId).join(",")}]`);
+      emitDone(sessionId);
+      return;
     }
 
-    // Retry empty reply — only for a real run (Pass 2 / idle), never silently.
+    // Single agentic loop: study → act → reply.
+    let gmText: string | null = null;
+    let allSteps: TStreamSteps = [];
+    const runStart = performance.now();
+    try {
+      const execResult = await makeRunText(sessionId, {
+        model,
+        system: ctx.system,
+        messages: existingMessages,
+        tools,
+        ac,
+        chat: "game",
+        phase: "exec",
+        log: gmLog,
+        liveSteps,
+      });
+      allSteps = execResult.steps;
+      gmText = execResult.text?.trim() ?? null;
+      gmLog(`DONE textLen=${gmText?.length ?? 0} actions=[${getActions(sessionId).join(",")}]`);
+    } catch (err) {
+      if (isAbortError(err)) {
+        gmLog("ABORTED");
+        try {
+          await persistRun({ sessionId, runId, steps: liveSteps, status: "aborted" });
+        } catch (e) {
+          gmLog(`persist aborted failed ${e instanceof Error ? e.message : String(e)}`);
+        }
+        emitStopped(sessionId);
+        return;
+      }
+      throw err;
+    }
+
+    // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       gmLog("RETRY empty reply");
       const retryStart = performance.now();
-      const retry = await generateText({
+      const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
         messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
         tools,
-        stopWhen: isStepCount(100),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "game", "retry"),
-        onStepFinish: makeStepLogger(sessionId, "game", "retry", gmLog),
+        ac,
+        chat: "game",
+        phase: "retry",
+        log: gmLog,
+        liveSteps,
       });
       traceAgent({ chat: "game", sessionId, phase: "retry", elapsedMs: Math.round(performance.now() - retryStart) });
+      allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
       gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
     }
@@ -751,24 +654,33 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       const prisma = getPrisma();
       traceAgent({ chat: "game", sessionId, phase: "final", result: gmText, elapsedMs: Math.round(performance.now() - runStart) });
       emitStep(sessionId, "final");
-      await prisma.message.create({
+      const created = await prisma.message.create({
         data: {
           sessionId,
           senderId: (await getSession())?.userId ?? "",
           role: "master",
           content: gmText,
+          plan: isPlan,
         },
+      });
+      await persistRun({
+        sessionId,
+        runId,
+        steps: allSteps,
+        finalMessageId: created.id,
+        finalText: gmText,
+        userMessageIds,
       });
       broadcastGameEvent("game_message_sent", { sessionId });
       gmLog(`SAVE len=${gmText.length}`);
     }
 
-    await autoSummarize(sessionId);
+    scheduleSummarize(ctx.masterId, sessionId);
     gmLog("DONE");
     emitDone(sessionId);
 
   } catch (err: unknown) {
-    if (err instanceof Error && (err.name === "AbortError" || err.message === "errors.cancelled")) {
+    if (isAbortError(err)) {
       gmLog("ABORTED");
       emitStopped(sessionId);
       return;
@@ -789,6 +701,10 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   initSession(sessionId);
   clearActions(sessionId);
 
+  let runId = "";
+  let userMessageIds: string[] = [];
+  const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
     if (!ctx.activeGame || ctx.activeGame.mode !== "game") {
@@ -801,101 +717,73 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       emitDone(sessionId);
       return;
     }
+    userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const planTools = getPlanTools("personal");
     const tools = getPersonalTools();
 
     emitStarted(sessionId);
     console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
+    runId = createRunId();
 
-    let gmText: string | null = null;
-    const runStart = performance.now();
-
-    // Gate — nothing new to act on: one short call, no planning pass.
-    // Read-only tools: the model must not invent actions or write anything.
-    // Pending (assigned, unrolled) rolls count as "something to decide on",
-    // so they run a full pass — the model may keep, cancel or re-assign them.
+    // Gate — nothing new to act on: no LLM call at all.
     if (ctx.newCount === 0 && !ctx.hasCompletedRolls && !ctx.hasPendingRolls) {
       console.log("[gm-personal] GATE idle — no new msgs/rolls");
-      const idleStart = performance.now();
-      const idle = await generateText({
+      emitDone(sessionId);
+      return;
+    }
+
+    let gmText: string | null = null;
+    let allSteps: TStreamSteps = [];
+    const runStart = performance.now();
+    try {
+      const execResult = await makeRunText(sessionId, {
         model,
         system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: IDLE_USER_PROMPT }],
-        tools: planTools,
-        stopWhen: isStepCount(10),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "personal", "idle"),
-        onStepFinish: makeStepLogger(sessionId, "personal", "idle", (l) => console.log(`[gm-personal] ${l}`)),
-      });
-      traceAgent({ chat: "personal", sessionId, phase: "idle", elapsedMs: Math.round(performance.now() - idleStart) });
-      gmText = idle.text?.trim() ?? null;
-    } else {
-      // Pass 1 — study and plan (read-only tools). Uses the SHORT planning
-      // prompt; the full operating instructions are only needed in Pass 2.
-      console.log("[gm-personal] PLAN start");
-      const planStart = performance.now();
-      const planResult = await generateText({
-        model,
-        system: ctx.planSystem + PLAN_SYSTEM_PROMPT,
         messages: existingMessages,
-        tools: planTools,
-        stopWhen: isStepCount(20),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "personal", "plan"),
-        onStepFinish: makeStepLogger(sessionId, "personal", "plan", (l) => console.log(`[gm-personal] ${l}`)),
-      });
-      const planText = planResult.text?.trim() ?? "";
-      traceAgent({ chat: "personal", sessionId, phase: "plan", elapsedMs: Math.round(performance.now() - planStart) });
-      console.log(`[gm-personal] PLAN done textLen=${planText.length}`);
-
-      // Carry the data Pass 1 already read into Pass 2 so the model does not
-      // re-read the same documents (get_player_sheet/scene/notes/read_document).
-      const studySummary = planText ? buildStudySummary(planResult.toolResults ?? [], STUDY_TOOLS) : "";
-
-      // Pass 2 — execute the plan (full tools).
-      console.log("[gm-personal] EXEC start");
-      const execStart = performance.now();
-      const execResult = await generateText({
-        model,
-        system: ctx.system + EXEC_SYSTEM_PROMPT,
-        messages: planText
-          ? [
-              ...existingMessages,
-              {
-                role: "user",
-                content: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`,
-              },
-            ]
-          : existingMessages,
         tools,
-        stopWhen: isStepCount(100),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "personal", "exec"),
-        onStepFinish: makeStepLogger(sessionId, "personal", "exec", (l) => console.log(`[gm-personal] ${l}`)),
+        ac,
+        chat: "personal",
+        phase: "exec",
+        log: (l) => console.log(`[gm-personal] ${l}`),
+        liveSteps,
       });
-      traceAgent({ chat: "personal", sessionId, phase: "exec", elapsedMs: Math.round(performance.now() - execStart) });
+      allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
       console.log(`[gm-personal] EXEC done textLen=${gmText?.length ?? 0}`);
+    } catch (err) {
+      if (isAbortError(err)) {
+        console.log("[gm-personal] ABORTED");
+        try {
+          await persistRun({ sessionId, runId, steps: liveSteps, status: "aborted" });
+        } catch (e) {
+          console.error(`[gm-personal] persist aborted failed — ${e instanceof Error ? e.message : String(e)}`);
+        }
+        emitStopped(sessionId);
+        return;
+      }
+      throw err;
     }
 
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       console.log("[gm-personal] RETRY empty reply");
       const retryStart = performance.now();
-      const retry = await generateText({
+      const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
         messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
         tools,
-        stopWhen: isStepCount(100),
-        abortSignal: ac.signal,
-        prepareStep: makePrepareStep(sessionId, "personal", "retry"),
-        onStepFinish: makeStepLogger(sessionId, "personal", "retry", (l) => console.log(`[gm-personal] ${l}`)),
+        ac,
+        chat: "personal",
+        phase: "retry",
+        log: (l) => console.log(`[gm-personal] ${l}`),
+        liveSteps,
       });
       traceAgent({ chat: "personal", sessionId, phase: "retry", elapsedMs: Math.round(performance.now() - retryStart) });
+      allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
+      console.log(`[gm-personal] RETRY done textLen=${gmText?.length ?? 0}`);
     }
 
     // Last resort — short fallback so the bubble never ends silently.
@@ -907,7 +795,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       const prisma = getPrisma();
       emitStep(sessionId, "final");
       traceAgent({ chat: "personal", sessionId, phase: "final", result: gmText, elapsedMs: Math.round(performance.now() - runStart) });
-      await prisma.message.create({
+      const created = await prisma.message.create({
         data: {
           sessionId,
           senderId: (await getSession())?.userId ?? "",
@@ -915,14 +803,22 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
           content: gmText,
         },
       });
+      await persistRun({
+        sessionId,
+        runId,
+        steps: allSteps,
+        finalMessageId: created.id,
+        finalText: gmText,
+        userMessageIds,
+      });
       broadcastGameEvent("personal_message_sent", { sessionId });
     }
 
-    await autoSummarize(sessionId);
+    scheduleSummarize(ctx.masterId, sessionId);
     emitDone(sessionId);
 
   } catch (err: unknown) {
-    if (err instanceof Error && (err.name === "AbortError" || err.message === "errors.cancelled")) {
+    if (isAbortError(err)) {
       emitStopped(sessionId);
       return;
     }
@@ -934,15 +830,22 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   }
 }
 
-function makeStepLogger(sessionId: string, chat: TraceChat, phase: string, log?: (line: string) => void) {
+function makeStepLogger(
+  sessionId: string,
+  chat: TraceChat,
+  phase: string,
+  log?: (line: string) => void,
+  liveSteps?: Array<{ toolCalls?: Array<Record<string, unknown>> }>
+) {
   return async (event: Record<string, unknown>) => {
-    const calls = event.toolCalls as Array<{ toolName?: string; input?: unknown; args?: unknown }> | undefined;
+    const calls = event.toolCalls as Array<Record<string, unknown>> | undefined;
     if (calls?.length) {
-      recordActions(sessionId, calls);
+      if (liveSteps) liveSteps.push({ toolCalls: calls });
+      recordActions(sessionId, calls as Array<{ toolName?: string }>);
       if (log) log(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
       for (const call of calls) {
         // AI SDK v7 puts tool arguments in `input` (not `args`).
-        traceAgent({ chat, sessionId, phase, toolName: call.toolName, args: JSON.stringify(call.input ?? call.args ?? {}) });
+        traceAgent({ chat, sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
         emitStep(sessionId, call.toolName as string);
       }
     }

@@ -39,6 +39,8 @@ You CANNOT: change the scene, apply effects, roll dice for game actions, modify 
 
 export const GM_GAME_SYSTEM = `You are a Game Master for a tabletop RPG. You run the game for players using the rules and structure prepared by the Builder agent.
 
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
+
 You work in GAME MODE — the active game's rules are frozen.
 ` + GM_GAME_CHAT_HEADER + `
 
@@ -182,6 +184,8 @@ Every read tool tags each result with a "source" field. Use it to decide what yo
 If you are about to repeat a fact, check its source first: facts from game_hidden stay hidden; facts from glossary/game_visible/rolls are shareable.`;
 
 export const GM_PERSONAL_SYSTEM = `You are a Game Master in a PRIVATE chat with a player. This is the personal chat — only this player and the admin see your responses.
+
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
 
 You work in GAME MODE.
 ` + GM_PERSONAL_CHAT_HEADER + `

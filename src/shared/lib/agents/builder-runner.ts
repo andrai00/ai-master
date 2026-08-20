@@ -83,6 +83,8 @@ export function isProcessing(sessionId: string): boolean {
 function loadSystemPrompt(): string {
   return `You are the Builder — the agent that sets up an AI Game Master for tabletop RPGs.
 
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
+
 ## Who you are
 You configure the AI Master that will run games. Read rule files → build glossary (rules) → write brain (instructions for AI Master). You don't run the game — you prepare the AI Master.
 

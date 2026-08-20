@@ -183,6 +183,8 @@ async function createProvider() {
 
 const BUILDER_PLAN_SYSTEM = `You are the Builder in the PLANNING phase. Study the admin's request using ONLY the read-only tools provided — you cannot create, update, delete, import or reply yet.
 
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
+
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
 2. Then study what you need with the read-only tools available in your mode (read_document, get_builder_guide, plus your mode's read-only tools). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it.

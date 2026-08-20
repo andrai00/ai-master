@@ -219,6 +219,8 @@ function getPlanTools(kind: "game" | "personal"): ToolSet {
 
 const GM_PLAN_SYSTEM = `You are a Game Master in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
 
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
+
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).
 2. Then study your game memory and the relevant data: get_gm_notes / get_scene_state (memory), get_player_sheet (the player's data). The chat history summary (if any) is already above (## Chat History Summary) — you do NOT need a tool call for it. Completed rolls are already in the conversation — use get_rolls ONLY for old/historical rolls or roll details.
@@ -233,6 +235,8 @@ Every result is tagged with "source": glossary (rules — shareable), game_visib
 Do NOT call any write/roll tools in this phase. Return only the plan.`;
 
 const GM_PLAN_SYSTEM_PERSONAL = `You are a Game Master in a PRIVATE chat, in the PLANNING phase. Study the situation using ONLY the read-only tools provided — you cannot write, assign rolls, or reply yet.
+
+Думай быстрее: не затягивай анализ, действуй сразу и отвечай коротко.
 
 Procedure:
 1. The brain is PRELOADED above (## Brain (preloaded)) — index + section list. Read it directly. If you need a section's full content, call get_brain(topic).

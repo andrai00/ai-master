@@ -14,7 +14,7 @@
 |------|--------|------------|
 | 1 — Транскрипт + единый цикл + автосуммаризация + DocumentRead + каскад удаления | ✅ Готово | `AgentTranscript`/`DocumentRead`/`Message.runId`/`plan` в схеме; `transcript.ts`; оба раннера — single loop + `persistRun`; `chat-summarizer.ts`; delete/clear каскад |
 | 2 — Стриминг + retry backoff | ✅ Готово (сервер + событие `text`) | `streamText` во всех раннерах; событие `text` в step-tracker/realtime-клиенте; живой текст в шарике при `AGENT_DEBUG=1`; бэкофф фикс. 1.5 с |
-| 3 — Plan mode | ✅ Готово | `plan-mode.ts` (промпт + read-only тулы); переключатель «План/Действие» в builder и game чатах (admin); инжекция последнего плана; `Message.plan` рендерится как карточка «План» |
+| 3 — Plan mode | ❌ Отменено | Разделение «План/Действие» убрано по решению пользователя: агенты работают в одном режиме (как Cursor в обычной работе), для клиента проще. Кнопки, промпт, plan-mode.ts удалены; `Message.plan` остаётся в схеме, но не используется |
 | 4a — Debug-внутренности | ✅ Готово | `getAgentTranscriptAction` (env `AGENT_DEBUG=1` + admin); сворачиваемый блок «Внутренности агента» под сообщениями |
 | 4b — `list_all_documents` + TOC/updatedAt | ✅ Готово | новый read-only тул во всех тулсетах; TOC (оглавление с offset) в GM `read_document`; `updatedAt` в read/search |
 | 4c — Стабильный префикс (промпт-кэш) | ⏳ Отложено | Чистая оптимизация стоимости, не корректность. Требует переноса динамики (новые-сообщения/саммари) в конец промпта |

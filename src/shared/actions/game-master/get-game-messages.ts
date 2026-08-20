@@ -13,7 +13,6 @@ export interface IGameMessage {
   shared: boolean;
   summarized: boolean;
   runId?: string | null;
-  plan?: boolean;
   createdAt: Date;
 }
 
@@ -62,7 +61,6 @@ export async function getGameMessagesAction(
         shared: true,
         summarized: true,
         runId: true,
-        plan: true,
         createdAt: true,
       },
     }),

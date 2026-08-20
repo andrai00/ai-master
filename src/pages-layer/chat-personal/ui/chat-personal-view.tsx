@@ -136,7 +136,6 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
       role: m.role,
       text: m.content,
       summarized: m.summarized,
-      plan: m.plan,
       runId: m.runId ?? undefined,
       avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     });

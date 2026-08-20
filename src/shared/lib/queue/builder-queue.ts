@@ -11,7 +11,6 @@ export interface IQueueJob {
   sessionId: string;
   content: string;
   fileIds: string[];
-  planMode?: boolean;
 }
 
 type QueueProcessor = (job: IQueueJob, cb: (err: unknown, result?: unknown) => void) => void;
@@ -30,7 +29,7 @@ async function processJob(job: IQueueJob): Promise<void> {
   });
 
   try {
-    await runBuilderAgent(job.sessionId, job.content, job.fileIds, { planMode: job.planMode });
+    await runBuilderAgent(job.sessionId, job.content, job.fileIds);
 
     await prisma.builderJob.update({
       where: { id: job.id },
@@ -63,13 +62,12 @@ async function recoverStaleJobs(): Promise<void> {
       continue;
     }
 
-    const input = JSON.parse(job.input) as { content: string; fileIds: string[]; planMode?: boolean };
+    const input = JSON.parse(job.input) as { content: string; fileIds: string[] };
     getQueue().push({
       id: job.id,
       sessionId: job.sessionId,
       content: input.content,
       fileIds: input.fileIds,
-      planMode: input.planMode,
     });
   }
 
@@ -110,7 +108,6 @@ export async function enqueueBuilderJob(
   sessionId: string,
   content: string,
   fileIds: string[],
-  planMode = false,
 ): Promise<string> {
   initQueue();
 
@@ -119,7 +116,7 @@ export async function enqueueBuilderJob(
     data: {
       sessionId,
       status: "pending",
-      input: JSON.stringify({ content, fileIds, planMode }),
+      input: JSON.stringify({ content, fileIds }),
     },
   });
 
@@ -128,7 +125,6 @@ export async function enqueueBuilderJob(
     sessionId,
     content,
     fileIds,
-    planMode,
   });
 
   return dbJob.id;

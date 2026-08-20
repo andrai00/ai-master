@@ -52,7 +52,6 @@ export const BuilderChatView = () => {
   const [stopping, setStopping] = useState(false);
   const stoppingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [planMode, setPlanMode] = useState(false);
 
   const { data: sessionData } = useBuilderSession();
   const prevSessionId = useRef<string | undefined>(undefined);
@@ -159,7 +158,6 @@ export const BuilderChatView = () => {
       role: m.role,
       text: m.content,
       summarized: m.summarized,
-      plan: m.plan,
       runId: m.runId ?? undefined,
       avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
       attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
@@ -224,13 +222,13 @@ export const BuilderChatView = () => {
 
   // --- Request response ---
   const requestMutation = useMutation({
-    mutationFn: (pm: boolean) => requestBuilderResponseAction(sessionId!, pm),
+    mutationFn: () => requestBuilderResponseAction(sessionId!),
   });
 
   const handleRequestResponse = useCallback(async () => {
     if (!sessionId) return;
-    await requestMutation.mutateAsync(planMode);
-  }, [sessionId, requestMutation, planMode]);
+    await requestMutation.mutateAsync();
+  }, [sessionId, requestMutation]);
 
   // --- Delete ---
   const handleDelete = useCallback(
@@ -314,30 +312,17 @@ export const BuilderChatView = () => {
         allowFiles
         acceptFiles=".md,.zip"
         inputPrefix={
-          <>
-            <Segmented
-              size="small"
-              className={styles.modeSwitcher}
-              value={mode}
-              disabled={typing || stopping}
-              onChange={(v) => handleModeChange(v as TBuilderMode)}
-              options={[
-                { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
-                { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
-              ]}
-            />
-            <Segmented
-              size="small"
-              className={styles.modeSwitcher}
-              value={planMode ? "plan" : "act"}
-              disabled={typing || stopping}
-              onChange={(v) => setPlanMode(v === "plan")}
-              options={[
-                { label: t("chat.actMode"), value: "act" },
-                { label: t("chat.planMode"), value: "plan" },
-              ]}
-            />
-          </>
+          <Segmented
+            size="small"
+            className={styles.modeSwitcher}
+            value={mode}
+            disabled={typing || stopping}
+            onChange={(v) => handleModeChange(v as TBuilderMode)}
+            options={[
+              { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
+              { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
+            ]}
+          />
         }
         onDelete={handleDelete}
         onHistoryClick={openHistory}

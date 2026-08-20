@@ -165,7 +165,6 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
-  plan?: boolean;
   runId?: string;
   attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
@@ -575,10 +574,7 @@ export const ChatPanel = ({
         className={styles.msgAvatar}
       />
       <div className={styles.msgContent}>
-        <div className={styles.sender}>
-          {msg.sender}
-          {msg.plan && <Tag color="gold" style={{ marginLeft: 8 }}>{t("chat.planTag")}</Tag>}
-        </div>
+        <div className={styles.sender}>{msg.sender}</div>
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}

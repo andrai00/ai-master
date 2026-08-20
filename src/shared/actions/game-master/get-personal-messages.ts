@@ -12,7 +12,6 @@ export interface IPersonalMessage {
   senderAvatar: string;
   summarized: boolean;
   runId?: string | null;
-  plan?: boolean;
   createdAt: Date;
 }
 
@@ -63,7 +62,6 @@ export async function getPersonalMessagesAction(
         sender: { select: { displayName: true, avatar: true } },
         summarized: true,
         runId: true,
-        plan: true,
         createdAt: true,
       },
     }),

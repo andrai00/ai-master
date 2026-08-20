@@ -42,7 +42,6 @@ import { compressMessages } from "./context-compress";
 import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
-import { PLAN_MODE_SYSTEM, getPlanTools } from "./plan-mode";
 
 export { emitStopped } from "./step-tracker";
 
@@ -530,10 +529,7 @@ function makeRunText(
   })();
 }
 
-export async function runGameMasterBatch(
-  sessionId: string,
-  opts: { planMode?: boolean } = {}
-): Promise<void> {
+export async function runGameMasterBatch(sessionId: string): Promise<void> {
   const ac = startProcessing(sessionId);
   if (!ac) return;
 
@@ -543,7 +539,6 @@ export async function runGameMasterBatch(
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
-  const isPlan = opts.planMode === true;
 
   try {
     const ctx = await buildGameContext(sessionId);
@@ -562,22 +557,7 @@ export async function runGameMasterBatch(
     userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-
-    if (isPlan) {
-      ctx.system += PLAN_MODE_SYSTEM;
-    } else {
-      // Agent mode: inject the latest plan so it gets executed.
-      const lastPlan = await getPrisma().message.findFirst({
-        where: { sessionId, plan: true },
-        orderBy: { createdAt: "desc" },
-        select: { content: true },
-      });
-      if (lastPlan?.content) {
-        ctx.system += `\n\n## Plan to execute\n${lastPlan.content}\n\nExecute this plan now.`;
-      }
-    }
-
-    const tools = isPlan ? getPlanTools("game") : getGameTools();
+    const tools = getGameTools();
 
     emitStarted(sessionId);
     gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
@@ -660,7 +640,6 @@ export async function runGameMasterBatch(
           senderId: (await getSession())?.userId ?? "",
           role: "master",
           content: gmText,
-          plan: isPlan,
         },
       });
       await persistRun({

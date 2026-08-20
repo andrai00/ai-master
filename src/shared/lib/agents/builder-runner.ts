@@ -36,7 +36,6 @@ import { compressMessages } from "./context-compress";
 import { traceAgent } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
-import { PLAN_MODE_SYSTEM, getPlanTools } from "./plan-mode";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -423,8 +422,7 @@ const EMPTY_RETRY_PROMPT =
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
-  fileIds: string[] = [],
-  opts: { planMode?: boolean } = {}
+  fileIds: string[] = []
 ): Promise<void> {
   const ac = startProcessing(sessionId);
   if (!ac) return; // already processing
@@ -436,27 +434,12 @@ export async function runBuilderAgent(
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
-  const isPlan = opts.planMode === true;
 
   try {
     // --- Phase: prepare ---
     const ctx = await buildContext(sessionId);
     throwIfCancelled();
     userMessageIds = ctx.newUserMessageIds;
-
-    if (isPlan) {
-      ctx.system += PLAN_MODE_SYSTEM;
-    } else {
-      // Agent mode: inject the latest plan so it gets executed.
-      const lastPlan = await getPrisma().message.findFirst({
-        where: { sessionId, plan: true },
-        orderBy: { createdAt: "desc" },
-        select: { content: true },
-      });
-      if (lastPlan?.content) {
-        ctx.system += `\n\n## Plan to execute\n${lastPlan.content}\n\nExecute this plan now.`;
-      }
-    }
 
     if (fileIds.length === 0) {
       ctx.system += "\n\n## Current Mode: CHAT\nNo files are attached. Answer the user's question as a normal assistant.";
@@ -497,7 +480,7 @@ export async function runBuilderAgent(
     const isStudy = fileIds.length > 0;
     console.log(`[builder] start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length}`);
 
-    const tools = isPlan ? getPlanTools("builder") : getTools(ctx.builderMode);
+    const tools = getTools(ctx.builderMode);
     runId = createRunId();
 
     // Retry loop: up to 5 attempts for transient errors
@@ -654,7 +637,6 @@ export async function runBuilderAgent(
         senderId: (await getSession())?.userId ?? "",
         role: "builder",
         content: builderText,
-        plan: isPlan,
       },
     });
 

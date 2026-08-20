@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Table, App, Button, Tooltip, Segmented } from "antd";
+import { Modal, Table, App, Button, Tooltip } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { ChatPanel, type IMessage } from "@/src/features/chat-panel";
@@ -33,7 +33,6 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   const [historyPageSize, setHistoryPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [typing, setTyping] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const [planMode, setPlanMode] = useState(false);
 
   const { data: sessionData } = useGameSession();
   const sessionId = sessionData?.id ?? undefined;
@@ -72,7 +71,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   }, [sessionId, clearMutation]);
 
   const requestMutation = useMutation({
-    mutationFn: (pm: boolean) => requestMasterResponseAction(sessionId!, pm),
+    mutationFn: () => requestMasterResponseAction(sessionId!),
     onError: (err: Error) => notification.error({ title: err.message }),
   });
 
@@ -130,7 +129,6 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
       text: m.content,
       shared: m.shared,
       summarized: m.summarized,
-      plan: m.plan,
       runId: m.runId ?? undefined,
       avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     });
@@ -189,8 +187,8 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
 
   const handleRequestMaster = useCallback(async () => {
     if (!sessionId) return;
-    await requestMutation.mutateAsync(planMode);
-  }, [sessionId, requestMutation, planMode]);
+    await requestMutation.mutateAsync();
+  }, [sessionId, requestMutation]);
 
   const handleStopMaster = useCallback(async () => {
     if (!sessionId) return;
@@ -272,18 +270,6 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
         footerAction={requestBtn}
-        inputPrefix={isAdmin ? (
-          <Segmented
-            size="small"
-            value={planMode ? "plan" : "act"}
-            disabled={typing || stopping}
-            onChange={(v) => setPlanMode(v === "plan")}
-            options={[
-              { label: t("chat.actMode"), value: "act" },
-              { label: t("chat.planMode"), value: "plan" },
-            ]}
-          />
-        ) : undefined}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id, { onError: (e) => notification.error({ title: t(e instanceof Error ? e.message : "errors.unknownError") }) })} executing={executeRollMutation.isPending} disabled={typing} />}
       />
       <Modal

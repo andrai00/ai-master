@@ -29,9 +29,28 @@ export async function resolveWikiLinksAction(
 
   const map = new Map(docs.map((d) => [d.id, d.title]));
 
-  return uniqueIds.map((docId) => ({
-    docId,
-    title: map.get(docId) || docId,
-    exists: map.has(docId),
-  }));
+  // Links may reference a document by its path/title (e.g. "spells/223-feather_fall")
+  // instead of a raw UUID — resolve those too so path-based wiki-links render
+  // as clickable buttons, not plain text.
+  const missing = uniqueIds.filter((docId) => !map.has(docId));
+  let pathDocs: Array<{ title: string; id: string }> = [];
+  if (missing.length > 0) {
+    pathDocs = await prisma.document.findMany({
+      where: { title: { in: missing } },
+      select: { id: true, title: true },
+    });
+  }
+  const titleToId = new Map(pathDocs.map((d) => [d.title, d.id]));
+
+  return uniqueIds.map((docId) => {
+    if (map.has(docId)) {
+      return { docId, title: map.get(docId)!, exists: true };
+    }
+    const viaTitle = titleToId.get(docId);
+    return {
+      docId,
+      title: viaTitle || docId,
+      exists: !!viaTitle,
+    };
+  });
 }

@@ -30,6 +30,17 @@ interface IMdViewerProps {
   showToc?: boolean;
 }
 
+/**
+ * Read a hast property that may be stored in kebab-case (remark-only pipeline)
+ * or camelCase (rehype-raw normalizes data-* attribute names when it re-parses
+ * the HTML). Always check both spellings.
+ */
+function readProp(properties: Record<string, string> | undefined, kebabKey: string): string | undefined {
+  if (!properties) return undefined;
+  const camelKey = kebabKey.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+  return properties[kebabKey] ?? properties[camelKey];
+}
+
 function cleanTocText(raw: string): string {
   return raw
     .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
@@ -132,10 +143,10 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       span(props) {
         const { node, children, ...rest } = props;
         const properties = (node?.properties as Record<string, string> | undefined);
-        const href = properties?.["data-wiki-link"];
+        const href = readProp(properties, "data-wiki-link");
         if (href) {
           const [docId, anchor] = href.split("|");
-          const displayText = properties?.["data-wiki-display"] || null;
+          const displayText = readProp(properties, "data-wiki-display") || null;
           return (
             <WikiLink
               docId={docId!}
@@ -145,7 +156,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        const formulaRef = properties?.["data-formula-ref"];
+        const formulaRef = readProp(properties, "data-formula-ref");
         if (formulaRef) {
           return (
             <FormulaInlineRef
@@ -154,7 +165,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        const chatLink = properties?.["data-chat-link"];
+        const chatLink = readProp(properties, "data-chat-link");
         if (chatLink) {
           return <ChatNavLink chatKey={chatLink} />;
         }
@@ -221,17 +232,26 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             />
           );
         }
-        if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
-          const [pathPart, hashPart] = (href as string).split("#");
-          const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
-          return (
-            <WikiLink
-              docId={cleanPath}
-              anchor={hashPart || undefined}
-              displayText={typeof children === "string" ? children : undefined}
-              onNavigate={onNavigate}
-            />
-          );
+        // Any site-relative path (e.g. /spells/223-feather_fall/,
+        // /classes/101-sorcerer.md#anchor) is an internal document link.
+        // Protocol-relative (//cdn...) stays external. Leading/trailing
+        // slashes and .md extension are stripped — the modal resolves the
+        // path via resolveDocumentByPath.
+        if (href && /^\/(?!\/)/.test(href)) {
+          const [pathPart, hashPart] = href.split("#");
+          const cleanPath = (pathPart ?? "")
+            .replace(/\.md$/i, "")
+            .replace(/^\/+|\/+$/g, "");
+          if (cleanPath) {
+            return (
+              <WikiLink
+                docId={cleanPath}
+                anchor={hashPart || undefined}
+                displayText={typeof children === "string" ? children : undefined}
+                onNavigate={onNavigate}
+              />
+            );
+          }
         }
         return (
           <span>

@@ -50,10 +50,17 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
   span(props) {
     const { node, children, ...rest } = props;
     const properties = (node?.properties as Record<string, string> | undefined);
-    const href = properties?.["data-wiki-link"];
+    // rehype-raw normalizes data-* attributes to camelCase when it re-parses
+    // HTML — always read both spellings so links render everywhere.
+    const read = (key: string) => {
+      if (!properties) return undefined;
+      const camel = key.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+      return properties[key] ?? properties[camel];
+    };
+    const href = read("data-wiki-link");
     if (href) {
       const [docId, anchor] = href.split("|");
-      const display = properties?.["data-wiki-display"] || docId;
+      const display = read("data-wiki-display") || docId;
       return (
         <button
           type="button"
@@ -72,7 +79,7 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
         </button>
       );
     }
-    const chatLink = properties?.["data-chat-link"];
+    const chatLink = read("data-chat-link");
     if (chatLink) {
       return <ChatNavLink chatKey={chatLink} />;
     }
@@ -106,26 +113,35 @@ const wikiComponents = (onWikiClick: (docId: string, anchor?: string) => void): 
         </button>
       );
     }
-    if (href && /^\/[^)]*\.md(?:#.+)?$/.test(href)) {
-      const [pathPart, hashPart] = (href as string).split("#");
-      const cleanPath = (pathPart ?? "").replace(/\.md$/i, "").replace(/^\//, "");
-      return (
-        <button
-          type="button"
-          onClick={() => onWikiClick(cleanPath, hashPart || undefined)}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: "1px dashed var(--text-primary)",
-            color: "var(--text-primary)",
-            cursor: "pointer",
-            font: "inherit",
-            padding: 0,
-          }}
-        >
-          {children}
-        </button>
-      );
+    // Any site-relative path (e.g. /spells/223-feather_fall/,
+    // /classes/101-sorcerer.md#anchor) is an internal document link.
+    // Protocol-relative (//cdn...) stays external. Leading/trailing
+    // slashes and .md extension are stripped — the modal resolves the
+    // path via resolveDocumentByPath.
+    if (href && /^\/(?!\/)/.test(href)) {
+      const [pathPart, hashPart] = href.split("#");
+      const cleanPath = (pathPart ?? "")
+        .replace(/\.md$/i, "")
+        .replace(/^\/+|\/+$/g, "");
+      if (cleanPath) {
+        return (
+          <button
+            type="button"
+            onClick={() => onWikiClick(cleanPath, hashPart || undefined)}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: "1px dashed var(--text-primary)",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              font: "inherit",
+              padding: 0,
+            }}
+          >
+            {children}
+          </button>
+        );
+      }
     }
     return (
       <span>

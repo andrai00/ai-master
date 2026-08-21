@@ -562,6 +562,10 @@ export const ChatPanel = ({
     const runChain = runRows
       ? [...new Set(runRows.filter((r) => r.kind === "tool-call").map((r) => r.toolName).filter((v): v is string => !!v))].join(" → ")
       : "";
+    // Debug mode: each agent action is its own compact line in the chat (like
+    // Cursor/Kilo Code). Shown only for the assistant reply of a run, above it.
+    const runToolCalls = runRows ? runRows.filter((r) => r.kind === "tool-call") : [];
+    const showToolLog = (msg.role === "master" || msg.role === "builder") && runToolCalls.length > 0;
     return (
     <div
       key={msg.id}
@@ -575,6 +579,17 @@ export const ChatPanel = ({
       />
       <div className={styles.msgContent}>
         <div className={styles.sender}>{msg.sender}</div>
+        {showToolLog && (
+          <div className={styles.toolLog}>
+            {runToolCalls.map((row) => (
+              <div key={row.id} className={styles.toolLogLine}>
+                {getStepIcon(row.toolName ?? "")}
+                <code>{row.toolName}</code>
+                {row.args && <span className={styles.toolLogArgs}>{shortenDebug(row.args, 90)}</span>}
+              </div>
+            ))}
+          </div>
+        )}
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}

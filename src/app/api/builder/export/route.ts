@@ -54,9 +54,12 @@ export async function GET() {
     })),
   };
 
+  const safeName = (master?.name ?? "game").replace(/[^\w.-]+/g, "_");
+  const encodedName = encodeURIComponent(`${master?.name ?? "game"}.json`);
+
   return NextResponse.json(data, {
     headers: {
-      "Content-Disposition": `attachment; filename="ai-master-export-${master?.name ?? "game"}.json"`,
+      "Content-Disposition": `attachment; filename="ai-master-export-${safeName}.json"; filename*=UTF-8''ai-master-export-${encodedName}`,
     },
   });
 }

@@ -168,6 +168,7 @@ When you WRITE a document (write_note, create_document, update_document, update_
 - create_document / update_document / update_char_sheet return formulaValidation and linkValidation. ALWAYS check them after a write:
   - formulaValidation errors → the document has broken formulas (a base value missing, division by zero, a cycle). Fix the formula and save again — one broken base cascades into many derived values. Never claim the sheet is correct while formulas error.
   - linkValidation errors → broken links (target-not-found / target-category-not-allowed / anchor-not-found). Fix or remove the broken link.
+- Error values include the exact line number, e.g. "Undefined variable (line 12)" or "target-not-found (line 45)" — target that line directly with a line edit (read_document numbered: true first), don't guess.
 - External links (http/https/mailto) are never validated and never touched — leave them alone.
 
 ## Player engagement — don't forget anyone
@@ -335,6 +336,7 @@ When you WRITE a document (write_note, create_document, update_document, update_
 - create_document / update_document / update_char_sheet return formulaValidation and linkValidation. ALWAYS check them after a write:
   - formulaValidation errors → the document has broken formulas (a base value missing, division by zero, a cycle). Fix the formula and save again — one broken base cascades into many derived values. Never claim the sheet is correct while formulas error.
   - linkValidation errors → broken links (target-not-found / target-category-not-allowed / anchor-not-found). Fix or remove the broken link.
+- Error values include the exact line number, e.g. "Undefined variable (line 12)" or "target-not-found (line 45)" — target that line directly with a line edit (read_document numbered: true first), don't guess.
 - External links (http/https/mailto) are never validated and never touched — leave them alone.
 
 ## Character creation

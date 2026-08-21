@@ -87,7 +87,7 @@ Rules:
 - Formulas may reference other formulas and base inputs; declaration order does not matter.
 - Base values change → edit the input line; derived values recompute automatically.
 - Errors (missing variable, division by zero, circular reference, non-finite) are reported as "err" — never guess a value.
-- create_document / update_document return formulaValidation ({ ok, errorCount, errors }) — check it after saving; if errors exist, fix the formulas and save again.
+- create_document / update_document return formulaValidation ({ ok, errorCount, errors }) — check it after saving; if errors exist, fix the formulas and save again. Error values include the line number, e.g. "Undefined variable (line 12)".
 - The needed variables/formulas depend on the class and the system (AC from dex or wis, Pathfinder, etc.) — define them per the game's rules from the glossary. One derived stat = one line.`,
 
   links: `## Document Links

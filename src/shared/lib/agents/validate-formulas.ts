@@ -20,7 +20,7 @@ export function validateFormulaContent(content: string): IFormulaValidation | nu
   const { results } = evaluateFormulas(blocks);
   const errors: Record<string, string> = {};
   results.forEach((v) => {
-    if (v.error) errors[v.name] = v.error;
+    if (v.error) errors[v.name] = v.line ? `${v.error} (line ${v.line})` : v.error;
   });
   const errorCount = Object.keys(errors).length;
 

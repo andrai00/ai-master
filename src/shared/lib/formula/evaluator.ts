@@ -42,16 +42,16 @@ export function evaluateFormulas(blocks: IFormulaBlock[]): IEvaluationReport {
   for (const b of blocks) nameSet.add(b.name);
   for (const k of inputs.keys()) nameSet.add(k);
 
-  const parsed = new Map<string, { node: MathNode; deps: string[]; depth: number }>();
+  const parsed = new Map<string, { node: MathNode; deps: string[]; depth: number; line?: number }>();
   for (const block of blocks) {
     try {
       const node = parse(block.expr);
       const deps = collectDependencies(node).filter((d) => nameSet.has(d));
-      parsed.set(block.name, { node, deps, depth: 0 });
-      results.set(block.name, { name: block.name, expr: block.expr, value: null, error: null });
+      parsed.set(block.name, { node, deps, depth: 0, line: block.line });
+      results.set(block.name, { name: block.name, expr: block.expr, value: null, error: null, line: block.line });
     } catch {
       errors.push(`Parse error in "${block.name}": ${block.expr}`);
-      results.set(block.name, { name: block.name, expr: block.expr, value: null, error: "Parse error" });
+      results.set(block.name, { name: block.name, expr: block.expr, value: null, error: "Parse error", line: block.line });
     }
   }
 

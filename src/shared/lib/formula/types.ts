@@ -11,6 +11,8 @@ export interface IFormulaResult {
   expr: string;
   value: number | null;
   error: string | null;
+  /** 1-based line of the ```formula block start in the document. */
+  line?: number;
 }
 
 export interface IEvaluationContext {

@@ -98,7 +98,7 @@ export const readDocumentTool = {
           const formulaErrors: Record<string, string> = {};
           results.forEach((v) => {
             if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
-            else if (v.error) formulaErrors[v.name] = v.error;
+            else if (v.error) formulaErrors[v.name] = v.line ? `${v.error} (line ${v.line})` : v.error;
           });
           return Object.keys(formulaValues).length > 0 || Object.keys(formulaErrors).length > 0
             ? {

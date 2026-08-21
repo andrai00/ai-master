@@ -31,11 +31,18 @@ export interface ILinkValidation {
 interface ILinkRef {
   key: string;
   anchor?: string;
+  /** 1-based line of the link in the source content. */
+  line?: number;
 }
 
 const WIKI_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
 const MD_RE = /\]\(([^)\s]+)\)/g;
 const DOC_UUID_RE = /^\/doc\/([a-zA-Z0-9-]+)$/;
+
+/** 1-based line of `index` in `content`. */
+function lineAt(content: string, index: number): number {
+  return content.slice(0, index).split("\n").length;
+}
 
 /** Collects unique internal link targets (key + optional #anchor). */
 export function extractLinkKeys(content: string): ILinkRef[] {
@@ -43,7 +50,7 @@ export function extractLinkKeys(content: string): ILinkRef[] {
   const out: ILinkRef[] = [];
   let m: RegExpExecArray | null;
 
-  const push = (raw: string, anchor?: string) => {
+  const push = (raw: string, index: number, anchor?: string) => {
     const t = raw.trim();
     if (!t) return;
     if (/^(https?:|mailto:|tel:|javascript:|#|data:|\/\/)/.test(t)) return;
@@ -55,7 +62,7 @@ export function extractLinkKeys(content: string): ILinkRef[] {
       const id = `${key}#${anchor ?? ""}`;
       if (!seen.has(id)) {
         seen.add(id);
-        out.push({ key, anchor });
+        out.push({ key, anchor, line: lineAt(content, index) });
       }
       return;
     }
@@ -65,19 +72,19 @@ export function extractLinkKeys(content: string): ILinkRef[] {
     const id = `${norm}#${anchor ?? ""}`;
     if (!seen.has(id)) {
       seen.add(id);
-      out.push({ key: norm, anchor });
+      out.push({ key: norm, anchor, line: lineAt(content, index) });
     }
   };
 
   WIKI_RE.lastIndex = 0;
   while ((m = WIKI_RE.exec(content)) !== null) {
-    push(m[1]!, m[2] || undefined);
+    push(m[1]!, m.index, m[2] || undefined);
   }
 
   MD_RE.lastIndex = 0;
   while ((m = MD_RE.exec(content)) !== null) {
     const [pathPart, hashPart] = m[1]!.split("#");
-    push(pathPart, hashPart || undefined);
+    push(pathPart, m.index, hashPart || undefined);
   }
 
   return out;
@@ -140,13 +147,14 @@ export async function validateLinksContent(
 
   for (const link of links) {
     const label = link.anchor ? `${link.key}#${link.anchor}` : link.key;
+    const where = link.line ? ` (line ${link.line})` : "";
     const ref = await resolveDocumentRef(prisma, masterId, link.key);
     if (!ref) {
-      errors[label] = "target-not-found";
+      errors[label] = `target-not-found${where}`;
       continue;
     }
     if (allowed && !allowed.includes(ref.category as TDocCategory)) {
-      errors[label] = `target-category-not-allowed (${ref.category})`;
+      errors[label] = `target-category-not-allowed (${ref.category})${where}`;
       continue;
     }
     if (link.anchor) {
@@ -159,7 +167,7 @@ export async function validateLinksContent(
       }
       const targetContent = contentCache.get(ref.id);
       if (targetContent == null || !hasAnchor(targetContent, link.anchor)) {
-        errors[label] = "anchor-not-found";
+        errors[label] = `anchor-not-found${where}`;
       }
     }
   }

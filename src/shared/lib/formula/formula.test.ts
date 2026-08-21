@@ -62,6 +62,13 @@ describe("evaluateFormulas", () => {
     expect(results.get("foo")!.value).toBeNull();
   });
 
+  it("reports the 1-based line of the formula block with the error", () => {
+    const md = "header line\n\n```formula\nfoo = str + 1\n```";
+    const { results } = evaluateFormulas(parseFormulaBlocks(md));
+    expect(results.get("foo")!.line).toBe(3);
+    expect(results.get("foo")!.error).toBeTruthy();
+  });
+
   it("marks circular references as error", () => {
     const { results } = evalBlock("```formula\na = b + 1\nb = a + 1\n```");
     expect(results.get("a")!.error).toBeTruthy();

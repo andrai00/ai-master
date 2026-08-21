@@ -89,49 +89,32 @@ function emitPresence(io: Server, masterId: string): void {
 }
 
 /**
- * Session rooms this user is allowed to observe, mirroring the authorization
- * the old /api/stream route applied per SSE connection.
+ * Whether a user may observe step events for a session, mirroring the
+ * authorization the old /api/stream route applied per SSE connection.
  */
-async function getObservableStepSessions(session: ISessionPayload): Promise<string[]> {
+async function canObserveSession(session: ISessionPayload, sessionId: string): Promise<boolean> {
   const prisma = getPrisma();
+  const s = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { masterId: true, type: true, playerId: true },
+  });
+  if (!s) return false;
+
   const activeGame = await getActiveGame();
   const masterId = activeGame?.currentMasterId ?? null;
-  const ids: string[] = [];
-  if (!masterId) return ids;
+  if (!masterId || s.masterId !== masterId) return false;
 
   const isAdmin = session.role === "admin";
+  if (s.type === "personal") return s.playerId === session.userId;
+  if (isAdmin) return s.type === "game" || s.type === "builder";
 
-  const personal = await prisma.session.findFirst({
-    where: { playerId: session.userId, type: "personal", masterId },
-    select: { id: true },
-  });
-  if (personal) ids.push(personal.id);
-
-  if (isAdmin) {
-    const gameSession = await prisma.session.findFirst({
-      where: { masterId, type: "game" },
-      select: { id: true },
-    });
-    if (gameSession) ids.push(gameSession.id);
-
-    const builderSession = await prisma.session.findFirst({
-      where: { masterId, type: "builder" },
-      select: { id: true },
-    });
-    if (builderSession) ids.push(builderSession.id);
-  } else {
+  if (s.type === "game") {
     const access = await prisma.gameAccess.findUnique({
       where: { userId_masterId: { userId: session.userId, masterId } },
     });
-    if (access) {
-      const gameSession = await prisma.session.findFirst({
-        where: { masterId, type: "game" },
-        select: { id: true },
-      });
-      if (gameSession) ids.push(gameSession.id);
-    }
+    return access !== null;
   }
-  return ids;
+  return false;
 }
 
 function relayTyping(
@@ -154,28 +137,15 @@ async function setupConnection(io: Server, socket: Socket): Promise<void> {
   const session = socket.data.session as ISessionPayload;
   socket.join(`user:${session.userId}`);
 
-  // Re-join from scratch: leave old rooms (reconnect after game switch).
+  // Presence room for the current active game (recomputed on rejoin after a
+  // game switch). The step/session rooms are NOT managed here: membership is
+  // driven by the client via "subscribe-steps"/"unsubscribe-steps", which
+  // fixes the race where a chat session is created lazily by the page's own
+  // server action AFTER the socket connected — the room would otherwise never
+  // be joined and every step event for that chat would be silently lost.
   for (const room of socket.rooms) {
-    if (room.startsWith("steps:") || room.startsWith("session:") || room.startsWith("presence:")) {
+    if (room.startsWith("presence:")) {
       socket.leave(room);
-    }
-  }
-
-  const stepSessionIds = await getObservableStepSessions(session);
-  socket.data.stepSessionIds = stepSessionIds;
-  for (const sid of stepSessionIds) {
-    socket.join(`steps:${sid}`);
-    socket.join(`session:${sid}`);
-  }
-
-  // Replay a snapshot for a batch already in progress (page opened mid-run).
-  for (const sid of stepSessionIds) {
-    const snap = getSnapshot(sid);
-    if (snap?.processing) {
-      socket.emit("step", { sessionId: sid, type: "started", seq: snap.seq });
-      if (snap.tool) {
-        socket.emit("step", { sessionId: sid, type: "step", tool: snap.tool, detail: snap.detail, seq: snap.seq });
-      }
     }
   }
 
@@ -186,6 +156,20 @@ async function setupConnection(io: Server, socket: Socket): Promise<void> {
     socket.join(`presence:${masterId}`);
     emitPresence(io, masterId);
   }
+}
+
+/**
+ * Serialize setup runs per socket so concurrent connection/rejoin calls do
+ * not interleave their presence leave/join operations.
+ */
+function scheduleSetup(io: Server, socket: Socket): void {
+  const prev = (socket.data.setupChain as Promise<void> | undefined) ?? Promise.resolve();
+  socket.data.setupChain = prev
+    .catch(() => {})
+    .then(() => setupConnection(io, socket));
+  void socket.data.setupChain.catch((err: unknown) => {
+    console.error("[socket] connection setup failed:", err);
+  });
 }
 
 /** Idempotent registration of all Socket.IO handlers (runs once per process). */
@@ -217,15 +201,43 @@ export function registerSocketHandlers(): void {
   io.on("connection", (socket) => {
     const session = socket.data.session as ISessionPayload;
 
-    setupConnection(io, socket).catch((err) => {
-      console.error("[socket] connection setup failed:", err);
+    scheduleSetup(io, socket);
+
+    // Re-evaluate presence after the active game changed (game_switched).
+    socket.on("rejoin", () => {
+      scheduleSetup(io, socket);
     });
 
-    // Re-evaluate rooms after the active game changed (game_switched).
-    socket.on("rejoin", () => {
-      setupConnection(io, socket).catch((err) => {
-        console.error("[socket] rejoin failed:", err);
-      });
+    // The client requests step/session room membership for the chat it is
+    // currently showing. Join the rooms and replay a snapshot for a batch
+    // already in progress (page opened mid-run).
+    socket.on("subscribe-steps", (data: { sessionId?: string }) => {
+      const sessionId = data?.sessionId;
+      if (!sessionId || typeof sessionId !== "string") return;
+      canObserveSession(session, sessionId)
+        .then((ok) => {
+          if (!ok) return;
+          socket.join(`steps:${sessionId}`);
+          socket.join(`session:${sessionId}`);
+
+          const snap = getSnapshot(sessionId);
+          if (snap?.processing) {
+            socket.emit("step", { sessionId, type: "started", seq: snap.seq });
+            if (snap.tool) {
+              socket.emit("step", { sessionId, type: "step", tool: snap.tool, detail: snap.detail, seq: snap.seq });
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("[socket] subscribe-steps failed:", err);
+        });
+    });
+
+    socket.on("unsubscribe-steps", (data: { sessionId?: string }) => {
+      const sessionId = data?.sessionId;
+      if (!sessionId || typeof sessionId !== "string") return;
+      socket.leave(`steps:${sessionId}`);
+      socket.leave(`session:${sessionId}`);
     });
 
     socket.on("typing:start", (data: { sessionId?: string }) => {

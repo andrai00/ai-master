@@ -51,6 +51,15 @@ let socket: Socket | null = null;
 export function connectSocket(): Socket {
   if (!socket) {
     socket = io({ path: "/socket.io", transports: ["websocket", "polling"] });
+    // (Re)join the step rooms the app is currently subscribed to whenever the
+    // socket connects/reconnects. This repairs membership that was lost when
+    // a chat session was created lazily after the first connect (the room was
+    // never joined) or when the connection dropped mid-run.
+    socket.on("connect", () => {
+      for (const sessionId of pendingStepRooms) {
+        socket?.emit("subscribe-steps", { sessionId });
+      }
+    });
   }
   return socket;
 }
@@ -65,6 +74,7 @@ const sessionState = new Map<string, ISessionState>();
 const reconnectListeners = new Set<ReconnectHandler>();
 const typingListeners = new Map<string, Set<TypingHandler>>();
 const presenceListeners = new Set<PresenceHandler>();
+const pendingStepRooms = new Set<string>();
 let latestPresence: IPresenceUpdate | null = null;
 
 export function subscribeStep(sessionId: string, handler: StepHandler): () => void {
@@ -75,6 +85,8 @@ export function subscribeStep(sessionId: string, handler: StepHandler): () => vo
   }
   set.add(handler);
 
+  requestStepRoom(sessionId);
+
   // Replay current state to a late subscriber (page loaded mid-batch).
   const state = sessionState.get(sessionId);
   if (state?.processing) {
@@ -84,8 +96,23 @@ export function subscribeStep(sessionId: string, handler: StepHandler): () => vo
 
   return () => {
     set.delete(handler);
-    if (set.size === 0) stepListeners.delete(sessionId);
+    if (set.size === 0) {
+      stepListeners.delete(sessionId);
+      releaseStepRoom(sessionId);
+    }
   };
+}
+
+/** Ask the server to join this socket to the steps/session rooms for the chat. */
+function requestStepRoom(sessionId: string): void {
+  pendingStepRooms.add(sessionId);
+  socket?.emit("subscribe-steps", { sessionId });
+}
+
+/** Leave the steps/session rooms for a chat the client is no longer viewing. */
+function releaseStepRoom(sessionId: string): void {
+  pendingStepRooms.delete(sessionId);
+  socket?.emit("unsubscribe-steps", { sessionId });
 }
 
 export function emitStep(sessionId: string, event: IRealtimeStepEvent): void {

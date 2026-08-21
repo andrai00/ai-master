@@ -9,7 +9,7 @@ const formatValue = (v: number) => (v >= 0 ? `+${v}` : `${v}`);
 
 function FormulaError({ message }: { message: string }) {
   return (
-    <Tooltip title={<span className={styles.popoverText}>{message}</span>}>
+    <Tooltip title={<span className={styles.popoverText}>{message}</span>} classNames={{ root: styles.tooltip }}>
       <span className={styles.err}>err</span>
     </Tooltip>
   );
@@ -54,7 +54,11 @@ export const FormulaInlineRef = ({ result }: { varName: string; result: IFormula
   }
   const formulaText = `${result.expr} = ${formatValue(result.value)}`;
   return (
-    <Tooltip title={<code className={styles.popoverFormula}>{formulaText}</code>}>
+    <Tooltip
+      title={<code className={styles.popoverFormula}>{formulaText}</code>}
+      classNames={{ root: styles.tooltip }}
+      mouseEnterDelay={0.15}
+    >
       <span className={styles.inlineValue}>{formatValue(result.value)}</span>
     </Tooltip>
   );

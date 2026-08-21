@@ -111,6 +111,13 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* ---- tooltip overflow safety ---- */
+
+.ant-tooltip .ant-tooltip-inner {
+  max-width: min(80vw, 360px);
+  overflow-wrap: anywhere;
+}
+
 /* ---- shared page header ---- */
 
 .pageHeader {

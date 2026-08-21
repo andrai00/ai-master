@@ -309,7 +309,14 @@ function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: bo
     const available = exclude ? pool.filter((p) => p !== exclude) : pool;
     return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : pool[0];
   }
-  return raw as string;
+  // Missing translation key — i18next returns the key itself. Fall back to a
+  // generic label instead of leaking "builder.steps.<tool>" into the bubble.
+  if (typeof raw !== "string" || raw === key || raw.trim().length === 0) {
+    const fallback = t("chat.thinking", { returnObjects: true });
+    if (typeof fallback === "string" && fallback !== "chat.thinking") return fallback;
+    return "Thinking…";
+  }
+  return raw;
 }
 
 export const ChatPanel = ({
@@ -761,6 +768,7 @@ export const ChatPanel = ({
                     </div>
                   ) : (
                     <>
+                      <span style={{ color: "var(--text-dim)", fontSize: 12, marginRight: 4 }}>{t("chat.thinking")}</span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                       <span className={styles.dot} />

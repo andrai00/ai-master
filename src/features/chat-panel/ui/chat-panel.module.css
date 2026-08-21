@@ -1044,6 +1044,21 @@
   opacity: 0.6;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.toolLogRowDanger,
+.toolLogRowDanger code {
+  color: var(--danger);
+}
+.toolLogRowDanger .toolLogRowArgs {
+  opacity: 0.9;
+}
+.toolLogRowWrite code {
+  color: var(--text-primary);
+}
+.toolLogRowAccent .toolLogRowArgs {
+  opacity: 0.75;
 }
 
 .liveToolLog {

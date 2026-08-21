@@ -44,6 +44,7 @@ import { useMobileMenu } from "@/src/shared/ui/page-header";
 import { subscribeStep, subscribeReconnect, subscribeTyping, notifyTyping } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent, ITypingIndicator } from "@/src/shared/lib/realtime/client";
 import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
+import { formatToolCall, type TToolTone } from "@/src/features/chat-panel/model/format-transcript";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -692,17 +693,22 @@ export const ChatPanel = ({
   // the run. Only present when debugRows is available (AGENT_DEBUG=1 + admin).
   const renderMessageFlow = (msg: IMessage): ReactNode[] => {
     const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
-    const toolCalls =
-      (msg.role === "master" || msg.role === "builder") && runRows
-        ? runRows.filter((r) => r.kind === "tool-call")
-        : [];
+    const isAgentReply = msg.role === "master" || msg.role === "builder";
+    const toolCalls = isAgentReply && runRows ? runRows.filter((r) => r.kind === "tool-call") : [];
+    const resultsByCall = new Map<string, string | null>();
+    if (runRows) {
+      for (const r of runRows) {
+        if (r.kind === "tool-result" && r.toolCallId) resultsByCall.set(r.toolCallId, r.result);
+      }
+    }
     const items: ReactNode[] = [];
     for (const row of toolCalls) {
+      const s = formatToolCall(row.toolName, row.args, row.toolCallId ? resultsByCall.get(row.toolCallId) ?? null : null);
       items.push(
-        <div key={`tool-${row.id}`} className={styles.toolLogRow}>
+        <div key={`tool-${row.id}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
           <span className={styles.toolLogRowIcon}>{getStepIcon(row.toolName ?? "")}</span>
           <code>{row.toolName}</code>
-          {row.args && <span className={styles.toolLogRowArgs}>{shortenDebug(row.args, 90)}</span>}
+          {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
         </div>
       );
     }
@@ -785,13 +791,16 @@ export const ChatPanel = ({
           })}
           {debugMode && liveTools.length > 0 && (
             <div className={styles.liveToolLog}>
-              {liveTools.map((lt, i) => (
-                <div key={`live-${i}`} className={styles.toolLogRow}>
-                  <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
-                  <code>{lt.tool}</code>
-                  {lt.args && <span className={styles.toolLogRowArgs}>{shortenDebug(lt.args, 90)}</span>}
-                </div>
-              ))}
+              {liveTools.map((lt, i) => {
+                const s = formatToolCall(lt.tool, lt.args, null);
+                return (
+                  <div key={`live-${i}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
+                    <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
+                    <code>{lt.tool}</code>
+                    {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
           {typing && (
@@ -996,7 +1005,17 @@ function truncateFileName(name: string): string {
   return base.slice(0, 20) + "…" + ext;
 }
 
-/** Truncate long debug payloads for the internals block */
-function shortenDebug(value: string, max = 600): string {
-  return value.length > max ? value.slice(0, max) + "…" : value;
+/** Tone → row style for the debug tool log (delete stands out). */
+function toneClass(tone: TToolTone): string {
+  switch (tone) {
+    case "delete":
+      return styles.toolLogRowDanger;
+    case "write":
+      return styles.toolLogRowWrite;
+    case "search":
+    case "roll":
+      return styles.toolLogRowAccent;
+    default:
+      return "";
+  }
 }

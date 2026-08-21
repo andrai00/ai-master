@@ -43,6 +43,7 @@ import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
 import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import styles from "./chat-panel.module.css";
 
 /** Reusable wiki-link renderer for chat messages */
@@ -164,6 +165,7 @@ export interface IMessage {
   avatarUrl?: string;
   shared?: boolean;
   summarized?: boolean;
+  runId?: string;
   attachedFiles?: { fileId: string; filename: string }[];
   prefix?: ReactNode;
   isRollEntry?: boolean;
@@ -219,6 +221,8 @@ interface IChatPanelProps {
   rollStrip?: ReactNode;
   /** Sender name shown on the typing bubble (defaults to Builder label) */
   typingSender?: string;
+  /** Debug mode (AGENT_DEBUG=1): per-run agent transcript rows for the internals block */
+  debugRows?: Record<string, ITranscriptRow[]>;
 }
 
 const DEFAULT_MAX_FILES = 5;
@@ -305,7 +309,14 @@ function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: bo
     const available = exclude ? pool.filter((p) => p !== exclude) : pool;
     return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : pool[0];
   }
-  return raw as string;
+  // Missing translation key — i18next returns the key itself. Fall back to a
+  // generic label instead of leaking "builder.steps.<tool>" into the bubble.
+  if (typeof raw !== "string" || raw === key || raw.trim().length === 0) {
+    const fallback = t("chat.thinking", { returnObjects: true });
+    if (typeof fallback === "string" && fallback !== "chat.thinking") return fallback;
+    return "Thinking…";
+  }
+  return raw;
 }
 
 export const ChatPanel = ({
@@ -314,7 +325,7 @@ export const ChatPanel = ({
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
-  inputPrefix, footerAction, rollStrip, typingSender,
+  inputPrefix, footerAction, rollStrip, typingSender, debugRows,
 }: IChatPanelProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -328,6 +339,8 @@ export const ChatPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
+  const [streamedText, setStreamedText] = useState("");
+  const [liveTools, setLiveTools] = useState<Array<{ tool: string; args?: string }>>([]);
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -356,16 +369,22 @@ export const ChatPanel = ({
       switch (data.type) {
         case "started":
           started = true;
+          setStreamedText("");
+          setLiveTools([]);
           onStepsStart?.();
           break;
         case "step": {
           const tool = data.tool ?? "";
           if (!started) { started = true; onStepsStart?.(); }
           setLiveStep({ tool, detail: data.detail });
+          setLiveTools((prev) => (prev[prev.length - 1]?.tool === tool && prev[prev.length - 1]?.args === data.args ? prev : [...prev, { tool, args: data.args }]));
           onToolStep?.(tool);
           queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
           break;
         }
+        case "text":
+          if (data.detail) setStreamedText((prev) => prev + data.detail);
+          break;
         case "stopping":
           setLiveStep(null);
           break;
@@ -373,9 +392,13 @@ export const ChatPanel = ({
         case "stopped":
           started = false;
           setLiveStep(null);
+          setStreamedText("");
+          setLiveTools([]);
           onStepsDone?.();
           break;
         case "error":
+          setStreamedText("");
+          setLiveTools([]);
           onStepsError?.(data.message ?? t("errors.unknownError"));
           break;
       }
@@ -617,6 +640,29 @@ export const ChatPanel = ({
   );
   };
 
+  // Debug mode: each agent action becomes its own standalone line in the chat
+  // flow (like Cursor/Kilo Code), inserted right before the assistant reply of
+  // the run. Only present when debugRows is available (AGENT_DEBUG=1 + admin).
+  const renderMessageFlow = (msg: IMessage): ReactNode[] => {
+    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
+    const toolCalls =
+      (msg.role === "master" || msg.role === "builder") && runRows
+        ? runRows.filter((r) => r.kind === "tool-call")
+        : [];
+    const items: ReactNode[] = [];
+    for (const row of toolCalls) {
+      items.push(
+        <div key={`tool-${row.id}`} className={styles.toolLogRow}>
+          <span className={styles.toolLogRowIcon}>{getStepIcon(row.toolName ?? "")}</span>
+          <code>{row.toolName}</code>
+          {row.args && <span className={styles.toolLogRowArgs}>{shortenDebug(row.args, 90)}</span>}
+        </div>
+      );
+    }
+    items.push(renderBubble(msg));
+    return items;
+  };
+
   const grouped = groupMessages(messages);
 
   return (
@@ -682,14 +728,25 @@ export const ChatPanel = ({
                   </button>
                   {expanded && (
                     <div className={styles.expandedShared}>
-                      {group.messages.map(renderBubble)}
+                      {group.messages.flatMap(renderMessageFlow)}
                     </div>
                   )}
                 </div>
               );
             }
-            return group.messages.map(renderBubble);
+            return group.messages.flatMap(renderMessageFlow);
           })}
+          {liveTools.length > 0 && (
+            <div className={styles.liveToolLog}>
+              {liveTools.map((lt, i) => (
+                <div key={`live-${i}`} className={styles.toolLogRow}>
+                  <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
+                  <code>{lt.tool}</code>
+                  {lt.args && <span className={styles.toolLogRowArgs}>{shortenDebug(lt.args, 90)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           {typing && (
             <div className={`${styles.messageRow} ${styles.masterRow}`}>
               <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
@@ -698,6 +755,8 @@ export const ChatPanel = ({
                 <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
                   {stopping ? (
                     <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>
+                  ) : streamedText ? (
+                    <div className={styles.streamText}>{streamedText}</div>
                   ) : liveStep ? (
                     <div className={styles.liveStepsLine}>
                       {getStepIcon(liveStep.tool)}
@@ -709,6 +768,7 @@ export const ChatPanel = ({
                     </div>
                   ) : (
                     <>
+                      <span style={{ color: "var(--text-dim)", fontSize: 12, marginRight: 4 }}>{t("chat.thinking")}</span>
                       <span className={styles.dot} />
                       <span className={styles.dot} />
                       <span className={styles.dot} />
@@ -879,4 +939,9 @@ function truncateFileName(name: string): string {
   const base = name.slice(0, dot);
   if (name.length <= 28) return name;
   return base.slice(0, 20) + "…" + ext;
+}
+
+/** Truncate long debug payloads for the internals block */
+function shortenDebug(value: string, max = 600): string {
+  return value.length > max ? value.slice(0, max) + "…" : value;
 }

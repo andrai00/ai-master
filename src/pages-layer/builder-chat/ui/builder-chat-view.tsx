@@ -17,6 +17,8 @@ import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/act
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import { requestBuilderResponseAction } from "@/src/shared/actions/builder/request-builder-response";
 import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
+import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
 import styles from "@/src/features/chat-panel/ui/chat-panel.module.css";
@@ -123,7 +125,7 @@ export const BuilderChatView = () => {
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -131,11 +133,22 @@ export const BuilderChatView = () => {
   }, [sessionId, queryClient]);
 
   const { data: msgData } = useBuilderMessages(sessionId, page);
+  const { data: transcriptData } = useAgentTranscript(sessionId ?? undefined);
   const sendMutation = useSendBuilderMessage();
   const deleteMutation = useDeleteBuilderMessage();
   const clearMutation = useClearBuilderChat();
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
+
+  const debugRows = useMemo(() => {
+    if (!transcriptData || !("rows" in transcriptData)) return undefined;
+    const map: Record<string, ITranscriptRow[]> = {};
+    for (const r of transcriptData.rows) {
+      if (!r.runId) continue;
+      (map[r.runId] ??= []).push(r);
+    }
+    return map;
+  }, [transcriptData]);
 
   const messages: IMessage[] = useMemo(() => {
     if (rawMessages.length === 0) return [];
@@ -145,6 +158,7 @@ export const BuilderChatView = () => {
       role: m.role,
       text: m.content,
       summarized: m.summarized,
+      runId: m.runId ?? undefined,
       avatarUrl: (m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
       attachedFiles: m.attachedFiles?.length ? m.attachedFiles : undefined,
       prefix: m.attachedFiles?.length ? (
@@ -189,7 +203,7 @@ export const BuilderChatView = () => {
       // Save message (fire-and-forget, AI runs in background)
       const result = await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
       if (!result.success) {
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
       // Don't set typing — SSE does it when processing starts
@@ -298,12 +312,12 @@ export const BuilderChatView = () => {
         allowFiles
         acceptFiles=".md,.zip"
         inputPrefix={
-            <Segmented
-              size="small"
-              className={styles.modeSwitcher}
-              value={mode}
-              disabled={typing || stopping}
-              onChange={(v) => handleModeChange(v as TBuilderMode)}
+          <Segmented
+            size="small"
+            className={styles.modeSwitcher}
+            value={mode}
+            disabled={typing || stopping}
+            onChange={(v) => handleModeChange(v as TBuilderMode)}
             options={[
               { label: <Tooltip title={t("builder.modeBrainHint")}><SettingOutlined /> {t("builder.modeBrain")}</Tooltip>, value: "brain" },
               { label: <Tooltip title={t("builder.modeMemoryHint")}><DatabaseOutlined /> {t("builder.modeMemory")}</Tooltip>, value: "memory" },
@@ -320,10 +334,11 @@ export const BuilderChatView = () => {
         stopping={stopping}
         footerAction={requestBtn}
         stepsSessionId={sessionId ?? undefined}
-        onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsResync={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        debugRows={debugRows}
+        onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsResync={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
       />
       <Modal
         title={t("chat.historyTitle")}

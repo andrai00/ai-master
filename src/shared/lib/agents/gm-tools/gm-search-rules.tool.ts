@@ -31,27 +31,44 @@ export const gmSearchRulesTool = {
       ],
     };
 
-    const [docs, total] = await Promise.all([
-      prisma.document.findMany({
-        where,
-        select: { id: true, title: true, type: true, summary: true, content: true },
-        orderBy: { updatedAt: "desc" },
-        take,
-      }),
-      prisma.document.count({ where }),
-    ]);
+    const docs = await prisma.document.findMany({
+      where,
+      select: { id: true, title: true, type: true, summary: true, content: true, path: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: Math.max(take, 200),
+    });
 
-    const results = docs.map((d) => {
-      const idx = d.content.toLowerCase().indexOf(args.query.toLowerCase());
+    // Same ranking as the documents-page search: 0 exact title, 1 title prefix,
+    // 2 title contains, 3 summary contains, 4 content contains; then updatedAt desc.
+    const q = args.query.trim().toLowerCase();
+    const scored = docs
+      .map((d) => {
+        const t = d.title.toLowerCase();
+        const s = (d.summary ?? "").toLowerCase();
+        let rank: number;
+        if (t === q) rank = 0;
+        else if (t.startsWith(q)) rank = 1;
+        else if (t.includes(q)) rank = 2;
+        else if (s.includes(q)) rank = 3;
+        else if (d.content.toLowerCase().includes(q)) rank = 4;
+        else rank = 5;
+        return { d, rank };
+      })
+      .filter((x) => x.rank <= 4)
+      .sort((a, b) => a.rank - b.rank || b.d.updatedAt.getTime() - a.d.updatedAt.getTime())
+      .slice(0, take);
+
+    const results = scored.map(({ d }) => {
+      const idx = d.content.toLowerCase().indexOf(q);
       let snippet = "";
       if (idx !== -1) {
         const start = Math.max(0, idx - 60);
-        const end = Math.min(d.content.length, idx + args.query.length + 60);
+        const end = Math.min(d.content.length, idx + q.length + 60);
         snippet = (start > 0 ? "..." : "") + d.content.slice(start, end) + (end < d.content.length ? "..." : "");
       }
-      return { id: d.id, title: d.title, type: d.type, summary: d.summary, snippet: snippet || null, source: "glossary" };
+      return { id: d.id, title: d.title, type: d.type, summary: d.summary, snippet: snippet || null, path: d.path, updatedAt: d.updatedAt, source: "glossary" };
     });
 
-    return { total, returned: results.length, docs: results };
+    return { total: docs.length, returned: results.length, docs: results };
   },
 };

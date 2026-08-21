@@ -1,20 +1,22 @@
 "use client";
 
 import { Tabs, Table, Modal, Empty, Button, Space, Input } from "antd";
-import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
+import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined, SearchOutlined, ExportOutlined, ImportOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
+import { ImportMasterModal } from "./import-master-modal";
+import { ExportMasterModal } from "./export-master-modal";
 import { useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
 import { PageHeader } from "@/src/shared/ui/page-header";
 
 const CATEGORIES = [
-  { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
   { key: "brain", label: "documents.brain", icon: <FileTextOutlined /> },
+  { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
   { key: "game_hidden", label: "documents.gameHidden", icon: <EyeInvisibleOutlined /> },
   { key: "game_visible", label: "documents.gameVisible", icon: <UserOutlined /> },
 ];
@@ -28,11 +30,25 @@ export const DocumentsView = () => {
   const [pageSize, setPageSize] = useState(20);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: docs = [], isLoading } = useDocuments();
 
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const openDocId = searchParams.get("doc");
+
+  // Active tab lives in the URL (?tab=<category>) so a page refresh keeps it.
+  const tabParam = searchParams.get("tab");
+  const activeTab = CATEGORIES.some((c) => c.key === tabParam) ? (tabParam as string) : CATEGORIES[0]!.key;
+
+  const handleTabChange = useCallback((key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", key);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
 
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
   const titleToDoc = useMemo(() => new Map(docs.map((d) => [d.title, d])), [docs]);
@@ -52,20 +68,27 @@ export const DocumentsView = () => {
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
 
-    // Ranked search: title/summary matches are primary, content matches are
-    // secondary and sort after them. Stable sort keeps original order within
-    // each group.
-    const ranked: Array<IDocumentItem & { _inContent?: boolean }> = [];
+    // Same ranking as the agent's search tool (search_documents / search_rules):
+    // 0 = exact title, 1 = title prefix, 2 = title contains, 3 = summary contains,
+    // 4 = content contains; within a rank — newest first (updatedAt desc).
+    // This lets the admin test the exact search the AI will use.
+    const scored: Array<IDocumentItem & { _inContent?: boolean; _score: number }> = [];
     for (const d of docs) {
-      const inTitle = d.title.toLowerCase().includes(q);
-      const inSummary = d.summary ? d.summary.toLowerCase().includes(q) : false;
-      const inContent = d.content.toLowerCase().includes(q);
-      if (inTitle || inSummary) ranked.push({ ...d, _inContent: false });
-      else if (inContent) ranked.push({ ...d, _inContent: true });
+      const t = d.title.toLowerCase();
+      const s = (d.summary ?? "").toLowerCase();
+      let score: number;
+      if (t === q) score = 0;
+      else if (t.startsWith(q)) score = 1;
+      else if (t.includes(q)) score = 2;
+      else if (s.includes(q)) score = 3;
+      else if (d.content.toLowerCase().includes(q)) score = 4;
+      else continue;
+      scored.push({ ...d, _inContent: score === 4, _score: score });
     }
-    return ranked;
+    scored.sort((a, b) => a._score - b._score || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return scored.slice(0, 100);
   }, [docs, searchQuery]);
 
   const getCategoryDocs = (cat: string) => filteredDocs.filter((d) => d.category === cat);
@@ -147,19 +170,26 @@ export const DocumentsView = () => {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <PageHeader title={t("documents.title_page")} />
       <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", width: "100%", overflow: "auto", flex: 1 }}>
+      <div className={styles.headerRow}>
       <Input.Search
         allowClear
+        className={styles.searchInput}
         placeholder={t("documents.searchPlaceholder")}
         prefix={<SearchOutlined />}
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
         onSearch={(value) => setSearchQuery(value)}
-        style={{ marginBottom: 12 }}
+        onBlur={() => setSearchQuery(searchInput)}
       />
+      <Button icon={<ExportOutlined />} onClick={() => setExportOpen(true)}>{t("documents.export")}</Button>
+      <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>{t("documents.import")}</Button>
+      </div>
       <Tabs
         style={{ marginTop: 8 }}
         tabBarGutter={24}
         tabBarStyle={{ marginBottom: 12, paddingLeft: 8 }}
+        activeKey={activeTab}
+        onChange={handleTabChange}
         items={CATEGORIES.map((cat) => ({
           key: cat.key,
           label: (
@@ -223,6 +253,8 @@ export const DocumentsView = () => {
             />
         )}
       </Modal>
+      <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
     </div>
   );

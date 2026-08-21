@@ -32,18 +32,27 @@ const TOOL_LABELS: Record<string, string> = {
  * Universal context compression for agent runners (GM + Builder).
  *
  * Estimates token count as chars/4. If the estimate exceeds `threshold`,
- * keeps the system message, the LAST user message and the LAST tool step
- * (the one being processed — never compress it), and replaces everything
- * in between with a summary of tool activity:
+ * keeps the system message, the LAST plain user message, and the LAST tool
+ * step (assistant tool-call + its tool-result pair — never corrupt the
+ * conversation), and replaces everything before it with a summary of tool
+ * activity:
  *   "[Compressed — previous steps]. Created 12 documents. Updated 3 documents."
  *
+ * The compressed array is guaranteed to be VALID for the API: it never ends
+ * with a dangling tool-result, and tool-call/tool-result pairs stay intact.
  * Returns `null` when compression is not needed.
  */
 export function compressMessages({ messages, steps, threshold }: ICompressInput): { messages: ModelMessage[] } | null {
-  const totalChars = messages.reduce(
-    (sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0),
-    0
-  );
+  const totalChars = messages.reduce((sum, m) => {
+    if (typeof m.content === "string") return sum + m.content.length;
+    if (Array.isArray(m.content)) {
+      return sum + (m.content as Array<{ text?: string; input?: unknown }>).reduce(
+        (s, p) => s + (typeof p.text === "string" ? p.text.length : 0),
+        0
+      );
+    }
+    return sum;
+  }, 0);
   const estimatedTokens = totalChars / 4;
   if (estimatedTokens < threshold) return null;
 
@@ -64,16 +73,38 @@ export function compressMessages({ messages, steps, threshold }: ICompressInput)
     (summaryParts.length > 0 ? `. ${summaryParts.join(". ")}.` : ".");
 
   const systemMsg = messages.find((m) => m.role === "system");
-  const userMsgs = messages.filter((m) => m.role === "user");
+  const userMsgs = messages.filter(
+    (m) => m.role === "user" && typeof m.content === "string"
+  );
   const lastUser = userMsgs[userMsgs.length - 1];
-  const lastMsg = messages[messages.length - 1];
 
   const compressed: ModelMessage[] = [];
   if (systemMsg) compressed.push(systemMsg);
   if (lastUser) compressed.push(lastUser);
   compressed.push({ role: "assistant", content: summary });
-  // The last message is the current tool step's output — keep it untouched.
-  if (lastMsg && lastMsg !== lastUser) compressed.push(lastMsg);
+
+  // Keep the LAST tool step (assistant tool-call + its tool-result pair) intact
+  // so the conversation stays valid and the model still sees the current data.
+  let cutFrom = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && Array.isArray(m.content)) {
+      const parts = m.content as Array<{ type?: string }>;
+      if (parts.some((p) => p.type === "tool-call")) {
+        cutFrom = i;
+        break;
+      }
+    }
+  }
+  if (cutFrom > -1) {
+    for (let i = cutFrom; i < messages.length; i++) compressed.push(messages[i]);
+  } else {
+    // No tool step to preserve — append the last message only if it is plain text.
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg !== lastUser && typeof lastMsg.content === "string") {
+      compressed.push(lastMsg);
+    }
+  }
 
   return { messages: compressed.filter(Boolean) as ModelMessage[] };
 }

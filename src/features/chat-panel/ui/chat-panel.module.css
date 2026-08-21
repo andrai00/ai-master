@@ -937,3 +937,98 @@
   background: var(--bg-hover);
   color: var(--text-secondary);
 }
+
+.streamText {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  opacity: 0.8;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debugBlock {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--bg-elevated, rgba(0,0,0,0.03));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.debugBlock summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.debugRow {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.debugRow code {
+  font-size: 11px;
+}
+
+.debugRow pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 10px;
+  opacity: 0.8;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.debugKind {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.debugChain {
+  font-weight: 400;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.toolLogRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 2px 44px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.toolLogRowIcon {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.toolLogRow code {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.toolLogRowArgs {
+  font-size: 10px;
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.liveToolLog {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

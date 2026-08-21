@@ -60,6 +60,7 @@ model Document {
   id          String   @id @default(uuid())
   masterId    String
   title       String
+  path        String?               // unique "file path" per game (glossary/..., brain/..., hidden/..., visible/...)
   type        String   @default("note")
   category    String   @default("glossary")
   visibility  String   @default("public")
@@ -74,6 +75,8 @@ model Document {
   updatedAt   DateTime @default(now()) @updatedAt
   master      Master   @relation(fields: [masterId], references: [id], onDelete: Cascade)
   access      DocumentAccess[]
+
+  @@unique([masterId, path])
 }
 
 model Session {
@@ -100,9 +103,50 @@ model Message {
   summarized    Boolean  @default(false)
   hasFiles      Boolean  @default(false)
   attachedFiles String   @default("[]")  // JSON: [{fileId: string, filename: string}]
+  runId         String?  // id of the agent run this message belongs to
   createdAt     DateTime @default(now())
   session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sender        User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, runId])
+}
+
+// Full per-run transcript of an agent: user text, tool calls, tool results,
+// and final text — reconstructed into the model context on each turn (like
+// Claude Code's JSONL session transcripts). Only for agent internals; the
+// chat UI shows Message rows only.
+model AgentTranscript {
+  id         String   @id @default(uuid())
+  sessionId  String
+  runId      String              // groups all rows of one run
+  seq        Int                 // order of rows within the session
+  kind       String              // "user" | "text" | "tool-call" | "tool-result"
+  toolName   String?             // tool-call only
+  toolCallId String?             // pairs tool-call <-> tool-result
+  args       String?             // tool-call input (JSON)
+  result     String?             // tool-result output
+  content    String?             // user / text content
+  messageId  String?             // link to Message for user/final rows
+  status     String   @default("done") // "done" | "aborted"
+  summarized Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([sessionId, seq])
+  @@index([sessionId, runId])
+  @@index([sessionId, summarized])
+}
+
+// Journal of documents the agent already read in a session — a compact hint
+// injected into the context after compression ("you read X, changed: yes/no").
+// It is NOT the storage of studied content (that lives in AgentTranscript).
+model DocumentRead {
+  id         String   @id @default(uuid())
+  sessionId  String
+  documentId String
+  readAt     DateTime @default(now())
+
+  @@unique([sessionId, documentId])
+  @@index([sessionId])
 }
 
 model UploadedFile {
@@ -182,23 +226,21 @@ model Roll {
   @@index([sessionId, playerId])
 }
 
-// Diagnostic trace of agent runs — prompt, every tool call, and final reply.
-// Only written when AGENT_TRACE=1; used to optimize prompts/actions, then dropped.
 model TraceEvent {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now())
-  chat        String // "game" | "personal" | "builder"
-  sessionId   String
-  phase       String // "plan" | "exec" | "idle" | "study" | "retry"
-  stepIndex   Int?
-  toolName    String? // tool call (null for prompts and final replies)
-  args        String? // tool arguments (JSON)
-  result      String? // tool result (JSON) or final reply text
-  prompt      String? // full system+messages prompt for the pass (JSON)
-  elapsedMs   Int?
-  error       String?
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  chat         String // "game" | "personal" | "builder"
+  sessionId    String
+  phase        String // "exec" | "retry" | "study"
+  stepIndex    Int?
+  toolName     String? // tool call (null for prompts and final replies)
+  args         String? // tool arguments (JSON)
+  result       String? // tool result (JSON) or final reply text
+  prompt       String? // full system+messages prompt for the pass (JSON)
+  elapsedMs    Int?
+  error        String?
+  finishReason String?
 
   @@index([chat, createdAt])
   @@index([sessionId, createdAt])
-  @@index([toolName, createdAt])
 }

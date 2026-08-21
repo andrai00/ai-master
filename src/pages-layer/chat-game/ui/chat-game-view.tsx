@@ -18,6 +18,8 @@ import { stopGameMasterResponseAction } from "@/src/shared/actions/game-master/s
 import { getGameMessagesAction, type IGameMessage } from "@/src/shared/actions/game-master/get-game-messages";
 import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
+import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 
 const DEFAULT_PAGE_SIZE = 30;
 
@@ -49,7 +51,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -57,6 +59,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   }, [sessionId, queryClient]);
 
   const { data: msgData } = useGameMessages(sessionId, page);
+  const { data: transcriptData } = useAgentTranscript(sessionId ?? undefined);
   const sendMutation = useSendGameMessage();
   const deleteMutation = useDeleteGameMessage();
   const clearMutation = useClearGameChat();
@@ -84,29 +87,39 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
 
   const handleStepsStart = useCallback(() => {
     setTyping(true);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsDone = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsError = useCallback((msg: string) => {
     notification.error({ title: msg });
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [notification, queryClient, sessionId]);
 
   const handleStepsResync = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
   const rawMessages = useMemo(() => msgData && "messages" in msgData ? msgData.messages : [], [msgData]);
+
+  const debugRows = useMemo(() => {
+    if (!transcriptData || !("rows" in transcriptData)) return undefined;
+    const map: Record<string, ITranscriptRow[]> = {};
+    for (const r of transcriptData.rows) {
+      if (!r.runId) continue;
+      (map[r.runId] ??= []).push(r);
+    }
+    return map;
+  }, [transcriptData]);
 
   const messages: IMessage[] = useMemo(() => {
     const mapMsg = (m: IGameMessage): IMessage => ({
@@ -116,6 +129,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
       text: m.content,
       shared: m.shared,
       summarized: m.summarized,
+      runId: m.runId ?? undefined,
       avatarUrl: (m.role === "player" || m.role === "admin") ? (m.senderAvatar || undefined) : undefined,
     });
     const msgs = rawMessages.map(mapMsg);
@@ -154,7 +168,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
       if (!sessionId || !content.trim()) return;
       const result = await sendMutation.mutateAsync({ sessionId, content });
       if (!result.success) {
-        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
     },
@@ -249,6 +263,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
         typing={typing}
         stopping={stopping}
         stepsSessionId={sessionId}
+        debugRows={debugRows}
         onToolStep={handleToolStep}
         onStepsStart={handleStepsStart}
         onStepsDone={handleStepsDone}

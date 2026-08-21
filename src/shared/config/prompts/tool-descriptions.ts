@@ -25,7 +25,4 @@ export const TOOL_DESCRIPTIONS = {
 
   present_roll_check:
     "Assign dice rolls to specific player(s). Each player sees ONE clickable button per check. Use count>1 for multiple identical rolls — all rolled from that single button.",
-
-  validate_links:
-    "Validate all /doc/ID links in glossary documents. Returns a list of broken links: source document, target ID that doesn't exist, and display text. Use this after import to verify index integrity, or when the admin asks to check links.",
 } as const;

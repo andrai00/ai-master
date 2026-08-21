@@ -7,6 +7,7 @@ import { assertCanRead } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
 import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
+import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 
 interface ITocEntry {
   heading: string;
@@ -71,27 +72,39 @@ export const readDocumentTool = {
         summary: true,
         content: true,
         tags: true,
+        path: true,
+        masterId: true,
       },
     });
     if (!doc) throw new Error("errors.documentNotFound");
     await assertCanRead(doc.category);
 
-    const toc = extractToc(doc.content);
+    // The model always sees glossary/ prefixed links — normalize on the fly.
+    const content = await normalizeReadContent(prisma, doc.masterId, doc.category, doc.content);
 
-    const blocks = parseFormulaBlocks(doc.content);
-    const { results, errors } = evaluateFormulas(blocks);
+    const toc = extractToc(content);
+
+    const blocks = parseFormulaBlocks(content);
+    const { results } = evaluateFormulas(blocks);
     const formulaValues: Record<string, number> = {};
-    results.forEach((v) => { if (v.value !== null) formulaValues[v.name] = v.value; });
-    const formulaData = Object.keys(formulaValues).length > 0
-      ? { formulaValues, formulaErrors: errors.length > 0 ? errors : undefined }
+    const formulaErrors: Record<string, string> = {};
+    results.forEach((v) => {
+      if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
+      else if (v.error) formulaErrors[v.name] = v.error;
+    });
+    const formulaData = Object.keys(formulaValues).length > 0 || Object.keys(formulaErrors).length > 0
+      ? {
+          formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
+          formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
+        }
       : {};
 
     if (args.offset !== undefined || args.limit !== undefined) {
       const offset = args.offset ?? 0;
       const limit = args.limit ?? 5000;
-      const totalSize = doc.content.length;
+      const totalSize = content.length;
       const safeOffset = Math.min(offset, totalSize);
-      const chunk = doc.content.slice(safeOffset, safeOffset + limit);
+      const chunk = content.slice(safeOffset, safeOffset + limit);
       const hasMore = safeOffset + limit < totalSize;
       return {
         id: doc.id,

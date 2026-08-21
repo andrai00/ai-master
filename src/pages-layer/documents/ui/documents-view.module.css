@@ -62,3 +62,24 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .headerRow {
+    flex-wrap: wrap;
+  }
+  .searchInput {
+    flex: 1 1 100%;
+  }
+}

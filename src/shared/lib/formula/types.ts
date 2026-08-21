@@ -1,6 +1,8 @@
 export interface IFormulaBlock {
   name: string;
   expr: string;
+  /** Base inputs declared in the same ```formula block (имя: число). */
+  inputs: Record<string, number>;
   line: number;
 }
 

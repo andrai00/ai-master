@@ -14,6 +14,7 @@ interface ITraceInput {
   prompt?: string;
   elapsedMs?: number;
   error?: string;
+  finishReason?: string;
 }
 
 const enabled = process.env.AGENT_TRACE === "1";
@@ -41,6 +42,7 @@ export function traceAgent(input: ITraceInput): void {
           prompt: cap(input.prompt, 20000),
           elapsedMs: input.elapsedMs,
           error: cap(input.error, 1000),
+          finishReason: input.finishReason,
         },
       })
       .catch((e) => {
@@ -49,8 +51,4 @@ export function traceAgent(input: ITraceInput): void {
   } catch {
     // never break the agent
   }
-}
-
-export function traceEnabled(): boolean {
-  return enabled;
 }

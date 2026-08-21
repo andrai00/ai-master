@@ -3,6 +3,9 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
+import { CATEGORY_PREFIXES, normalizePath } from "@/src/shared/lib/documents/paths";
+
+export { normalizePath };
 
 export async function resolveDocumentByPath(
   path: string
@@ -15,17 +18,33 @@ export async function resolveDocumentByPath(
   if (!masterId) return null;
 
   const [pathPart, hashPart] = path.split("#");
-  const cleanPath = (pathPart ?? "")
-    .replace(/\.md$/i, "")
-    .replace(/^\/+|\/+$/g, "");
-
+  const cleanPath = normalizePath(pathPart ?? "");
   if (!cleanPath) return null;
 
   const prisma = getPrisma();
-  const doc = await prisma.document.findFirst({
-    where: { masterId, title: cleanPath, status: "active" },
+
+  // 1) Exact path match.
+  let doc = await prisma.document.findFirst({
+    where: { masterId, path: cleanPath, status: "active" },
     select: { id: true, title: true },
   });
+
+  // 2) Archive-internal links have no category prefix ("/bestiary/331-camel.md").
+  //    When the path doesn't start with a known category, try glossary/ first.
+  if (!doc && !CATEGORY_PREFIXES.some((p) => cleanPath.startsWith(p))) {
+    doc = await prisma.document.findFirst({
+      where: { masterId, path: `glossary/${cleanPath}`, status: "active" },
+      select: { id: true, title: true },
+    });
+  }
+
+  // 3) Legacy fallback by exact title (documents whose path predates the backfill).
+  if (!doc) {
+    doc = await prisma.document.findFirst({
+      where: { masterId, title: cleanPath, status: "active" },
+      select: { id: true, title: true },
+    });
+  }
 
   if (!doc) return null;
 

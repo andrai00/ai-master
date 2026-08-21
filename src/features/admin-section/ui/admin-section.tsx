@@ -1,15 +1,12 @@
 "use client";
 
 import { App } from "antd";
-import { UserOutlined, EditOutlined, PlayCircleOutlined, ImportOutlined, ExportOutlined, FileTextOutlined, SettingOutlined, MessageOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { UserOutlined, EditOutlined, PlayCircleOutlined, FileTextOutlined, SettingOutlined, MessageOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useActiveMode } from "@/src/shared/api/admin/useActiveMode";
 import { useSetMasterMode } from "@/src/shared/api/admin/useSetMasterMode";
-import { ImportMasterModal } from "./import-master-modal";
-import { ExportMasterModal } from "./export-master-modal";
 import styles from "./admin-section.module.css";
 
 export const AdminSection = () => {
@@ -22,8 +19,6 @@ export const AdminSection = () => {
   const setModeMutation = useSetMasterMode();
 
   const isDev = modeData?.mode === "development";
-  const [importOpen, setImportOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
 
   const handleToggle = () => {
     const newMode = isDev ? "game" : "development";
@@ -85,20 +80,8 @@ export const AdminSection = () => {
             <MessageOutlined className={styles.rowIcon} />
             <span className={styles.rowLabel}>{t("mode.builderChat")}</span>
           </Link>
-          <div className={styles.inlineRow}>
-            <button className={styles.inlineBtn} onClick={() => setImportOpen(true)}>
-              <ImportOutlined />
-              <span>{t("mode.importMaster")}</span>
-            </button>
-            <button className={styles.inlineBtn} onClick={() => setExportOpen(true)}>
-              <ExportOutlined />
-              <span>{t("mode.exportMaster")}</span>
-            </button>
-          </div>
         </>
       )}
-      <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
-      <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
 };

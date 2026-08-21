@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { cascadeClearSession } from "@/src/shared/lib/agents/transcript";
 
 export async function clearBuilderChatAction(
   sessionId: string
@@ -28,6 +29,7 @@ export async function clearBuilderChatAction(
   if (!s) return { success: false, error: "errors.sessionNotFound" };
 
   // Delete all messages
+  await cascadeClearSession(sessionId);
   await prisma.message.deleteMany({ where: { sessionId } });
 
   // Delete summary documents (both old "note" and new "builder_summary" types)

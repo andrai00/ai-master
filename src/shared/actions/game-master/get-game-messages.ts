@@ -12,6 +12,7 @@ export interface IGameMessage {
   senderAvatar: string;
   shared: boolean;
   summarized: boolean;
+  runId?: string | null;
   createdAt: Date;
 }
 
@@ -59,6 +60,7 @@ export async function getGameMessagesAction(
         sender: { select: { displayName: true, avatar: true } },
         shared: true,
         summarized: true,
+        runId: true,
         createdAt: true,
       },
     }),

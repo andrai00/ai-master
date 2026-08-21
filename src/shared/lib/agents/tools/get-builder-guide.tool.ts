@@ -59,24 +59,36 @@ Save templates (type: 'dice_template') for common rolls: attack, damage, save, s
 4. **After creating or splitting sections**: update the router in _index (point query types to the new sections) and run scan_wiki_links → replace_wiki_links so old links to split sections now point to the correct new ones.`,
 
   formula: `## Formula System
-Character sheets store computed values:
+Character sheets compute derived values from base inputs:
 
 \`\`\`formula
-name: <derived_stat>
-expr: <formula using base stats>
+# base inputs (the player fills these)
+str: 16
+dex: 17
+level: 1
+hd_size: 8
+base_ac: 14
+shield_bonus: 2
+pm: 0
+zm: 15
+
+# derived formulas (auto)
+str_mod = floor((str-10)/2)
+dex_mod = floor((dex-10)/2)
+prof = floor((level-1)/4)+2
+ac = base_ac + shield_bonus + dex_mod
+hp_max = hd_size + con_mod + (level-1) * (floor((hd_size+1)/2) + con_mod)
+money_total_gm = pm*10 + zm + sm*0.1 + mm*0.01
 \`\`\`
 
-Inline references: $<name> → clickable, shows the computed value.
-
-Base stats (manual): the values the player fills in (rolled or chosen) — no formula blocks.
-Derived stats (auto): computed from base. Example: modifier=floor((score-10)/2). Other derived values (hit points, armor, speed, attack bonus, and so on) are defined by the game's rules.
-
 Rules:
-- One formula per block — one derived stat = one block
-- Base values are NOT formulas (they're just numbers the player fills)
-- $varName references work across formula blocks
-- DO NOT create formula blocks for base stats — only derived
-- Write the derived formulas as the game's rules define them`,
+- ONE \`\`\`formula block at the TOP of the sheet: base inputs (name: number) + formulas (name = expression).
+- Inline references in the body: $name — the UI substitutes the computed value; the master sees both $name and the value.
+- Formulas may reference other formulas and base inputs; declaration order does not matter.
+- Base values change → edit the input line; derived values recompute automatically.
+- Errors (missing variable, division by zero, circular reference, non-finite) are reported as "err" — never guess a value.
+- create_document / update_document return formulaValidation ({ ok, errorCount, errors }) — check it after saving; if errors exist, fix the formulas and save again.
+- The needed variables/formulas depend on the class and the system (AC from dex or wis, Pathfinder, etc.) — define them per the game's rules from the glossary. One derived stat = one line.`,
 
   links: `## Document Links
 Use [[DocTitle]] or [[DocTitle|display text]] inside document content for cross-references.

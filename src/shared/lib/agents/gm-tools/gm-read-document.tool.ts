@@ -8,6 +8,7 @@ import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize"
 import { resolveDocId } from "../tools/resolve-doc-id";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 import { numberLines } from "@/src/shared/lib/documents/line-utils";
+import { extractHeadings } from "@/src/shared/lib/documents/headings";
 
 export const gmReadDocumentTool = {
   description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
@@ -51,12 +52,11 @@ export const gmReadDocumentTool = {
 
     // Table of contents — markdown headings with their offsets, so the model
     // can jump straight to the section it needs instead of reading from 0.
-    const toc: Array<{ heading: string; offset: number }> = [];
-    const headingRe = /^#{1,4}\s+(.+)$/gm;
-    let match: RegExpExecArray | null;
-    while ((match = headingRe.exec(content)) !== null) {
-      toc.push({ heading: match[1]!.trim(), offset: match.index });
-    }
+    // Fence-aware: #-comments inside ```formula blocks are not headings.
+    const toc: Array<{ heading: string; offset: number }> = extractHeadings(content, 4).map((h) => ({
+      heading: h.text,
+      offset: h.offset,
+    }));
 
     // Formulas are only meaningful on character sheets and master memory;
     // brain/glossary documents hold formula EXAMPLES and must not be evaluated.

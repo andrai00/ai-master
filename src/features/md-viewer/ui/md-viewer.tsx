@@ -15,6 +15,7 @@ import { FormulaConfigBlock, FormulaInlineRef } from "./formula-block";
 import { ChatNavLink } from "./chat-nav-link";
 import type { Components } from "react-markdown";
 import { parseFormulaBlocks, evaluateFormulas, type IFormulaResult } from "@/src/shared/lib/formula";
+import { extractHeadings, headingSlugText } from "@/src/shared/lib/documents/headings";
 import styles from "./md-viewer.module.css";
 
 interface ITocItem {
@@ -51,28 +52,35 @@ function cleanTocText(raw: string): string {
   return raw
     .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+/** Substitute $var refs in heading text with the computed values — mirrors
+ * how FormulaInlineRef renders them in the body. */
+function substituteVars(text: string, results: Map<string, IFormulaResult>): string {
+  return text.replace(/\$(\w[\w_]*)/g, (m, name: string) => {
+    const r = results.get(name);
+    if (!r || r.value === null || r.error) return m;
+    return r.value >= 0 ? `+${r.value}` : `${r.value}`;
+  });
+}
+
 /** Extract TOC using github-slugger — matches rehype-slug's slug generation exactly. */
-function useToc(content: string): ITocItem[] {
+function useToc(content: string, formulaResults: Map<string, IFormulaResult>): ITocItem[] {
   return useMemo(() => {
-    const headingRe = /^(#{1,4})\s+(.+)$/gm;
     const slugger = new GithubSlug();
     const items: ITocItem[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = headingRe.exec(content)) !== null) {
-      const level = match[1]!.length;
-      const rawText = match[2]!.trim();
-      const id = slugger.slug(rawText);       // slug from RAW text — matches rehypeSlug
-      const text = cleanTocText(rawText);     // clean text for display
+    for (const h of extractHeadings(content, 4)) {
+      // rehype-slug sees $var/wiki spans as empty, so slug from the same text.
+      const id = slugger.slug(headingSlugText(h.text));
       if (!id) continue;
-      items.push({ id, text, level });
+      const text = substituteVars(cleanTocText(h.text), formulaResults);
+      items.push({ id, text, level: h.level });
     }
     return items;
-  }, [content]);
+  }, [content, formulaResults]);
 }
 
 /** Strip ```markdown / ```md code fences so their content flows as normal
@@ -120,16 +128,17 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
     return c;
   }, [content]);
 
-  const toc = useToc(content);  // headings are fine, no > pollution
-  const [activeId, setActiveId] = useState<string>("");
-  const [mobileTocOpen, setMobileTocOpen] = useState(false);
-
   const formulaResults = useMemo(() => {
     if (!formulas) return new Map<string, IFormulaResult>();
     const blocks = parseFormulaBlocks(cleanContent);
     if (blocks.length === 0) return new Map<string, IFormulaResult>();
     return evaluateFormulas(blocks).results;
   }, [cleanContent, formulas]);
+
+  const toc = useToc(content, formulaResults);
+
+  const [activeId, setActiveId] = useState<string>("");
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
   const handleTocClick = useCallback((id: string) => {
     if (!id) return;
@@ -157,7 +166,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
         return;
       }
       const slugger = new GithubSlug();
-      const slug = slugger.slug(scrollTo);
+      const slug = slugger.slug(headingSlugText(scrollTo));
       const el = contentRef.current?.querySelector(`#${CSS.escape(slug)}`) ||
                  contentRef.current?.querySelector(`[id="${scrollTo}"]`);
       if (el) {
@@ -237,7 +246,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
         if (href && /^#/.test(href)) {
           const anchorRaw = href.slice(1);
           const slugger = new GithubSlug();
-          const slug = slugger.slug(anchorRaw);
+          const slug = slugger.slug(headingSlugText(anchorRaw));
           return (
             <button
               type="button"

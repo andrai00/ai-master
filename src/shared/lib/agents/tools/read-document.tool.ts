@@ -10,6 +10,7 @@ import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 import { numberLines } from "@/src/shared/lib/documents/line-utils";
+import { extractHeadings } from "@/src/shared/lib/documents/headings";
 
 interface ITocEntry {
   heading: string;
@@ -17,32 +18,21 @@ interface ITocEntry {
   offset: number;
 }
 
-const HEADING_RE = /^(#{1,6})\s+(.+)$/gm;
-
 function cleanHeading(text: string): string {
   return text
     .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => display ? display.trim() : "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/_([^_]+)_/g, "$1")
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function extractToc(content: string): ITocEntry[] {
-  const toc: ITocEntry[] = [];
-  let match: RegExpExecArray | null;
-  HEADING_RE.lastIndex = 0;
-  while ((match = HEADING_RE.exec(content)) !== null) {
-    toc.push({
-      heading: cleanHeading(match[2]),
-      level: match[1].length,
-      offset: match.index,
-    });
-  }
-  return toc;
+  return extractHeadings(content).map((h) => ({
+    heading: cleanHeading(h.text),
+    level: h.level,
+    offset: h.offset,
+  }));
 }
 
 export const readDocumentTool = {

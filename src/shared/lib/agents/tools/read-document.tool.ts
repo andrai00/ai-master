@@ -85,11 +85,18 @@ export const readDocumentTool = {
     const toc = extractToc(content);
 
     const blocks = parseFormulaBlocks(content);
-    const { results, errors } = evaluateFormulas(blocks);
+    const { results } = evaluateFormulas(blocks);
     const formulaValues: Record<string, number> = {};
-    results.forEach((v) => { if (v.value !== null) formulaValues[v.name] = v.value; });
-    const formulaData = Object.keys(formulaValues).length > 0
-      ? { formulaValues, formulaErrors: errors.length > 0 ? errors : undefined }
+    const formulaErrors: Record<string, string> = {};
+    results.forEach((v) => {
+      if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
+      else if (v.error) formulaErrors[v.name] = v.error;
+    });
+    const formulaData = Object.keys(formulaValues).length > 0 || Object.keys(formulaErrors).length > 0
+      ? {
+          formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
+          formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
+        }
       : {};
 
     if (args.offset !== undefined || args.limit !== undefined) {

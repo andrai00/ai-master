@@ -11,7 +11,7 @@ import { remarkWikiLink } from "../model/remark-wiki-link";
 import { remarkFormulaRef } from "../model/remark-formula-ref";
 import { remarkChatLink } from "../model/remark-chat-link";
 import { WikiLink } from "./wiki-link";
-import { FormulaBlock, FormulaInlineRef } from "./formula-block";
+import { FormulaConfigBlock, FormulaInlineRef } from "./formula-block";
 import { ChatNavLink } from "./chat-nav-link";
 import type { Components } from "react-markdown";
 import { parseFormulaBlocks, evaluateFormulas, type IFormulaResult } from "@/src/shared/lib/formula";
@@ -198,18 +198,22 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         const { children, className, ...rest } = props;
         if (className === "language-formula") {
           const body = String(children).replace(/\n$/, "");
-          const props_: Record<string, string> = {};
+          // Collect formula names declared in this ```formula block
+          // (new style "name = expr" and legacy "name:" lines).
+          const names: string[] = [];
           for (const line of body.split("\n")) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            const idx = trimmed.indexOf(":");
-            if (idx > 0) {
-              props_[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
-            }
+            const t = line.trim();
+            if (!t || t.startsWith("#")) continue;
+            const assign = t.match(/^(\w[\w_]*)\s*=/);
+            if (assign) { names.push(assign[1]!); continue; }
+            const kv = t.match(/^name:\s*(\w[\w_]*)/);
+            if (kv) names.push(kv[1]!);
           }
-          const name = props_["name"];
-          if (name && formulaResults.has(name)) {
-            return <FormulaBlock result={formulaResults.get(name)!} />;
+          const configResults = names
+            .map((n) => formulaResults.get(n))
+            .filter((r): r is IFormulaResult => !!r);
+          if (configResults.length > 0) {
+            return <FormulaConfigBlock results={configResults} />;
           }
           return <code className={className} {...rest}>{children}</code>;
         }

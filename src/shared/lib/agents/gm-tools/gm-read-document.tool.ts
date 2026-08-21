@@ -53,13 +53,17 @@ export const gmReadDocumentTool = {
     // Formulas are always computed on the FULL document — slicing the text
     // must not break boundary formulas.
     const blocks = parseFormulaBlocks(content);
-    const { results, errors } = evaluateFormulas(blocks);
+    const { results } = evaluateFormulas(blocks);
     const formulaValues: Record<string, number> = {};
-    results.forEach((v) => { if (v.value !== null) formulaValues[v.name] = v.value; });
+    const formulaErrors: Record<string, string> = {};
+    results.forEach((v) => {
+      if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
+      else if (v.error) formulaErrors[v.name] = v.error;
+    });
 
     const formulaData = {
       formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
-      formulaErrors: errors.length > 0 ? errors : undefined,
+      formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
     };
 
     // Always return a slice: default limit prevents dumping huge documents

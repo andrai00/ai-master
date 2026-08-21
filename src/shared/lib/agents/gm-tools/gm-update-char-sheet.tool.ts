@@ -4,9 +4,12 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { applyLineEdits, countLines, type TLineEdit } from "@/src/shared/lib/documents/line-utils";
+import { validateFormulaContent } from "../validate-formulas";
+import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const gmUpdateCharSheetTool = {
-  description: "Update a player's character sheet (game_visible document). Find the sheet by searching for the player's documents, then update it. For a small change (one stat, one line), pass edits (line-based, from a numbered read of the sheet) instead of rewriting the whole sheet.",
+  description: "Update a player's character sheet (game_visible document). Find the sheet by searching for the player's documents, then update it. For a small change (one stat, one line), pass edits (line-based, from a numbered read of the sheet) instead of rewriting the whole sheet. Returns formulaValidation (check and fix formula errors) and linkValidation.",
   inputSchema: zodSchema(
     z.object({
       playerId: z.string().describe("Player ID whose character sheet to update"),
@@ -54,11 +57,12 @@ export const gmUpdateCharSheetTool = {
       if (args.edits) {
         throw new Error("errors.documentNotFound: cannot apply line edits — the character sheet does not exist yet. Create it with content (full text) first.");
       }
+      const content = args.content ?? "";
       const created = await prisma.document.create({
         data: {
           masterId: activeGame.currentMasterId,
           title: args.title ?? `Character Sheet — ${args.playerId}`,
-          content: args.content ?? "",
+          content,
           category: "game_visible",
           type: "character_sheet",
           playerId: args.playerId,
@@ -66,7 +70,13 @@ export const gmUpdateCharSheetTool = {
         },
       });
       broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: created.id });
-      return { id: created.id, title: created.title, created: true };
+      return {
+        id: created.id,
+        title: created.title,
+        created: true,
+        formulaValidation: supportsFormulaCategory("game_visible") ? validateFormulaContent(content) : null,
+        linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, "game_visible", content),
+      };
     }
 
     const updateData: Record<string, unknown> = {};
@@ -91,6 +101,8 @@ export const gmUpdateCharSheetTool = {
       mode: args.edits ? "lines" : "full",
       applied,
       totalLines: countLines(String(updateData.content)),
+      formulaValidation: supportsFormulaCategory(doc.category) ? validateFormulaContent(String(updateData.content)) : null,
+      linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, doc.category, String(updateData.content)),
     };
   },
 };

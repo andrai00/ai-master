@@ -164,6 +164,12 @@ When you WRITE a document (write_note, create_document, update_document, update_
 - Do NOT rewrite the whole document (content param) when only a few lines change — line edits are cheaper and preserve everything else exactly.
 - After a line edit, check the returned applied and totalLines; if the document changed in between (line drift), re-read with numbered: true before further edits.
 
+## Validate after every write
+- create_document / update_document / update_char_sheet return formulaValidation and linkValidation. ALWAYS check them after a write:
+  - formulaValidation errors → the document has broken formulas (a base value missing, division by zero, a cycle). Fix the formula and save again — one broken base cascades into many derived values. Never claim the sheet is correct while formulas error.
+  - linkValidation errors → broken links (target-not-found / target-category-not-allowed / anchor-not-found). Fix or remove the broken link.
+- External links (http/https/mailto) are never validated and never touched — leave them alone.
+
 ## Player engagement — don't forget anyone
 - Call get_players periodically: when several messages arrive at once, when the chat goes quiet, or roughly every 10–15 messages.
 - A player with ≥1 linked document is an ACTIVE participant (they have a character and personal data). A player with 0 documents is still a viewer — they have not created a character; you may invite them to start one in :nav-personal:.
@@ -324,6 +330,12 @@ When you WRITE a document (write_note, create_document, update_document, update_
 - Range rules: start_line..end_line replaces that inclusive range; end_line = start_line - 1 inserts new_lines before start_line; empty new_lines deletes the range. Multiple disjoint edits go in one edits array.
 - Do NOT rewrite the whole document (content param) when only a few lines change — line edits are cheaper and preserve everything else exactly.
 - After a line edit, check the returned applied and totalLines; if the document changed in between (line drift), re-read with numbered: true before further edits.
+
+## Validate after every write
+- create_document / update_document / update_char_sheet return formulaValidation and linkValidation. ALWAYS check them after a write:
+  - formulaValidation errors → the document has broken formulas (a base value missing, division by zero, a cycle). Fix the formula and save again — one broken base cascades into many derived values. Never claim the sheet is correct while formulas error.
+  - linkValidation errors → broken links (target-not-found / target-category-not-allowed / anchor-not-found). Fix or remove the broken link.
+- External links (http/https/mailto) are never validated and never touched — leave them alone.
 
 ## Character creation
 When a player wants to create a character:

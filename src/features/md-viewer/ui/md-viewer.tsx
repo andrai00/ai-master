@@ -69,6 +69,27 @@ function useToc(content: string): ITocItem[] {
   }, [content]);
 }
 
+/** Strip ```markdown / ```md code fences so their content flows as normal
+ * markdown (headings, tables, $formula refs) instead of a <pre> code block. */
+function unwrapMarkdownFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inMdFence = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (!inMdFence && (t === "```markdown" || t === "```md")) {
+      inMdFence = true;
+      continue;
+    }
+    if (inMdFence && t === "```") {
+      inMdFence = false;
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMdViewerProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +109,8 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
     // rehype-raw strips empty <a> without href — rewrite to <span>
     c = c.replace(/<a id=/g, "<span id=");
     c = c.replace(/<\/a>/g, "</span>");
+    // ```markdown / ```md fences → plain markdown (no <pre> wrapper).
+    c = unwrapMarkdownFences(c);
     return c;
   }, [content]);
 
@@ -189,22 +212,6 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
             return <FormulaBlock result={formulaResults.get(name)!} />;
           }
           return <code className={className} {...rest}>{children}</code>;
-        }
-        // ```markdown / ```md code fences are just markdown that was wrapped
-        // in a fence (the Builder used to do this). Render their content as
-        // normal markdown so headings, tables and $formula refs work.
-        if (className === "language-markdown" || className === "language-md") {
-          return (
-            <div className={styles.markdownFence}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef, remarkChatLink]}
-                rehypePlugins={[rehypeSlug]}
-                components={components}
-              >
-                {String(children)}
-              </ReactMarkdown>
-            </div>
-          );
         }
         return <code className={className} {...rest}>{children}</code>;
       },

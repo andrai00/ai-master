@@ -7,14 +7,14 @@ import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useState, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
 import { PageHeader } from "@/src/shared/ui/page-header";
 
 const CATEGORIES = [
-  { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
   { key: "brain", label: "documents.brain", icon: <FileTextOutlined /> },
+  { key: "glossary", label: "documents.glossary", icon: <BookOutlined /> },
   { key: "game_hidden", label: "documents.gameHidden", icon: <EyeInvisibleOutlined /> },
   { key: "game_visible", label: "documents.gameVisible", icon: <UserOutlined /> },
 ];
@@ -32,7 +32,19 @@ export const DocumentsView = () => {
   const { data: docs = [], isLoading } = useDocuments();
 
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const openDocId = searchParams.get("doc");
+
+  // Active tab lives in the URL (?tab=<category>) so a page refresh keeps it.
+  const tabParam = searchParams.get("tab");
+  const activeTab = CATEGORIES.some((c) => c.key === tabParam) ? (tabParam as string) : CATEGORIES[0]!.key;
+
+  const handleTabChange = useCallback((key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", key);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, searchParams]);
 
   const docMap = useMemo(() => new Map(docs.map((d) => [d.id, d])), [docs]);
   const titleToDoc = useMemo(() => new Map(docs.map((d) => [d.title, d])), [docs]);
@@ -168,6 +180,8 @@ export const DocumentsView = () => {
         style={{ marginTop: 8 }}
         tabBarGutter={24}
         tabBarStyle={{ marginBottom: 12, paddingLeft: 8 }}
+        activeKey={activeTab}
+        onChange={handleTabChange}
         items={CATEGORIES.map((cat) => ({
           key: cat.key,
           label: (

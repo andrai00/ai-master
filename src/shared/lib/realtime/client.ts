@@ -1,5 +1,7 @@
 "use client";
 
+import { io, type Socket } from "socket.io-client";
+
 export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped" | "text";
 
 export interface IRealtimeStepEvent {
@@ -12,6 +14,24 @@ export interface IRealtimeStepEvent {
   seq?: number;
 }
 
+export interface ITypingIndicator {
+  sessionId: string;
+  userId: string;
+  displayName: string;
+  typing: boolean;
+}
+
+export interface IPresenceUser {
+  userId: string;
+  displayName: string;
+  role: string;
+}
+
+export interface IPresenceUpdate {
+  masterId: string;
+  online: IPresenceUser[];
+}
+
 interface ISessionState {
   processing: boolean;
   tool?: string;
@@ -21,10 +41,31 @@ interface ISessionState {
 
 type StepHandler = (event: IRealtimeStepEvent) => void;
 type ReconnectHandler = () => void;
+type TypingHandler = (indicator: ITypingIndicator) => void;
+type PresenceHandler = (update: IPresenceUpdate) => void;
+
+// Single Socket.IO connection shared by the whole app (module-level singleton).
+// Reset automatically on a full page load; reconnect handled by socket.io.
+let socket: Socket | null = null;
+
+export function connectSocket(): Socket {
+  if (!socket) {
+    socket = io({ path: "/socket.io", transports: ["websocket", "polling"] });
+  }
+  return socket;
+}
+
+export function disconnectSocket(): void {
+  socket?.disconnect();
+  socket = null;
+}
 
 const stepListeners = new Map<string, Set<StepHandler>>();
 const sessionState = new Map<string, ISessionState>();
 const reconnectListeners = new Set<ReconnectHandler>();
+const typingListeners = new Map<string, Set<TypingHandler>>();
+const presenceListeners = new Set<PresenceHandler>();
+let latestPresence: IPresenceUpdate | null = null;
 
 export function subscribeStep(sessionId: string, handler: StepHandler): () => void {
   let set = stepListeners.get(sessionId);
@@ -82,6 +123,47 @@ export function subscribeReconnect(handler: ReconnectHandler): () => void {
 
 export function emitReconnect(): void {
   for (const h of [...reconnectListeners]) h();
+}
+
+export function subscribeTyping(sessionId: string, handler: TypingHandler): () => void {
+  let set = typingListeners.get(sessionId);
+  if (!set) {
+    set = new Set();
+    typingListeners.set(sessionId, set);
+  }
+  set.add(handler);
+  return () => {
+    set.delete(handler);
+    if (set.size === 0) typingListeners.delete(sessionId);
+  };
+}
+
+/** Incoming typing indicator from the server (dispatched by the Shell). */
+export function dispatchTypingIndicator(indicator: ITypingIndicator): void {
+  const set = typingListeners.get(indicator.sessionId);
+  if (!set) return;
+  for (const h of [...set]) h(indicator);
+}
+
+/** Send a typing intent for a chat session to the server. */
+export function notifyTyping(sessionId: string, typing: boolean): void {
+  socket?.emit(typing ? "typing:start" : "typing:stop", { sessionId });
+}
+
+export function subscribePresence(handler: PresenceHandler): () => void {
+  presenceListeners.add(handler);
+  // Replay the last known presence snapshot so a (re)mounted consumer
+  // (e.g. sidebar on page navigation) shows online users immediately.
+  if (latestPresence) handler(latestPresence);
+  return () => {
+    presenceListeners.delete(handler);
+  };
+}
+
+/** Incoming presence snapshot from the server (dispatched by the Shell). */
+export function dispatchPresence(update: IPresenceUpdate): void {
+  latestPresence = update;
+  for (const h of [...presenceListeners]) h(update);
 }
 
 type DocDeletedHandler = (documentId: string) => void;

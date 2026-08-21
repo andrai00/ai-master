@@ -11,16 +11,16 @@
                                                                     ↓
                                          runBuilderAgent() в фоне (без await)
                                                                     ↓
-                                         SSE-события → все клиенты получают одинаково
+                                          Socket.IO-события → все клиенты получают одинаково
 ```
 
 - Server Action **не ждёт** AI. Сохранил сообщение — сразу ответил.
-- AI работает в фоне, прогресс и результат — через SSE.
-- Даже отправитель видит ответ AI из SSE, не из Server Action.
+- AI работает в фоне, прогресс и результат — через Socket.IO (step-события).
+- Даже отправитель видит ответ AI из сокета, не из Server Action.
 
-## SSE-протокол (Builder Chat)
+## Step-протокол (Builder Chat)
 
-События отправляются через `/api/stream` (step-события):
+Step-события отправляются через Socket.IO в комнату `steps:{sessionId}`:
 
 | Тип | Данные | Что делает клиент |
 |---|---|---|
@@ -31,7 +31,7 @@
 | `stopped` | — | Скрыть бабл |
 | `error` | `{ message }` | `notification.error`, скрыть бабл |
 
-Клиент подключается к SSE **при заходе на страницу** (не только при отправке). Все админы видят обработку.
+Клиент подключает сокет **при заходе на страницу** (не только при отправке). Все админы видят обработку.
 
 ## Агентный цикл
 
@@ -82,7 +82,7 @@ Pass 2 (выполнение): generateText({ tools: getTools(), system: system 
 - **Memory mode** — ручная работа с игровым состоянием: правка листов персонажей, скрытых заметок, миграции после изменений правил
 - Переключение через свитчер в строке ввода Builder-чата с подтверждением через `modal.confirm`
 - При переключении в Memory после >30 мин простоя — дополнительное предупреждение
-- Событие `builder_mode_change` транслируется всем клиентам через SSE
+- Событие `builder_mode_change` транслируется всем клиентам через Socket.IO (`game:event`)
 
 Переключение режима мастера (development/game) — только админ. При переходе dev→game Builder создаёт migration summary. Game Master читает его при старте.
 
@@ -220,7 +220,7 @@ Created 12 documents. Updated 3 documents. Searched 5 times.
 | `gm-runner.ts` | Раннер Game Master: game + personal, Plan→Execute, трейс |
 | `context-compress.ts` | Общий модуль сжатия контекста (builder + GM) |
 | `trace.ts` | Диагностика: `TraceEvent` (промты, тулы, ответы) при `AGENT_TRACE=1` |
-| `step-tracker.ts` | Хранилище SSE-событий (in-memory, globalThis) |
+| `step-tracker.ts` | Хранилище step-событий (in-memory, globalThis), пушит в комнату `steps:{sessionId}` |
 | `parse-cancel.ts` | Глобальный флаг отмены для всех тулов |
 | `archive-parser.ts` / `upload/route.ts` | Распаковка zip + загрузка |
 | `tools/*.tool.ts` | 6 инструментов для AI SDK |
@@ -228,7 +228,7 @@ Created 12 documents. Updated 3 documents. Searched 5 times.
 | `send-message.ts` | Server Action: сохраняет сообщение, запускает фон |
 | `stop-builder.ts` | Server Action: cancelAll + stopProcessing |
 | `/api/builder/upload/route.ts` | API Route: приём и парсинг файлов |
-| `/api/stream/route.ts` | SSE endpoint: события обработки |
+| `src/shared/lib/realtime/server.ts` | Socket.IO hub: события обработки, presence, typing |
 
 ---
 

@@ -73,8 +73,8 @@ FSD-архитектура. Серверные экшены вместо API-р�
 - **Деструктивные действия** — с `Popconfirm` или `modal.confirm` из `App.useApp()`
 - **Синглтоны** — `ActiveGame`, `AppConfig`: upsert + globalThis-кэш как у `getPrisma()`
 - **Prisma** — `db push` для структурных изменений, `generate` после изменений
-- **Builder Agent** — fire-and-forget + SSE, не ждать ответа в server action
-- **SSE-push** — для фич затрагивающих всех пользователей (смена игры, режима, доступа)
+- **Builder Agent** — fire-and-forget + Socket.IO, не ждать ответа в server action
+- **Socket.IO-push** — для фич затрагивающих всех пользователей (смена игры, режима, доступа)
 - **Моки/сиды** — временный GET-роут, открыть URL, удалить роут
 - **Ручные манипуляции с БД** — `sqlite3` или `npx prisma db execute --stdin`. В worktree — только с БД ворктри (prisma-клиент указывает на неё автоматически через `DATABASE_URL`, но для `sqlite3` путь к файлу БД — относительно текущей worktree-директории)
 - **pnpm** — единственный пакетный менеджер проекта. `pnpm add`, `pnpm install`, `pnpm exec`. `package-lock.json` удалён.

@@ -37,12 +37,12 @@ fix(builder): reset loading state on game switch
 
 Builder chat bubble showed pulsing dots animation after switching games
 because router.refresh() preserved React state (typing=true), sessionId
-cache wasn't invalidated, and SSE kept polling old session.
+cache wasn't invalidated, and the socket kept polling old session.
 
 Changes:
 - game-events.ts — added "game_switched" to TGameEvent
 - switch-game.ts — broadcast "game_switched" after activeGame update
-- shell.tsx — handle "game_switched" SSE event: full invalidate + refresh
+- shell.tsx — handle "game_switched" Socket.IO event: full invalidate + refresh
 - useSwitchGame.ts — invalidate builder session & messages queries
 - builder-chat-view.tsx — reset typing/stopping on sessionId change
 

@@ -24,7 +24,7 @@
 - Builder Chat — ping-pong с автосаммари, историей, очисткой ✓
 - AI Settings: конфигурация провайдера (OpenRouter, OpenAI, Anthropic, Groq, Ollama, custom) ✓
 - Документы: просмотр по категориям с Markdown-рендерингом ✓
-- SSE-push `mode_switch` всем клиентам при смене режима мастера ✓
+- Socket.IO-push `mode_switch` всем клиентам при смене режима мастера ✓
 - Инварианты: в game-режиме `glossary`/`brain` read-only на уровне Server Actions ✓
 - Изоляция данных по играм + категориям ✓
 - Builder-режимы Brain/Memory с переключением в UI и mode-aware инструментами ✓
@@ -104,8 +104,8 @@ Builder создаёт структуру мастера (см. `03-architecture
 ## Этап 5: инфраструктура
 
 - SQLite: пользователи, сессии
-- Онлайн: игроки подключаются к серверу админа
-- SSE/WS для стриминга и реалтайма
+- Онлайн: игроки подключаются к серверу админа (Socket.IO presence)
+- Socket.IO для стриминга и реалтайма
 
 ---
 

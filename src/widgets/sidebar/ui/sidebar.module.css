@@ -30,6 +30,66 @@
   flex-shrink: 0;
 }
 
+.presence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 16px;
+  flex-shrink: 0;
+  cursor: default;
+  border-top: 1px solid var(--border);
+}
+
+.presenceIcon {
+  font-size: 13px;
+  color: var(--success, #52c41a);
+  flex-shrink: 0;
+}
+
+.presenceDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success, #52c41a);
+  flex-shrink: 0;
+}
+
+.presenceCount {
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapsedPresence {
+  font-size: 15px;
+  color: var(--success, #52c41a);
+  margin: 6px auto;
+  flex-shrink: 0;
+}
+
+.presenceTooltip {
+  min-width: 140px;
+}
+
+.presenceTooltipTitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.presenceTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
 .tree {
   flex: 1;
   overflow-y: auto;

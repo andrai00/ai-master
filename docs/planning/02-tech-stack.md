@@ -104,8 +104,7 @@
 
 - **Next.js** — встроенный сервер, серверные экшены для всей логики
 - API-роуты только для загрузки файлов (>1MB, обход bodySizeLimit серверных экшенов)
-- **SSE** (Server-Sent Events) — для стриминга ответов LLM в реальном времени
-- WebSocket — позже, если понадобится real-time drag-n-drop или тактическая карта
+- **Socket.IO** — real-time push на том же сервере Next.js (`server.mjs`, WebSocket + long-polling fallback): события, step-прогресс агентов, presence, typing
 
 ---
 

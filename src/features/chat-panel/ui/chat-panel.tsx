@@ -41,8 +41,8 @@ import { useDocumentPreview } from "@/src/shared/ui/document-preview-provider";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { useMobileMenu } from "@/src/shared/ui/page-header";
-import { subscribeStep, subscribeReconnect } from "@/src/shared/lib/realtime/client";
-import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
+import { subscribeStep, subscribeReconnect, subscribeTyping, notifyTyping } from "@/src/shared/lib/realtime/client";
+import type { IRealtimeStepEvent, ITypingIndicator } from "@/src/shared/lib/realtime/client";
 import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import styles from "./chat-panel.module.css";
 
@@ -341,6 +341,9 @@ export const ChatPanel = ({
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
   const [streamedText, setStreamedText] = useState("");
   const [liveTools, setLiveTools] = useState<Array<{ tool: string; args?: string }>>([]);
+  const [humanTyping, setHumanTyping] = useState<ITypingIndicator[]>([]);
+  const typingSentRef = useRef(false);
+  const lastTypingEmitRef = useRef(0);
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -418,6 +421,41 @@ export const ChatPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepsSessionId]);
 
+  // Typing indicators from other participants in this chat.
+  useEffect(() => {
+    if (!stepsSessionId) return;
+    const unsub = subscribeTyping(stepsSessionId, (indicator) => {
+      setHumanTyping((prev) => {
+        const others = prev.filter((p) => p.userId !== indicator.userId);
+        return indicator.typing ? [...others, indicator] : others;
+      });
+    });
+    return unsub;
+  }, [stepsSessionId]);
+
+  // Auto-clear stale indicators if no update arrives (user closed the tab).
+  useEffect(() => {
+    if (humanTyping.length === 0) return;
+    const timer = setTimeout(() => setHumanTyping([]), 5000);
+    return () => clearTimeout(timer);
+  }, [humanTyping]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
+    if (!stepsSessionId) return;
+    const text = value.trim();
+    const now = Date.now();
+    if (text && !typingSentRef.current && now - lastTypingEmitRef.current > 300) {
+      typingSentRef.current = true;
+      lastTypingEmitRef.current = now;
+      notifyTyping(stepsSessionId, true);
+    } else if (!text && typingSentRef.current) {
+      typingSentRef.current = false;
+      notifyTyping(stepsSessionId, false);
+    }
+  }, [stepsSessionId]);
+
   // Auto-scroll to the newest message only when already near the bottom.
   // If the user scrolled up, do NOT yank them down — show the "jump to
   // bottom" button instead.
@@ -458,6 +496,7 @@ export const ChatPanel = ({
     setPrevStepsSessionId(stepsSessionId);
     setAtBottom(true);
     setShowScrollToBottom(false);
+    setHumanTyping([]);
   }
 
   const handleCopy = (text: string) => {
@@ -472,6 +511,10 @@ export const ChatPanel = ({
     onSend(text, attachedFiles);
     setInputValue("");
     setAttachedFiles([]);
+    if (typingSentRef.current) {
+      typingSentRef.current = false;
+      if (stepsSessionId) notifyTyping(stepsSessionId, false);
+    }
   };
 
   // ---- file helpers ----
@@ -811,6 +854,14 @@ export const ChatPanel = ({
           <div className={styles.devBanner}>{disabledText}</div>
         )}
 
+        {humanTyping.length > 0 && (
+          <div className={styles.humanTyping}>
+            <EditOutlined className={styles.humanTypingIcon} />
+            {humanTyping.map((u) => u.displayName).join(", ")}{" "}
+            {humanTyping.length > 1 ? t("chat.typingMany") : t("chat.typingOne")}
+          </div>
+        )}
+
         {/* attached file chips */}
         {allowFiles && attachedFiles.length > 0 && (
           <div className={styles.fileChips}>
@@ -855,7 +906,7 @@ export const ChatPanel = ({
             className={styles.input}
             disabled={disabled || sending || typing}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleInputChange}
             onPressEnter={(e) => {
               if (!e.shiftKey) {
                 e.preventDefault();

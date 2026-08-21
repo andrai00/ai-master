@@ -11,6 +11,7 @@ import {
   UnorderedListOutlined,
   CrownOutlined,
   IdcardOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Fragment } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,6 +27,8 @@ import { usePlayerDocuments } from "@/src/shared/api/game-master/use-player-docu
 import { ProfileSettingsModal } from "@/src/features/profile-settings";
 import { AppSettingsModal } from "@/src/features/app-settings";
 import { logoutAction } from "@/src/shared/actions/auth/logout";
+import { subscribePresence } from "@/src/shared/lib/realtime/client";
+import type { IPresenceUser } from "@/src/shared/lib/realtime/client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
 import styles from "./sidebar.module.css";
 
@@ -45,8 +48,14 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || user?.login || t("sidebar.guest"));
   const [mounted, setMounted] = useState(false);
+  const [presenceList, setPresenceList] = useState<IPresenceUser[]>([]);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- tracks client-side mount for avatar
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const unsub = subscribePresence((update) => setPresenceList(update.online ?? []));
+    return unsub;
+  }, []);
 
   const handleLogout = () => {
     modal.confirm({
@@ -118,6 +127,21 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
     </Fragment>
   );
 
+  const presenceTooltip =
+    presenceList.length > 0 ? (
+      <div className={styles.presenceTooltip}>
+        <div className={styles.presenceTooltipTitle}>
+          {t("sidebar.online")} · {presenceList.length}
+        </div>
+        {presenceList.map((u) => (
+          <div key={u.userId} className={styles.presenceTooltipRow}>
+            <span className={styles.presenceDot} />
+            {u.displayName}
+          </div>
+        ))}
+      </div>
+    ) : undefined;
+
   if (collapsed) {
     return (
       <Fragment>
@@ -134,6 +158,11 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
             </button>
           </Tooltip>
           <div className={styles.collapsedSpacer} />
+          {presenceList.length > 0 && (
+            <Tooltip title={presenceTooltip} placement="right">
+              <TeamOutlined className={styles.collapsedPresence} />
+            </Tooltip>
+          )}
           <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>
             <div className={styles.collapsedAvatar}>
               <Avatar size={26} icon={isAdmin ? <CrownOutlined /> : <UserOutlined />} />
@@ -168,6 +197,17 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         <div className={styles.tree}>
           <FileTree isAdmin={isAdmin} documents={playerDocs} />
         </div>
+
+        {presenceList.length > 0 && (
+          <Tooltip title={presenceTooltip} placement="topRight">
+            <div className={styles.presence}>
+              <TeamOutlined className={styles.presenceIcon} />
+              <span className={styles.presenceCount}>
+                {t("sidebar.online")} · {presenceList.length}
+              </span>
+            </div>
+          </Tooltip>
+        )}
 
         <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>
           <div className={styles.profile}>

@@ -100,7 +100,7 @@ model ActiveGame {
 - `switchGameAction(masterId)` → `UPDATE ActiveGame SET currentMasterId = ?`
 - `setMasterMode(masterId, mode)` → `UPDATE Master SET mode = ? WHERE id = ?`
 
-При переключении игры/режима — **SSE-push** всем подключённым клиентам, чтобы интерфейс обновился мгновенно.
+При переключении игры/режима — **Socket.IO-push** всем подключённым клиентам, чтобы интерфейс обновился мгновенно.
 
 Зачем `mode` на `Master` а не на `ActiveGame`:
 - У каждой игры свой последний режим — при переключении между играми режим не сбрасывается
@@ -120,7 +120,7 @@ model ActiveGame {
 | `UploadedFile` | Распарсенные загруженные файлы с прогрессом чтения |
 **Пользователи не затрагиваются** — `User` и его данные (пароль, аватар, и т.д.) остаются нетронутыми.
 
-**Если удаляется текущая активная игра:** `ActiveGame` каскадно удаляется вместе с `Master`. При следующем обращении `getActiveGame()` создаст нового синглтона, указав на первую доступную игру. Всем подключённым клиентам через SSE отправляется событие `game_deleted` — клиенты сбрасывают кэш и перезагружают интерфейс.
+**Если удаляется текущая активная игра:** `ActiveGame` каскадно удаляется вместе с `Master`. При следующем обращении `getActiveGame()` создаст нового синглтона, указав на первую доступную игру. Всем подключённым клиентам через Socket.IO отправляется событие `game_deleted` — клиенты сбрасывают кэш и перезагружают интерфейс.
 
 ### GameAccess (доступ игроков к играм)
 ```prisma
@@ -325,14 +325,14 @@ model Message {
 
 1. Админ вызывает `switchGameAction(masterId)` (из модалки выбора игры в шапке сайдбара)
 2. Server action: `UPDATE ActiveGame SET currentMasterId = ?`
-3. **SSE-push** события `game_switch` всем подключённым клиентам
+3. **Socket.IO-push** события `game_switch` всем подключённым клиентам
 4. Клиенты: перезагружают контекст (сайдбар, чаты, документы) под новую игру
 
 ### Переключение режима
 
 1. Админ вызывает `setMasterMode(masterId, mode)` 
 2. Server action: `UPDATE Master SET mode = ? WHERE id = ?`
-3. **SSE-push** события `mode_switch` всем подключённым клиентам
+3. **Socket.IO-push** события `mode_switch` всем подключённым клиентам
 4. Клиенты: обновляют UI (режим разработки vs игры)
 
 ### Проверка доступа
@@ -346,8 +346,8 @@ model Message {
 
 Когда админ убирает игрока из `GameAccess`:
 - Игрок теряет доступ мгновенно (проверка при следующем запросе)
-- **SSE-push** события `kick` этому игроку → `EventSource` закрывается → редирект на `/login`
-- Существующая реализация: `src/app/api/stream/route.ts`
+- **Socket.IO-push** события `kick` этому игроку (`broadcastToUser` → комната `user:{userId}`) → клиент дисконнектится → редирект на `/login`
+- Существующая реализация: `src/shared/lib/realtime/server.ts` (auth по JWT-cookie, комнаты)
 
 ### Данные изолированы по играм
 
@@ -452,13 +452,13 @@ JSON-колонках. Игроку не показываются. Рендер�
 
 1. Prisma + SQLite: схема (включая `ActiveGame`), миграции, CRUD
 2. Рендерер Markdown: скрытые маркеры, composite-сборка, подстановка данных, разрешение перекрёстных ссылок `[[doc-id]]` с проверкой доступа
-3. Чат: общий/личный, стриминг (SSE), кнопки действий (copy/share)
+3. Чат: общий/личный, real-time push (Socket.IO), кнопки действий (copy/share)
 4. Drag-n-drop: слоты инвентаря/экипировки
 5. Движок формул: парсинг, вычисление, граф зависимостей
 6. Инструменты для агентов: read, write, search, semantic_search, send_chat
 7. Next.js: серверные экшены, SSR, i18n, темы, адаптив
 8. Экспорт/импорт дампов мастеров
-9. SSE-подсистема: `/api/stream` (mode_switch, kick, builder_mode_change, game_deleted, document_*) — push всем клиентам
+9. Real-time подсистема: Socket.IO на том же сервере (`server.mjs`) — push всем клиентам (mode_switch, kick, builder_mode_change, game_deleted, document_*)
 10. ActiveGame + switchGame / setMasterMode: глобальное состояние игры и режима
 
 Всё остальное — зона нейронки.

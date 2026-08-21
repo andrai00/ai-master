@@ -437,38 +437,6 @@ type TStreamSteps = Awaited<TStreamRes["steps"]>;
 const FORCE_ANSWER_PROMPT =
   "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
-/** Rebuilds ModelMessages from a run's steps (tool calls + results) so a
- * retry can answer from the results the main run already collected. */
-function stepsToModelMessages(steps: TStreamSteps): ModelMessage[] {
-  const out: ModelMessage[] = [];
-  for (const step of steps) {
-    const calls = step.toolCalls ?? [];
-    if (calls.length > 0) {
-      out.push({
-        role: "assistant",
-        content: calls.map((c) => ({
-          type: "tool-call",
-          toolCallId: c.toolCallId,
-          toolName: c.toolName,
-          input: c.input,
-        })),
-      });
-    }
-    for (const r of step.toolResults ?? []) {
-      out.push({
-        role: "tool",
-        content: [{
-          type: "tool-result",
-          toolCallId: r.toolCallId,
-          toolName: r.toolName,
-          output: r.output,
-        }],
-      });
-    }
-  }
-  return out;
-}
-
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
@@ -484,6 +452,9 @@ export async function runBuilderAgent(
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+  // Captures the full conversation (incl. tool results) at each step — used to
+  // re-ask the model for a reply without losing what it already searched.
+  let runConversation: ModelMessage[] = [];
 
   try {
     // --- Phase: prepare ---
@@ -553,6 +524,8 @@ export async function runBuilderAgent(
           if (ac.signal.aborted) {
             return {};
           }
+
+          runConversation = allMsgs;
 
           const stepIdx = (allSteps ?? []).length;
           traceAgent({ chat: "builder", sessionId, phase: "exec", stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
@@ -660,13 +633,13 @@ export async function runBuilderAgent(
       throw err;
     }
 
-    // The model ended without a reply — retry WITHOUT tools, but give it the
-    // tool results the main run already collected so it answers FROM them.
+    // The model ended without a reply — retry WITHOUT tools, but feed it the
+    // full conversation it already had (incl. the tool results), so it answers
+    // FROM the search/read results instead of memory.
     if (!builderText) {
       console.log("[builder] RETRY empty reply — answer from the run's tool results");
       const retryMsgs: ModelMessage[] = [
-        ...messages,
-        ...stepsToModelMessages(resultSteps),
+        ...runConversation,
         { role: "user", content: FORCE_ANSWER_PROMPT },
       ];
       const retryResult = await runWithRetries(retryMsgs, ctx.system, {});

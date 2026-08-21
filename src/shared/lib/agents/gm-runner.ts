@@ -192,38 +192,6 @@ function getPersonalTools(): ToolSet {
 const FORCE_ANSWER_PROMPT =
   "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
-/** Rebuilds ModelMessages from a run's steps (tool calls + results) so a
- * retry can answer from the results the main run already collected. */
-function stepsToModelMessages(steps: TStreamSteps): ModelMessage[] {
-  const out: ModelMessage[] = [];
-  for (const step of steps) {
-    const calls = step.toolCalls ?? [];
-    if (calls.length > 0) {
-      out.push({
-        role: "assistant",
-        content: calls.map((c) => ({
-          type: "tool-call",
-          toolCallId: c.toolCallId,
-          toolName: c.toolName,
-          input: c.input,
-        })),
-      });
-    }
-    for (const r of step.toolResults ?? []) {
-      out.push({
-        role: "tool",
-        content: [{
-          type: "tool-result",
-          toolCallId: r.toolCallId,
-          toolName: r.toolName,
-          output: r.output,
-        }],
-      });
-    }
-  }
-  return out;
-}
-
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
   sessionId: string
@@ -560,6 +528,7 @@ function makeRunText(
     phase: string;
     log: (line: string) => void;
     liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }>;
+    conversationRef: { msgs: ModelMessage[] };
   }
 ): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> {
   const result = streamText({
@@ -569,7 +538,10 @@ function makeRunText(
     tools: opts.tools,
     stopWhen: (input) => isLoopFinished()(input) || isStepCount(100)(input),
     abortSignal: opts.ac.signal,
-    prepareStep: makePrepareStep(sessionId, opts.chat, opts.phase),
+    prepareStep: (input) => {
+      opts.conversationRef.msgs = input.messages;
+      return makePrepareStep(sessionId, opts.chat, opts.phase)(input);
+    },
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
     },
@@ -593,6 +565,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+  const conversationRef: { msgs: ModelMessage[] } = { msgs: [] };
 
   try {
     const ctx = await buildGameContext(sessionId);
@@ -639,6 +612,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         phase: "exec",
         log: gmLog,
         liveSteps,
+        conversationRef,
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
@@ -666,8 +640,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         model,
         system: ctx.system,
         messages: [
-          ...existingMessages,
-          ...stepsToModelMessages(allSteps),
+          ...conversationRef.msgs,
           { role: "user", content: FORCE_ANSWER_PROMPT },
         ],
         tools: {},
@@ -676,6 +649,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         phase: "retry",
         log: gmLog,
         liveSteps,
+        conversationRef,
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
@@ -741,6 +715,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
+  const conversationRef: { msgs: ModelMessage[] } = { msgs: [] };
 
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
@@ -784,6 +759,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         phase: "exec",
         log: (l) => console.log(`[gm-personal] ${l}`),
         liveSteps,
+        conversationRef,
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
@@ -811,8 +787,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         model,
         system: ctx.system,
         messages: [
-          ...existingMessages,
-          ...stepsToModelMessages(allSteps),
+          ...conversationRef.msgs,
           { role: "user", content: FORCE_ANSWER_PROMPT },
         ],
         tools: {},
@@ -821,6 +796,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         phase: "retry",
         log: (l) => console.log(`[gm-personal] ${l}`),
         liveSteps,
+        conversationRef,
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;

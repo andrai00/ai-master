@@ -67,4 +67,28 @@ describe("evaluateFormulas", () => {
     expect(results.get("a")!.error).toBeTruthy();
     expect(results.get("b")!.error).toBeTruthy();
   });
+
+  it("includes base inputs in results so $base refs resolve in the UI", () => {
+    const { results, errors } = evalBlock(
+      "```formula\npm: 0\nzm: 140\nsm: 0\nmm: 0\nspell_slots_1: 4\nspell_slots_2: 2\n\nmoney_total_gm = pm*10 + zm + sm*0.1 + mm*0.01\n```"
+    );
+    expect(errors).toEqual([]);
+    // Bases referenced ONLY in the body (not by any formula) must still be
+    // present — otherwise the UI renders $pm/$spell_slots_1 as "err" and
+    // read_document misses them in formulaValues.
+    expect(results.get("pm")!.value).toBe(0);
+    expect(results.get("zm")!.value).toBe(140);
+    expect(results.get("sm")!.value).toBe(0);
+    expect(results.get("mm")!.value).toBe(0);
+    expect(results.get("spell_slots_1")!.value).toBe(4);
+    expect(results.get("spell_slots_2")!.value).toBe(2);
+    expect(results.get("money_total_gm")!.value).toBe(140);
+  });
+
+  it("does not double-count bases that share a name with a formula", () => {
+    // Base input wins over a formula with the same name (evaluator contract).
+    const { results } = evalBlock("```formula\nac: 10\nac = ac + 1\n```");
+    expect(results.get("ac")!.value).toBe(10);
+    expect(results.get("ac")!.error).toBeNull();
+  });
 });

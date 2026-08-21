@@ -30,6 +30,14 @@ export function evaluateFormulas(blocks: IFormulaBlock[]): IEvaluationReport {
     for (const [k, v] of Object.entries(b.inputs)) inputs.set(k, v);
   }
 
+  // Seed every base input into the results map. Bases referenced only in the
+  // document BODY ($pm, $spell_slots_1, ...) — not by any formula — would
+  // otherwise never appear in results: the UI would render them as "err" and
+  // read_document's formulaValues would miss them.
+  for (const [k, v] of inputs) {
+    results.set(k, { name: k, expr: String(v), value: v, error: null });
+  }
+
   const nameSet = new Set<string>();
   for (const b of blocks) nameSet.add(b.name);
   for (const k of inputs.keys()) nameSet.add(k);

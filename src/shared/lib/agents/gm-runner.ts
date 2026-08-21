@@ -38,6 +38,7 @@ import {
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
+import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
 
@@ -109,7 +110,7 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep() {
+function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
   let cachedLimit = 128_000;
   let limitLoaded = false;
 
@@ -122,6 +123,9 @@ function makePrepareStep() {
     } catch {
       return {};
     }
+
+    // Diagnostic: log the exact prompt the model sees before this step.
+    traceAgent({ chat, sessionId, phase, stepIndex: (steps ?? []).length, prompt: JSON.stringify(allMsgs) });
 
     // Effective compression threshold: 70% of the context limit, capped so
     // compression actually engages on long runs.
@@ -520,12 +524,12 @@ function makeRunText(
     messages: ModelMessage[];
     tools: ToolSet;
     ac: AbortController;
-    chat: string;
+    chat: TraceChat;
     phase: string;
     log: (line: string) => void;
     liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }>;
   }
-): Promise<{ text: string; steps: TStreamSteps }> {
+): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> {
   const result = streamText({
     model: opts.model,
     system: opts.system,
@@ -533,7 +537,7 @@ function makeRunText(
     tools: opts.tools,
     stopWhen: (input) => isLoopFinished()(input) || isStepCount(100)(input),
     abortSignal: opts.ac.signal,
-    prepareStep: makePrepareStep(),
+    prepareStep: makePrepareStep(sessionId, opts.chat, opts.phase),
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
     },
@@ -542,7 +546,8 @@ function makeRunText(
   return (async () => {
     const text = await result.text;
     const steps = await result.steps;
-    return { text, steps };
+    const finishReason = (await result.finishReason) ?? null;
+    return { text, steps, finishReason };
   })();
 }
 
@@ -590,6 +595,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     // Single agentic loop: study → act → reply.
     let gmText: string | null = null;
     let allSteps: TStreamSteps = [];
+    const runStart = performance.now();
     try {
       const execResult = await makeRunText(sessionId, {
         model,
@@ -604,6 +610,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
+      traceAgent({ chat: "game", sessionId, phase: "exec", result: gmText?.slice(0, 4000), finishReason: execResult.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - runStart) });
       gmLog(`DONE textLen=${gmText?.length ?? 0} actions=[${getActions(sessionId).join(",")}]`);
     } catch (err) {
       if (isAbortError(err)) {
@@ -622,6 +629,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       gmLog("RETRY empty reply (no tools)");
+      const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
@@ -635,6 +643,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
+      traceAgent({ chat: "game", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: retry.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - retryStart) });
       gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
     }
 
@@ -727,6 +736,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     let gmText: string | null = null;
     let allSteps: TStreamSteps = [];
+    const runStart = performance.now();
     try {
       const execResult = await makeRunText(sessionId, {
         model,
@@ -741,6 +751,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
+      traceAgent({ chat: "personal", sessionId, phase: "exec", result: gmText?.slice(0, 4000), finishReason: execResult.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - runStart) });
       console.log(`[gm-personal] EXEC done textLen=${gmText?.length ?? 0}`);
     } catch (err) {
       if (isAbortError(err)) {
@@ -759,6 +770,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       console.log("[gm-personal] RETRY empty reply (no tools)");
+      const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
@@ -772,6 +784,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
+      traceAgent({ chat: "personal", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: retry.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - retryStart) });
       console.log(`[gm-personal] RETRY done textLen=${gmText?.length ?? 0}`);
     }
 
@@ -820,7 +833,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
 function makeStepLogger(
   sessionId: string,
-  chat: string,
+  chat: TraceChat,
   phase: string,
   log?: (line: string) => void,
   liveSteps?: Array<{ toolCalls?: Array<Record<string, unknown>> }>
@@ -833,6 +846,7 @@ function makeStepLogger(
       if (log) log(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
       for (const call of calls) {
         // AI SDK v7 puts tool arguments in `input` (not `args`).
+        traceAgent({ chat, sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
         emitStep(sessionId, call.toolName as string);
       }
     }

@@ -34,6 +34,7 @@ import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { renameDocumentTool } from "./tools/rename-document.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
+import { traceAgent } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
 
@@ -522,6 +523,7 @@ export async function runBuilderAgent(
           }
 
           const stepIdx = (allSteps ?? []).length;
+          traceAgent({ chat: "builder", sessionId, phase: "exec", stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
 
           // Periodic status log every 10 steps
           if (isStudy || stepIdx % 10 === 0) {
@@ -552,6 +554,7 @@ export async function runBuilderAgent(
             for (const call of calls) {
               try {
                 // AI SDK v7 puts tool arguments in `input` (not `args`).
+                traceAgent({ chat: "builder", sessionId, phase: "exec", toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
                 emitStep(sessionId, call.toolName as string);
               } catch (e) {
                 console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
@@ -575,12 +578,15 @@ export async function runBuilderAgent(
       toolSet: ToolSet = tools
     ): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const attemptStart = performance.now();
         try {
           const r = await runGenerate(msgs, sys, toolSet);
+          traceAgent({ chat: "builder", sessionId, phase: "exec", result: r.text?.slice(0, 4000), finishReason: r.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - attemptStart) });
           console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string, unknown>).finishReason, steps: (r as unknown as { steps?: unknown[] }).steps?.length, usage: (r as unknown as Record<string, unknown>).usage })}`);
           return r;
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
+          traceAgent({ chat: "builder", sessionId, phase: "exec", error: errMsg, elapsedMs: Math.round(performance.now() - attemptStart) });
           console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${errMsg.slice(0, 200)}`);
 
           // Never retry user stop or cancellation

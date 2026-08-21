@@ -9,6 +9,7 @@ import { assertCanWrite } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
 import { validateFormulaContent } from "../validate-formulas";
 import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const updateDocumentTool = {
   description: TOOL_DESCRIPTIONS.update_document,
@@ -48,7 +49,7 @@ export const updateDocumentTool = {
       id: updated.id,
       title: updated.title,
       category: updated.category,
-      formulaValidation: validateFormulaContent(args.content),
+      formulaValidation: supportsFormulaCategory(updated.category) ? validateFormulaContent(args.content) : null,
       linkValidation: await validateLinksContent(prisma, updated.masterId, updated.category, args.content),
     };
   },

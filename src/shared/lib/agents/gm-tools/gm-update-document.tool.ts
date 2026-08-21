@@ -5,6 +5,7 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { validateFormulaContent } from "../validate-formulas";
 import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const gmUpdateDocumentTool = {
   description: "Update an existing document. Can update game_hidden and game_visible documents only.",
@@ -39,7 +40,7 @@ export const gmUpdateDocumentTool = {
     return {
       id: args.id,
       updated: true,
-      formulaValidation: validateFormulaContent(args.content),
+      formulaValidation: supportsFormulaCategory(existing.category) ? validateFormulaContent(args.content) : null,
       linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, existing.category, args.content),
     };
   },

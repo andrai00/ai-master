@@ -5,6 +5,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useState, useCallback } from "react";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useDocument } from "@/src/shared/api/documents/use-document";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 interface IDocumentPreviewModalProps {
   open: boolean;
@@ -75,7 +76,14 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
       ) : !doc ? (
         <div style={{ padding: 24, color: "var(--text-dim)" }}>Document not found</div>
       ) : (
-        <MdViewer key={doc.id} content={doc.content} onNavigate={handleNavigate} scrollTo={scrollTo} showToc />
+        <MdViewer
+          key={doc.id}
+          content={doc.content}
+          onNavigate={handleNavigate}
+          scrollTo={scrollTo}
+          showToc
+          formulas={supportsFormulaCategory(doc.category)}
+        />
       )}
     </Modal>
   );

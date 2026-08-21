@@ -28,6 +28,12 @@ interface IMdViewerProps {
   onNavigate?: (docId: string, anchor?: string) => void;
   scrollTo?: string;
   showToc?: boolean;
+  /**
+   * When false, formula blocks and $var refs are NOT evaluated or validated:
+   * they render as raw formulas (used for brain/glossary docs whose formulas
+   * are examples/templates, not real computed data).
+   */
+  formulas?: boolean;
 }
 
 /**
@@ -90,7 +96,7 @@ function unwrapMarkdownFences(content: string): string {
   return out.join("\n");
 }
 
-export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMdViewerProps) => {
+export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formulas = true }: IMdViewerProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Strip blockquote markers from table rows and fix separator/header order.
@@ -119,10 +125,11 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
 
   const formulaResults = useMemo(() => {
+    if (!formulas) return new Map<string, IFormulaResult>();
     const blocks = parseFormulaBlocks(cleanContent);
     if (blocks.length === 0) return new Map<string, IFormulaResult>();
     return evaluateFormulas(blocks).results;
-  }, [cleanContent]);
+  }, [cleanContent, formulas]);
 
   const handleTocClick = useCallback((id: string) => {
     if (!id) return;
@@ -181,6 +188,9 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         }
         const formulaRef = readProp(properties, "data-formula-ref");
         if (formulaRef) {
+          if (!formulas) {
+            return <code className={styles.formulaRef}>{`$${formulaRef}`}</code>;
+          }
           return (
             <FormulaInlineRef
               varName={formulaRef}
@@ -197,6 +207,9 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
       code(props) {
         const { children, className, ...rest } = props;
         if (className === "language-formula") {
+          if (!formulas) {
+            return <code className={className} {...rest}>{children}</code>;
+          }
           const body = String(children).replace(/\n$/, "");
           // Collect formula names declared in this ```formula block
           // (new style "name = expr" and legacy "name:" lines).
@@ -299,7 +312,7 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
         );
       },
     }),
-    [onNavigate, formulaResults]
+    [onNavigate, formulaResults, formulas]
   );
 
   return (

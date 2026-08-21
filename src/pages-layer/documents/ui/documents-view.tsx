@@ -13,6 +13,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
 import { PageHeader } from "@/src/shared/ui/page-header";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 const CATEGORIES = [
   { key: "brain", label: "documents.brain", icon: <FileTextOutlined /> },
@@ -255,6 +256,7 @@ export const DocumentsView = () => {
               onNavigate={handleNavigate}
               scrollTo={scrollTo}
               showToc
+              formulas={supportsFormulaCategory(previewDoc.category)}
             />
         )}
       </Modal>

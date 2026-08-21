@@ -8,6 +8,7 @@ import { resolveDocId } from "./resolve-doc-id";
 import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 interface ITocEntry {
   heading: string;
@@ -83,19 +84,25 @@ export const readDocumentTool = {
 
     const toc = extractToc(content);
 
-    const blocks = parseFormulaBlocks(content);
-    const { results } = evaluateFormulas(blocks);
-    const formulaValues: Record<string, number> = {};
-    const formulaErrors: Record<string, string> = {};
-    results.forEach((v) => {
-      if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
-      else if (v.error) formulaErrors[v.name] = v.error;
-    });
-    const formulaData = Object.keys(formulaValues).length > 0 || Object.keys(formulaErrors).length > 0
-      ? {
-          formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
-          formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
-        }
+    // Formulas are only meaningful on character sheets and master memory;
+    // brain/glossary documents hold formula EXAMPLES and must not be evaluated.
+    const formulaData = supportsFormulaCategory(doc.category)
+      ? (() => {
+          const blocks = parseFormulaBlocks(content);
+          const { results } = evaluateFormulas(blocks);
+          const formulaValues: Record<string, number> = {};
+          const formulaErrors: Record<string, string> = {};
+          results.forEach((v) => {
+            if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
+            else if (v.error) formulaErrors[v.name] = v.error;
+          });
+          return Object.keys(formulaValues).length > 0 || Object.keys(formulaErrors).length > 0
+            ? {
+                formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
+                formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
+              }
+            : {};
+        })()
       : {};
 
     if (args.offset !== undefined || args.limit !== undefined) {

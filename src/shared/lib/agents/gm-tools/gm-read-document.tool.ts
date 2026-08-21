@@ -6,6 +6,7 @@ import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { resolveDocId } from "../tools/resolve-doc-id";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const gmReadDocumentTool = {
   description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
@@ -53,21 +54,24 @@ export const gmReadDocumentTool = {
       toc.push({ heading: match[1]!.trim(), offset: match.index });
     }
 
-    // Formulas are always computed on the FULL document — slicing the text
-    // must not break boundary formulas.
-    const blocks = parseFormulaBlocks(content);
-    const { results } = evaluateFormulas(blocks);
-    const formulaValues: Record<string, number> = {};
-    const formulaErrors: Record<string, string> = {};
-    results.forEach((v) => {
-      if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
-      else if (v.error) formulaErrors[v.name] = v.error;
-    });
-
-    const formulaData = {
-      formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
-      formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
-    };
+    // Formulas are only meaningful on character sheets and master memory;
+    // brain/glossary documents hold formula EXAMPLES and must not be evaluated.
+    const formulaData = supportsFormulaCategory(doc.category)
+      ? (() => {
+          const blocks = parseFormulaBlocks(content);
+          const { results } = evaluateFormulas(blocks);
+          const formulaValues: Record<string, number> = {};
+          const formulaErrors: Record<string, string> = {};
+          results.forEach((v) => {
+            if (v.value !== null && !v.error) formulaValues[v.name] = v.value;
+            else if (v.error) formulaErrors[v.name] = v.error;
+          });
+          return {
+            formulaValues: Object.keys(formulaValues).length > 0 ? formulaValues : undefined,
+            formulaErrors: Object.keys(formulaErrors).length > 0 ? formulaErrors : undefined,
+          };
+        })()
+      : {};
 
     // Always return a slice: default limit prevents dumping huge documents
     // (e.g. a 25KB mechanics section) into the model context in one call.

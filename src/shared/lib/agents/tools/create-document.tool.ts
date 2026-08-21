@@ -10,6 +10,7 @@ import { assertCanWrite, getWritableCategories } from "./builder-mode-guard";
 import { makePath } from "@/src/shared/lib/documents/paths";
 import { validateFormulaContent } from "../validate-formulas";
 import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const createDocumentTool = {
   description: TOOL_DESCRIPTIONS.create_document,
@@ -88,7 +89,7 @@ export const createDocumentTool = {
       category: doc.category,
       path: doc.path,
       created: true,
-      formulaValidation: validateFormulaContent(args.content),
+      formulaValidation: supportsFormulaCategory(args.category) ? validateFormulaContent(args.content) : null,
       linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, args.category, args.content),
     };
   },

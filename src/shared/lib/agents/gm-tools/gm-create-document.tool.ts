@@ -5,6 +5,7 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { makePath } from "@/src/shared/lib/documents/paths";
 import { validateFormulaContent } from "../validate-formulas";
+import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
 
 export const gmCreateDocumentTool = {
   description: "Create a new document. Can create game_hidden (notes, plans, memory) and game_visible (character sheets, public info).",
@@ -77,6 +78,7 @@ export const gmCreateDocumentTool = {
       path: doc.path,
       created: true,
       formulaValidation: validateFormulaContent(args.content),
+      linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, args.category, args.content),
     };
   },
 };

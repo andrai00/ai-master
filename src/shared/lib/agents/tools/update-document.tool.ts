@@ -8,6 +8,7 @@ import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions
 import { assertCanWrite } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
 import { validateFormulaContent } from "../validate-formulas";
+import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
 
 export const updateDocumentTool = {
   description: TOOL_DESCRIPTIONS.update_document,
@@ -48,6 +49,7 @@ export const updateDocumentTool = {
       title: updated.title,
       category: updated.category,
       formulaValidation: validateFormulaContent(args.content),
+      linkValidation: await validateLinksContent(prisma, updated.masterId, updated.category, args.content),
     };
   },
 };

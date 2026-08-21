@@ -47,7 +47,7 @@ export const readDocumentTool = {
   description: TOOL_DESCRIPTIONS.read_document,
   inputSchema: zodSchema(
     z.object({
-      id: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire' or '/spells/207-faerie_fire.md'). If contains '/' or ends with '.md' — treated as path/title, auto-resolved to UUID."),
+      id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link (e.g. 'spells/207-faerie_fire', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Auto-resolves to the UUID."),
       offset: z.number().optional().describe("Character offset for chunked reading (default 0)"),
       limit: z.number().optional().describe("Max characters for chunked reading (default 5000); omit both offset and limit to read the whole document"),
     })
@@ -56,12 +56,11 @@ export const readDocumentTool = {
     if (isCancelled()) throw new Error("errors.cancelled");
     const prisma = getPrisma();
 
+    // Accept UUID, path, title or a link target from a [[...]] link — the
+    // resolver normalizes every form (including bare titles and "glossary/x").
     let docId = args.id;
-    if (docId.includes("/") || docId.endsWith(".md")) {
-      const resolved = await resolveDocId(docId);
-      if (resolved) docId = resolved;
-    }
-
+    const resolved = await resolveDocId(docId);
+    if (resolved) docId = resolved;
     const doc = await prisma.document.findUnique({
       where: { id: docId },
       select: {

@@ -61,14 +61,13 @@ export const WikiLink = ({ docId, anchor, displayText, onNavigate, plain }: IWik
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    if (displayText) return;
     scheduleResolve(docId);
     const listener = () => setTick((t) => t + 1);
     listeners.add(listener);
     return () => {
       listeners.delete(listener);
     };
-  }, [docId, displayText]);
+  }, [docId]);
 
   const cached = resolvedCache.get(docId);
   const resolvedDisplay = displayText || cached?.title || docId;

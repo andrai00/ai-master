@@ -30,6 +30,7 @@ import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { renameDocumentTool } from "./tools/rename-document.tool";
+import { validateLinksTool } from "./tools/validate-links.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
 import { traceAgent } from "./trace";
@@ -220,6 +221,7 @@ function getTools(builderMode: string): ToolSet {
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
     rename_document: renameDocumentTool,
+    validate_links: validateLinksTool,
   };
 
   if (builderMode === "memory") {

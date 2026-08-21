@@ -3,7 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
-import { CATEGORY_PREFIXES, normalizePath } from "@/src/shared/lib/documents/paths";
+import { CATEGORY_PREFIXES, normalizePath, stripCategoryPrefix } from "@/src/shared/lib/documents/paths";
 
 export { normalizePath };
 
@@ -44,6 +44,19 @@ export async function resolveDocumentByPath(
       where: { masterId, title: cleanPath, status: "active" },
       select: { id: true, title: true },
     });
+  }
+
+  // 4) Title match with the category prefix stripped ("glossary/x" -> title "x").
+  //    Prefixed glossary links ([[glossary/x|...]]) must resolve to documents
+  //    whose title/path is the unprefixed archive form (x).
+  if (!doc) {
+    const stripped = stripCategoryPrefix(cleanPath);
+    if (stripped !== cleanPath) {
+      doc = await prisma.document.findFirst({
+        where: { masterId, title: stripped, status: "active" },
+        select: { id: true, title: true },
+      });
+    }
   }
 
   if (!doc) return null;

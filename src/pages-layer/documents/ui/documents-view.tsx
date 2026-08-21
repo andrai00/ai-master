@@ -102,7 +102,12 @@ export const DocumentsView = () => {
   }, []);
 
   const handleNavigate = useCallback((docId: string, anchor?: string) => {
-    const target = docMap.get(docId) ?? titleToDoc.get(docId);
+    const stripped = docId.replace(/^(glossary|brain|hidden|visible)\//, "");
+    const target =
+      docMap.get(docId) ??
+      titleToDoc.get(docId) ??
+      titleToDoc.get(stripped) ??
+      docMap.get(stripped);
     if (!target) return;
     setScrollTo(anchor || "");
     setPreviewDoc((prev) => {

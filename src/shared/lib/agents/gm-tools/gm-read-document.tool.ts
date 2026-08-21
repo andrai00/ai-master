@@ -5,12 +5,13 @@ import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
+import { resolveDocId } from "../tools/resolve-doc-id";
 
 export const gmReadDocumentTool = {
-  description: "Read a document by ID. Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
+  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
   inputSchema: zodSchema(
     z.object({
-      id: z.string().describe("Document ID (UUID)"),
+      id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link. Auto-resolves."),
       offset: z.number().optional().describe("Character offset for reading a section (default 0, or a toc heading offset)"),
       limit: z.number().optional().describe("Max characters of text to return (default 3000, hard cap 8000)"),
     })
@@ -20,8 +21,10 @@ export const gmReadDocumentTool = {
     if (!activeGame || activeGame.mode !== "game") throw new Error("errors.notInGameMode");
 
     const prisma = getPrisma();
+    const resolvedId = await resolveDocId(args.id);
+    const docId = resolvedId ?? args.id;
     const doc = await prisma.document.findFirst({
-      where: { id: args.id, masterId: activeGame.currentMasterId },
+      where: { id: docId, masterId: activeGame.currentMasterId },
       select: {
         id: true,
         title: true,

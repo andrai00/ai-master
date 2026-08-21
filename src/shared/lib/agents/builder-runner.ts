@@ -153,7 +153,8 @@ Use the same language as the admin's messages. Auto-detect.
 3. Don't add unnecessary content — follow the rules
 4. Save dies templates in brain (not glossary)
 5. Create index docs for navigation
-6. Propose next step, don't wait`;
+6. Propose next step, don't wait
+7. After studying the rules, create a brain section "Память мастера" (type: memory_management) describing how the master should maintain hidden/memory/ for THIS game: which sections (players, scenes, decisions...), when to write, when to archive old scenes into history.`;
 }
 
 // ---------------------------------------------------------------------------

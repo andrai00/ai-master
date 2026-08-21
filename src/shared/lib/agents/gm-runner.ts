@@ -312,6 +312,34 @@ async function buildBrainContext(
   return out;
 }
 
+/**
+ * Master memory preload: lists hidden/memory/* sections (title + summary) so
+ * the GM knows what it remembers without reading everything. Structure of the
+ * sections is defined by the Builder in the brain policy "memory_management".
+ */
+async function buildMemoryContext(
+  prisma: ReturnType<typeof getPrisma>,
+  masterId: string
+): Promise<string> {
+  const docs = await prisma.document.findMany({
+    where: {
+      masterId,
+      category: "game_hidden",
+      status: "active",
+      path: { startsWith: "hidden/memory/" },
+    },
+    select: { id: true, title: true, path: true, summary: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (docs.length === 0) return "";
+
+  let out = `\n\n## Память мастера (preloaded)\n`;
+  for (const d of docs) {
+    out += `- ${d.title} [${d.path}]${d.summary ? ` — ${d.summary}` : ""}\n`;
+  }
+  return out;
+}
+
 async function buildGameContext(sessionId: string) {
   const prisma = getPrisma();
   const activeGame = await getActiveGame();
@@ -334,6 +362,7 @@ async function buildGameContext(sessionId: string) {
 
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
+    dynamic += await buildMemoryContext(prisma, activeGame.currentMasterId);
   }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
@@ -424,6 +453,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
+    dynamic += await buildMemoryContext(prisma, activeGame.currentMasterId);
   }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);

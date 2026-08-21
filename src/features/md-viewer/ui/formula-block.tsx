@@ -17,16 +17,23 @@ export const FormulaConfigBlock = ({ results }: { results: IFormulaResult[] }) =
 
   if (results.length === 0) return null;
 
+  const preview = results.map((r) => `${r.name} = ${r.expr}`).join("\n");
+
   return (
     <div className={styles.config}>
-      <button type="button" className={styles.configSummary} onClick={toggle}>
+      <button
+        type="button"
+        className={styles.configSummary}
+        onClick={toggle}
+        title={expanded ? undefined : `Формулы:\n${preview}`}
+      >
         <span className={styles.configArrow}>{expanded ? "▾" : "▸"}</span>
-        <span>Формулы · {results.length}</span>
+        <span>{expanded ? "Свернуть формулы" : `Развернуть формулы · ${results.length}`}</span>
       </button>
       {expanded && (
         <ul className={styles.configList}>
           {results.map((r) => (
-            <li key={r.name} className={styles.configItem}>
+            <li key={r.name} className={styles.configItem} title={r.error ? r.error : undefined}>
               <code className={styles.configExpr}>{r.name} = {r.expr}</code>
               <span className={styles.configEq}>=</span>
               {r.error || r.value === null ? (

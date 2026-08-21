@@ -161,6 +161,7 @@ export const DocumentsView = () => {
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
         onSearch={(value) => setSearchQuery(value)}
+        onBlur={() => setSearchQuery(searchInput)}
         style={{ marginBottom: 12 }}
       />
       <Tabs

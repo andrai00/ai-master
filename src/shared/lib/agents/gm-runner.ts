@@ -40,6 +40,7 @@ import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
 import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
+import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
 
 export { emitStopped } from "./step-tracker";
@@ -528,7 +529,6 @@ function makeRunText(
     phase: string;
     log: (line: string) => void;
     liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }>;
-    conversationRef: { msgs: ModelMessage[] };
   }
 ): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> {
   const result = streamText({
@@ -538,10 +538,7 @@ function makeRunText(
     tools: opts.tools,
     stopWhen: (input) => isLoopFinished()(input) || isStepCount(100)(input),
     abortSignal: opts.ac.signal,
-    prepareStep: (input) => {
-      opts.conversationRef.msgs = input.messages;
-      return makePrepareStep(sessionId, opts.chat, opts.phase)(input);
-    },
+    prepareStep: makePrepareStep(sessionId, opts.chat, opts.phase),
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
     },
@@ -565,7 +562,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
-  const conversationRef: { msgs: ModelMessage[] } = { msgs: [] };
 
   try {
     const ctx = await buildGameContext(sessionId);
@@ -612,7 +608,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         phase: "exec",
         log: gmLog,
         liveSteps,
-        conversationRef,
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
@@ -640,7 +635,8 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         model,
         system: ctx.system,
         messages: [
-          ...conversationRef.msgs,
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
           { role: "user", content: FORCE_ANSWER_PROMPT },
         ],
         tools: {},
@@ -649,7 +645,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         phase: "retry",
         log: gmLog,
         liveSteps,
-        conversationRef,
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
@@ -715,7 +710,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
-  const conversationRef: { msgs: ModelMessage[] } = { msgs: [] };
 
   try {
     const ctx = await buildPersonalContext(sessionId, playerId);
@@ -759,7 +753,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         phase: "exec",
         log: (l) => console.log(`[gm-personal] ${l}`),
         liveSteps,
-        conversationRef,
       });
       allSteps = execResult.steps;
       gmText = execResult.text?.trim() ?? null;
@@ -787,7 +780,8 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         model,
         system: ctx.system,
         messages: [
-          ...conversationRef.msgs,
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
           { role: "user", content: FORCE_ANSWER_PROMPT },
         ],
         tools: {},
@@ -796,7 +790,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         phase: "retry",
         log: (l) => console.log(`[gm-personal] ${l}`),
         liveSteps,
-        conversationRef,
       });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;

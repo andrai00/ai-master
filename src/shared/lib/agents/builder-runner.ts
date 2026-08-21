@@ -36,6 +36,7 @@ import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
 import { traceAgent } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
+import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
 
 // ---------------------------------------------------------------------------
@@ -452,9 +453,6 @@ export async function runBuilderAgent(
   let runId = "";
   let userMessageIds: string[] = [];
   const liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }> = [];
-  // Captures the full conversation (incl. tool results) at each step — used to
-  // re-ask the model for a reply without losing what it already searched.
-  let runConversation: ModelMessage[] = [];
 
   try {
     // --- Phase: prepare ---
@@ -525,7 +523,6 @@ export async function runBuilderAgent(
             return {};
           }
 
-          runConversation = allMsgs;
 
           const stepIdx = (allSteps ?? []).length;
           traceAgent({ chat: "builder", sessionId, phase: "exec", stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
@@ -633,13 +630,14 @@ export async function runBuilderAgent(
       throw err;
     }
 
-    // The model ended without a reply — retry WITHOUT tools, but feed it the
-    // full conversation it already had (incl. the tool results), so it answers
+    // The model ended without a reply — retry WITHOUT tools, feeding the tool
+    // results the main run already collected (rebuilt properly), so it answers
     // FROM the search/read results instead of memory.
     if (!builderText) {
       console.log("[builder] RETRY empty reply — answer from the run's tool results");
       const retryMsgs: ModelMessage[] = [
-        ...runConversation,
+        ...messages,
+        ...stepsToModelMessages(resultSteps),
         { role: "user", content: FORCE_ANSWER_PROMPT },
       ];
       const retryResult = await runWithRetries(retryMsgs, ctx.system, {});

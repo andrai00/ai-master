@@ -11,10 +11,7 @@ import { exploreArchiveTool } from "./tools/explore-archive.tool";
 import { readFileTool } from "./tools/read-file.tool";
 import { bulkImportTool } from "./tools/bulk-import.tool";
 import { deleteUploadedFilesTool } from "./tools/delete-uploaded-files.tool";
-import { scanWikiLinksTool } from "./tools/scan-wiki-links.tool";
-import { replaceWikiLinksTool } from "./tools/replace-wiki-links.tool";
 import { deleteDocumentTool } from "./tools/delete-document.tool";
-import { validateLinksTool } from "./tools/validate-links.tool";
 import { builderGetSceneStateTool } from "./tools/get-scene-state.tool";
 import { builderGetPlayerSheetTool } from "./tools/get-player-sheet.tool";
 import {
@@ -139,10 +136,10 @@ A document's type is its MEANING — what the entry IS (creature, spell, item, a
 ## Working with existing data
 - Never delete glossary/brain without admin confirmation
 - Never create duplicates — search first
-- Fix broken wiki-links after each bulk operation
+- Fix broken links by pointing them to existing documents; archive-style md links (/bestiary/331-camel.md) resolve automatically — do NOT rewrite them
 
 ## Reply style — tools are invisible
-- Tool calls (search_rules, get_brain, create_document, update_document, scan_wiki_links, …) are invisible system actions. NEVER describe them in your reply text — no "я нашёл документ", "проверил базу", "создал файл", "заменил ссылки".
+- Tool calls (search_rules, get_brain, create_document, update_document, …) are invisible system actions. NEVER describe them in your reply text — no "я нашёл документ", "проверил базу", "создал файл", "заменил ссылки".
 - Your reply is ONLY the summary/result the admin needs. What you did with tools is implied; write the outcome, not the system actions.
 
 ## Proactive document links
@@ -238,9 +235,6 @@ function getTools(builderMode: string): ToolSet {
   return {
     ...shared,
     delete_document: deleteDocumentTool,
-    scan_wiki_links: scanWikiLinksTool,
-    replace_wiki_links: replaceWikiLinksTool,
-    validate_links: validateLinksTool,
     bulk_import_to_glossary: bulkImportTool,
     explore_archive: exploreArchiveTool,
     list_uploaded_files: listUploadedFilesTool,
@@ -307,7 +301,7 @@ async function buildContext(sessionId: string) {
   const toolsNote =
     builderMode === "memory"
       ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
-      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, scan_wiki_links, replace_wiki_links, validate_links, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
+      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
   let dynamic = "";

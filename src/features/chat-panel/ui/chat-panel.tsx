@@ -28,6 +28,22 @@ import {
   PictureOutlined,
   LinkOutlined,
   TeamOutlined,
+  FolderOpenOutlined,
+  FileTextOutlined,
+  ImportOutlined,
+  QuestionCircleOutlined,
+  EnvironmentOutlined,
+  PushpinOutlined,
+  SolutionOutlined,
+  EyeOutlined,
+  UndoOutlined,
+  CheckCircleOutlined,
+  CarryOutOutlined,
+  RedoOutlined,
+  CompressOutlined,
+  ProfileOutlined,
+  SwapOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -272,16 +288,33 @@ function getStepIcon(tool: string): ReactNode {
   switch (tool) {
     case "list_uploaded_files":
       return <UnorderedListOutlined style={iconStyle} />;
+    case "explore_archive":
+      return <FolderOpenOutlined style={iconStyle} />;
+    case "read_file":
+      return <FileTextOutlined style={iconStyle} />;
+    case "bulk_import_to_glossary":
+      return <ImportOutlined style={iconStyle} />;
     case "create_document":
       return <FileAddOutlined style={iconStyle} />;
     case "update_document":
       return <EditOutlined style={iconStyle} />;
+    case "update_char_sheet":
+      return <SolutionOutlined style={iconStyle} />;
+    case "write_note":
+      return <PushpinOutlined style={iconStyle} />;
+    case "set_scene_state":
+      return <EnvironmentOutlined style={iconStyle} />;
+    case "delete_document":
+    case "delete_documents_by_type":
+    case "delete_uploaded_files":
+      return <DeleteOutlined style={iconStyle} />;
     case "read_document":
       return <ReadOutlined style={iconStyle} />;
     case "search_rules":
-      return <SearchOutlined style={iconStyle} />;
     case "glossary_overview":
       return <SearchOutlined style={iconStyle} />;
+    case "list_all_documents":
+      return <ProfileOutlined style={iconStyle} />;
     case "get_brain":
       return <BookOutlined style={iconStyle} />;
     case "get_gm_notes":
@@ -293,7 +326,30 @@ function getStepIcon(tool: string): ReactNode {
     case "get_players":
       return <TeamOutlined style={iconStyle} />;
     case "resolve_glossary_link":
+    case "validate_links":
       return <LinkOutlined style={iconStyle} />;
+    case "get_builder_guide":
+      return <QuestionCircleOutlined style={iconStyle} />;
+    case "get_chat_summary":
+      return <HistoryOutlined style={iconStyle} />;
+    case "update_chat_summary":
+      return <CarryOutOutlined style={iconStyle} />;
+    case "rename_document":
+      return <SwapOutlined style={iconStyle} />;
+    case "roll_dice":
+      return <ThunderboltOutlined style={iconStyle} />;
+    case "present_roll_check":
+      return <SendOutlined style={iconStyle} />;
+    case "get_rolls":
+      return <EyeOutlined style={iconStyle} />;
+    case "remove_roll":
+      return <UndoOutlined style={iconStyle} />;
+    case "confirm_rolls":
+      return <CheckCircleOutlined style={iconStyle} />;
+    case "retry":
+      return <RedoOutlined style={iconStyle} />;
+    case "summarize":
+      return <CompressOutlined style={iconStyle} />;
     case "final":
       return <CommentOutlined style={iconStyle} />;
     default:

@@ -283,7 +283,8 @@
       "summarize": "Сворачивает историю",
       "list_all_documents": "Сканирует документы",
       "rename_document": "Переименовывает документ",
-      "delete_documents_by_type": "Удаляет документы"
+      "delete_documents_by_type": "Удаляет документы",
+      "validate_links": "Проверяет ссылки"
     },
     "modeBrain": "Мозг",
     "modeBrainHint": "Настройка правил и инструкций ИИ-мастера",

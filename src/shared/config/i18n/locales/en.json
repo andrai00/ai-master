@@ -283,7 +283,8 @@
       "summarize": "Condensing the history",
       "list_all_documents": "Scanning documents",
       "rename_document": "Renaming a document",
-      "delete_documents_by_type": "Deleting documents"
+      "delete_documents_by_type": "Deleting documents",
+      "validate_links": "Checking links"
     },
     "modeBrain": "Brain",
     "modeBrainHint": "Configuring rules and AI Master instructions",

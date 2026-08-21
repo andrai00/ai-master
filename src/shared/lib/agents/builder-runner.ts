@@ -1,7 +1,5 @@
 import { streamText, isStepCount, isLoopFinished, type StepResult, type ToolSet, type ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { mkdirSync, appendFileSync } from "fs";
-import path from "path";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
@@ -36,7 +34,6 @@ import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { renameDocumentTool } from "./tools/rename-document.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
-import { traceAgent } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
 
@@ -429,21 +426,6 @@ type TStreamSteps = Awaited<TStreamRes["steps"]>;
 const FORCE_ANSWER_PROMPT =
   "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
-// File log for the Builder — lets us inspect the exact generation results
-// (text length, finish reason, step counts) after a run.
-let bLogReady = false;
-function bLog(line: string): void {
-  try {
-    if (!bLogReady) {
-      mkdirSync(path.join(process.cwd(), "logs"), { recursive: true });
-      bLogReady = true;
-    }
-    appendFileSync(path.join(process.cwd(), "logs", "builder.log"), `[${new Date().toISOString()}] ${line}\n`);
-  } catch {
-    // logging must never break the agent
-  }
-}
-
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
@@ -514,8 +496,7 @@ export async function runBuilderAgent(
     const runGenerate = async (
       msgs: ModelMessage[],
       sys: string = ctx.system,
-      toolSet: ToolSet = tools,
-      phase: string = isStudy ? "study" : "chat"
+      toolSet: ToolSet = tools
     ): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> => {
       const result = streamText({
         model,
@@ -531,8 +512,6 @@ export async function runBuilderAgent(
           }
 
           const stepIdx = (allSteps ?? []).length;
-          // Diagnostic: log the exact prompt the model sees before this step.
-          traceAgent({ chat: "builder", sessionId, phase, stepIndex: stepIdx, prompt: JSON.stringify(allMsgs) });
 
           // Periodic status log every 10 steps
           if (isStudy || stepIdx % 10 === 0) {
@@ -563,7 +542,6 @@ export async function runBuilderAgent(
             for (const call of calls) {
               try {
                 // AI SDK v7 puts tool arguments in `input` (not `args`).
-                traceAgent({ chat: "builder", sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
                 emitStep(sessionId, call.toolName as string);
               } catch (e) {
                 console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
@@ -584,20 +562,16 @@ export async function runBuilderAgent(
     const runWithRetries = async (
       msgs: ModelMessage[],
       sys: string = ctx.system,
-      toolSet: ToolSet = tools,
-      phase: string = isStudy ? "study" : "chat"
+      toolSet: ToolSet = tools
     ): Promise<{ text: string; steps: TStreamSteps; finishReason: string | null }> => {
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        const attemptStart = performance.now();
         try {
-          const r = await runGenerate(msgs, sys, toolSet, phase);
-          traceAgent({ chat: "builder", sessionId, phase, result: r.text?.slice(0, 4000), elapsedMs: Math.round(performance.now() - attemptStart) });
+          const r = await runGenerate(msgs, sys, toolSet);
           console.log(`[builder] generateText raw result — ${JSON.stringify({ text: r.text?.slice(0, 200), finishReason: (r as unknown as Record<string, unknown>).finishReason, steps: (r as unknown as { steps?: unknown[] }).steps?.length, usage: (r as unknown as Record<string, unknown>).usage })}`);
           return r;
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[builder] retry catch — session=${sessionId} attempt=${attempt} errorName=${err instanceof Error ? err.name : "?"} errorMsg=${errMsg.slice(0, 200)}`);
-          traceAgent({ chat: "builder", sessionId, phase, error: errMsg, elapsedMs: Math.round(performance.now() - attemptStart) });
 
           // Never retry user stop or cancellation
           if (isAbortError(err)) throw err;
@@ -620,10 +594,9 @@ export async function runBuilderAgent(
     let resultSteps: TStreamSteps = [];
 
     try {
-      const result = await runWithRetries(messages, ctx.system, tools, isStudy ? "study" : "chat");
+      const result = await runWithRetries(messages, ctx.system, tools);
       resultSteps = result.steps;
       builderText = result.text?.trim() ?? null;
-      bLog(`DONE textLen=${builderText?.length ?? 0} finishReason=${result.finishReason} steps=${resultSteps.length}`);
       console.log(`[builder] DONE — session=${sessionId} textLen=${builderText?.length ?? 0}`);
     } catch (err) {
       if (isAbortError(err)) {
@@ -646,17 +619,15 @@ export async function runBuilderAgent(
       const retryResult = await runWithRetries([
         ...messages,
         { role: "user", content: FORCE_ANSWER_PROMPT },
-      ], ctx.system, {}, "retry");
+      ], ctx.system, {});
       resultSteps = retryResult.steps;
       builderText = retryResult.text?.trim() ?? null;
-      bLog(`RETRY textLen=${builderText?.length ?? 0} finishReason=${retryResult.finishReason} steps=${retryResult.steps.length}`);
       console.log(`[builder] RETRY done textLen=${builderText?.length ?? 0}`);
     }
 
     // Last resort — short fallback so the bubble never ends silently.
     if (!builderText) {
       builderText = "Не удалось сформировать ответ. Попробуй ещё раз.";
-      bLog("FALLBACK empty reply after retry");
     }
 
     // Save the final message + full transcript atomically.

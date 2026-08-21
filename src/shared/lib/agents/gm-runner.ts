@@ -1,7 +1,5 @@
 import { streamText, isStepCount, isLoopFinished, type ModelMessage, type ToolSet } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { mkdirSync, appendFileSync } from "fs";
-import path from "path";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
@@ -40,7 +38,6 @@ import {
 } from "./step-tracker";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
-import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { scheduleSummarize } from "./chat-summarizer";
 
@@ -50,19 +47,9 @@ const globalGuard = globalThis as unknown as {
   gmProcessing: Map<string, AbortController>;
 };
 
-// Minimal file log for the game chat GM — lets us inspect the exact
-// tool-call order, finish reason and delivery outcome after a run.
-let gmLogReady = false;
+// Minimal run logger for the GM (console only — no files).
 function gmLog(line: string): void {
-  try {
-    if (!gmLogReady) {
-      mkdirSync(path.join(process.cwd(), "logs"), { recursive: true });
-      gmLogReady = true;
-    }
-    appendFileSync(path.join(process.cwd(), "logs", "gm-game.log"), `[${new Date().toISOString()}] ${line}\n`);
-  } catch {
-    // logging must never break the agent
-  }
+  console.log(`[gm-game] ${line}`);
 }
 
 function getGuard(): Map<string, AbortController> {
@@ -122,7 +109,7 @@ async function getContextLimit(): Promise<number> {
   return PROVIDER_DEFAULTS[provider] ?? 128_000;
 }
 
-function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
+function makePrepareStep() {
   let cachedLimit = 128_000;
   let limitLoaded = false;
 
@@ -135,9 +122,6 @@ function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
     } catch {
       return {};
     }
-
-    // Diagnostic: log the exact prompt the model sees before this step.
-    traceAgent({ chat, sessionId, phase, stepIndex: (steps ?? []).length, prompt: JSON.stringify(allMsgs) });
 
     // Effective compression threshold: 70% of the context limit, capped so
     // compression actually engages on long runs.
@@ -536,7 +520,7 @@ function makeRunText(
     messages: ModelMessage[];
     tools: ToolSet;
     ac: AbortController;
-    chat: TraceChat;
+    chat: string;
     phase: string;
     log: (line: string) => void;
     liveSteps: Array<{ toolCalls?: Array<Record<string, unknown>> }>;
@@ -549,7 +533,7 @@ function makeRunText(
     tools: opts.tools,
     stopWhen: (input) => isLoopFinished()(input) || isStepCount(100)(input),
     abortSignal: opts.ac.signal,
-    prepareStep: makePrepareStep(sessionId, opts.chat, opts.phase),
+    prepareStep: makePrepareStep(),
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta" && chunk.text) emitText(sessionId, chunk.text);
     },
@@ -606,7 +590,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     // Single agentic loop: study → act → reply.
     let gmText: string | null = null;
     let allSteps: TStreamSteps = [];
-    const runStart = performance.now();
     try {
       const execResult = await makeRunText(sessionId, {
         model,
@@ -639,7 +622,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       gmLog("RETRY empty reply (no tools)");
-      const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
@@ -651,7 +633,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         log: gmLog,
         liveSteps,
       });
-      traceAgent({ chat: "game", sessionId, phase: "retry", elapsedMs: Math.round(performance.now() - retryStart) });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
       gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
@@ -665,7 +646,6 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
     if (gmText) {
       const prisma = getPrisma();
-      traceAgent({ chat: "game", sessionId, phase: "final", result: gmText, elapsedMs: Math.round(performance.now() - runStart) });
       emitStep(sessionId, "final");
       const created = await prisma.message.create({
         data: {
@@ -747,7 +727,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     let gmText: string | null = null;
     let allSteps: TStreamSteps = [];
-    const runStart = performance.now();
     try {
       const execResult = await makeRunText(sessionId, {
         model,
@@ -780,7 +759,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
       console.log("[gm-personal] RETRY empty reply (no tools)");
-      const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
@@ -792,7 +770,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         log: (l) => console.log(`[gm-personal] ${l}`),
         liveSteps,
       });
-      traceAgent({ chat: "personal", sessionId, phase: "retry", elapsedMs: Math.round(performance.now() - retryStart) });
       allSteps = [...allSteps, ...retry.steps];
       gmText = retry.text?.trim() ?? null;
       console.log(`[gm-personal] RETRY done textLen=${gmText?.length ?? 0}`);
@@ -806,7 +783,6 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     if (gmText) {
       const prisma = getPrisma();
       emitStep(sessionId, "final");
-      traceAgent({ chat: "personal", sessionId, phase: "final", result: gmText, elapsedMs: Math.round(performance.now() - runStart) });
       const created = await prisma.message.create({
         data: {
           sessionId,
@@ -844,7 +820,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
 function makeStepLogger(
   sessionId: string,
-  chat: TraceChat,
+  chat: string,
   phase: string,
   log?: (line: string) => void,
   liveSteps?: Array<{ toolCalls?: Array<Record<string, unknown>> }>
@@ -857,7 +833,6 @@ function makeStepLogger(
       if (log) log(`STEP tools=[${calls.map((c) => c.toolName).join(",")}]`);
       for (const call of calls) {
         // AI SDK v7 puts tool arguments in `input` (not `args`).
-        traceAgent({ chat, sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
         emitStep(sessionId, call.toolName as string);
       }
     }

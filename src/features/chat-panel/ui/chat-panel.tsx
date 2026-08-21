@@ -345,6 +345,10 @@ export const ChatPanel = ({
   const typingSentRef = useRef(false);
   const lastTypingEmitRef = useRef(0);
 
+  // Live tool rows and the current-step label are debug-only (AGENT_DEBUG=1).
+  // The views leave debugRows undefined when debug is off.
+  const debugMode = debugRows !== undefined;
+
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
   }, [openDocument]);
@@ -779,7 +783,7 @@ export const ChatPanel = ({
             }
             return group.messages.flatMap(renderMessageFlow);
           })}
-          {liveTools.length > 0 && (
+          {debugMode && liveTools.length > 0 && (
             <div className={styles.liveToolLog}>
               {liveTools.map((lt, i) => (
                 <div key={`live-${i}`} className={styles.toolLogRow}>

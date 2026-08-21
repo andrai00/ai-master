@@ -1,11 +1,13 @@
 "use client";
 
 import { Tabs, Table, Modal, Empty, Button, Space, Input } from "antd";
-import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
+import { FileTextOutlined, BookOutlined, EyeInvisibleOutlined, UserOutlined, ArrowLeftOutlined, SearchOutlined, ExportOutlined, ImportOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useDocuments } from "@/src/shared/api/admin/useDocuments";
 import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
+import { ImportMasterModal } from "./import-master-modal";
+import { ExportMasterModal } from "./export-master-modal";
 import { useState, useCallback, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
@@ -28,6 +30,8 @@ export const DocumentsView = () => {
   const [pageSize, setPageSize] = useState(20);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: docs = [], isLoading } = useDocuments();
 
@@ -166,16 +170,20 @@ export const DocumentsView = () => {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <PageHeader title={t("documents.title_page")} />
       <div className={styles.page} style={{ padding: 24, maxWidth: 960, margin: "0 auto", width: "100%", overflow: "auto", flex: 1 }}>
+      <div className={styles.headerRow}>
       <Input.Search
         allowClear
+        className={styles.searchInput}
         placeholder={t("documents.searchPlaceholder")}
         prefix={<SearchOutlined />}
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
         onSearch={(value) => setSearchQuery(value)}
         onBlur={() => setSearchQuery(searchInput)}
-        style={{ marginBottom: 12 }}
       />
+      <Button icon={<ExportOutlined />} onClick={() => setExportOpen(true)}>{t("documents.export")}</Button>
+      <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>{t("documents.import")}</Button>
+      </div>
       <Tabs
         style={{ marginTop: 8 }}
         tabBarGutter={24}
@@ -245,6 +253,8 @@ export const DocumentsView = () => {
             />
         )}
       </Modal>
+      <ImportMasterModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <ExportMasterModal open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
     </div>
   );

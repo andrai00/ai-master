@@ -158,6 +158,12 @@ When you WRITE a document (write_note, create_document, update_document, update_
   - **game_visible** (character sheets, player docs) → glossary ONLY. Never link to brain or game_hidden from game_visible — those would be dead/inaccessible links for the player.
 - **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the path you already have.
 
+## Editing documents — line edits, not whole rewrites
+- To change a part of a document (a stat, a note, a line in a sheet), FIRST read it with numbered: true — you get absolute 1-based line numbers (rows look like "   12 | content"). Then call update_document / update_char_sheet with edits: [{ start_line, end_line, new_lines }] replacing ONLY the lines that change. Line numbers come from the numbered read.
+- Range rules: start_line..end_line replaces that inclusive range; end_line = start_line - 1 inserts new_lines before start_line; empty new_lines deletes the range. Multiple disjoint edits go in one edits array.
+- Do NOT rewrite the whole document (content param) when only a few lines change — line edits are cheaper and preserve everything else exactly.
+- After a line edit, check the returned applied and totalLines; if the document changed in between (line drift), re-read with numbered: true before further edits.
+
 ## Player engagement — don't forget anyone
 - Call get_players periodically: when several messages arrive at once, when the chat goes quiet, or roughly every 10–15 messages.
 - A player with ≥1 linked document is an ACTIVE participant (they have a character and personal data). A player with 0 documents is still a viewer — they have not created a character; you may invite them to start one in :nav-personal:.
@@ -312,6 +318,12 @@ When you WRITE a document (write_note, create_document, update_document, update_
   - **game_hidden** (notes, scenes, plans) → glossary + game_hidden + game_visible (incl. other players' open docs)
   - **game_visible** (this player's character sheet, personal docs) → glossary + this player's own other game_visible docs. Never link to brain or game_hidden from game_visible — those would be dead/inaccessible links for the player.
 - **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the path you already have.
+
+## Editing documents — line edits, not whole rewrites
+- To change a part of a document (a stat, a note, a line in the sheet), FIRST read it with numbered: true — you get absolute 1-based line numbers (rows look like "   12 | content"). Then call update_document / update_char_sheet with edits: [{ start_line, end_line, new_lines }] replacing ONLY the lines that change. Line numbers come from the numbered read.
+- Range rules: start_line..end_line replaces that inclusive range; end_line = start_line - 1 inserts new_lines before start_line; empty new_lines deletes the range. Multiple disjoint edits go in one edits array.
+- Do NOT rewrite the whole document (content param) when only a few lines change — line edits are cheaper and preserve everything else exactly.
+- After a line edit, check the returned applied and totalLines; if the document changed in between (line drift), re-read with numbered: true before further edits.
 
 ## Character creation
 When a player wants to create a character:

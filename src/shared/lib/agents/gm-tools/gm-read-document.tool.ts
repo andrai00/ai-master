@@ -7,17 +7,21 @@ import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { resolveDocId } from "../tools/resolve-doc-id";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
+import { numberLines } from "@/src/shared/lib/documents/line-utils";
 
 export const gmReadDocumentTool = {
-  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
+  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link. Auto-resolves."),
       offset: z.number().optional().describe("Character offset for reading a section (default 0, or a toc heading offset)"),
       limit: z.number().optional().describe("Max characters of text to return (default 3000, hard cap 8000)"),
+      numbered: z.boolean().optional().describe("When true, return the document as absolute 1-based numbered lines (`   12 | content`) instead of a character slice — use the numbers to edit specific lines via update_document edits. Character offset/limit are ignored in numbered mode."),
+      start_line: z.number().optional().describe("First line to return in numbered mode (1-based, default 1)"),
+      line_limit: z.number().optional().describe("Max lines to return in numbered mode (default 400)"),
     })
   ),
-  execute: async (args: { id: string; offset?: number; limit?: number }) => {
+  execute: async (args: { id: string; offset?: number; limit?: number; numbered?: boolean; start_line?: number; line_limit?: number }) => {
     const activeGame = await getActiveGame();
     if (!activeGame || activeGame.mode !== "game") throw new Error("errors.notInGameMode");
 
@@ -72,6 +76,31 @@ export const gmReadDocumentTool = {
           };
         })()
       : {};
+
+    // Numbered view: absolute 1-based line numbers so the model can target
+    // exact lines in update_document edits. start_line/line_limit page it.
+    if (args.numbered) {
+      const num = numberLines(content, args.start_line ?? 1, args.line_limit ?? 400);
+      return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        type: doc.type,
+        summary: doc.summary,
+        playerId: doc.playerId,
+        path: doc.path,
+        source: doc.category,
+        updatedAt: doc.updatedAt,
+        mode: "numbered",
+        lines: num.view,
+        startLine: num.startLine,
+        endLine: num.endLine,
+        totalLines: num.totalLines,
+        hasMore: num.hasMore,
+        toc,
+        ...formulaData,
+      };
+    }
 
     // Always return a slice: default limit prevents dumping huge documents
     // (e.g. a 25KB mechanics section) into the model context in one call.

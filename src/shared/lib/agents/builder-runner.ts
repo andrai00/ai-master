@@ -135,6 +135,12 @@ A document's type is its MEANING — what the entry IS (creature, spell, item, a
 - If a folder's meaning is unclear, pick a reasonable type and flag it to the admin for confirmation.
 - bulk_import_to_glossary matches by folder PREFIX (longest match wins): a { "/rules": "rule", "/rules/bestiary": "monster" } map imports everything under /rules as rule EXCEPT /rules/bestiary as monster. You may list parent folders and let specific subfolders override them.
 
+## Editing documents — line edits, not whole rewrites
+- To change a part of a document, FIRST read it with numbered: true — you get absolute 1-based line numbers (rows look like "   12 | content"). Then call update_document with edits: [{ start_line, end_line, new_lines }] replacing ONLY the lines that change. Line numbers come from the numbered read and stay valid for all edits in one call.
+- Range rules: start_line..end_line replaces that inclusive range; end_line = start_line - 1 inserts new_lines before start_line; empty new_lines deletes the range. Multiple disjoint edits go in one edits array.
+- Do NOT rewrite the whole document (content param) when only a few lines change — line edits are cheaper, safer and preserve everything else exactly.
+- After a line edit, check the returned applied and totalLines; if the document changed in between (line drift), re-read with numbered: true before further edits.
+
 ## Working with existing data
 - Never delete glossary/brain without admin confirmation
 - Never create duplicates — search first

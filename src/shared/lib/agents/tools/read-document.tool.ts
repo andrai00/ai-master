@@ -9,6 +9,7 @@ import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
+import { numberLines } from "@/src/shared/lib/documents/line-utils";
 
 interface ITocEntry {
   heading: string;
@@ -51,9 +52,12 @@ export const readDocumentTool = {
       id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link (e.g. 'spells/207-faerie_fire', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Auto-resolves to the UUID."),
       offset: z.number().optional().describe("Character offset for chunked reading (default 0)"),
       limit: z.number().optional().describe("Max characters for chunked reading (default 5000); omit both offset and limit to read the whole document"),
+      numbered: z.boolean().optional().describe("When true, return the document as absolute 1-based numbered lines (`   12 | content`) instead of plain text — use the numbers to edit specific lines via update_document edits. Use start_line/line_limit to page. Character offset/limit are ignored in numbered mode."),
+      start_line: z.number().optional().describe("First line to return in numbered mode (1-based, default 1)"),
+      line_limit: z.number().optional().describe("Max lines to return in numbered mode (default 0 = all lines)"),
     })
   ),
-  execute: async (args: { id: string; offset?: number; limit?: number }) => {
+  execute: async (args: { id: string; offset?: number; limit?: number; numbered?: boolean; start_line?: number; line_limit?: number }) => {
     if (isCancelled()) throw new Error("errors.cancelled");
     const prisma = getPrisma();
 
@@ -104,6 +108,29 @@ export const readDocumentTool = {
             : {};
         })()
       : {};
+
+    // Numbered view: absolute 1-based line numbers so the model can target
+    // exact lines in update_document edits. start_line/line_limit page it.
+    if (args.numbered) {
+      const num = numberLines(content, args.start_line ?? 1, args.line_limit ?? 0);
+      return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        type: doc.type,
+        summary: doc.summary,
+        path: doc.path,
+        source: doc.category,
+        mode: "numbered",
+        lines: num.view,
+        startLine: num.startLine,
+        endLine: num.endLine,
+        totalLines: num.totalLines,
+        hasMore: num.hasMore,
+        toc,
+        ...formulaData,
+      };
+    }
 
     if (args.offset !== undefined || args.limit !== undefined) {
       const offset = args.offset ?? 0;

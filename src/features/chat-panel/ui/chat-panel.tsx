@@ -391,6 +391,7 @@ export const ChatPanel = ({
   const { openDocument } = useDocumentPreview();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
   const [inputValue, setInputValue] = useState("");
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -617,22 +618,28 @@ export const ChatPanel = ({
   };
 
   // ---- drag & drop ----
-
+  // Drag events are ALWAYS prevented so the browser never treats the chat page
+  // as a native drop target (no navigation, no native drop affordance) — but
+  // the drop overlay appears ONLY when allowFiles (builder page). A depth
+  // counter absorbs the enter/leave churn when the pointer moves over child
+  // elements, so the overlay doesn't flash on and off.
   const handleDragEnter = (e: DragEvent) => {
-    if (!allowFiles) return;
     e.preventDefault();
     e.stopPropagation();
+    if (!allowFiles) return;
+    dragDepthRef.current++;
     setDragOver(true);
   };
 
   const handleDragLeave = (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragOver(false);
+    if (!allowFiles) return;
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragOver(false);
   };
 
   const handleDragOver = (e: DragEvent) => {
-    if (!allowFiles) return;
     e.preventDefault();
     e.stopPropagation();
   };
@@ -640,6 +647,7 @@ export const ChatPanel = ({
   const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragDepthRef.current = 0;
     setDragOver(false);
     if (!allowFiles) return;
     if (e.dataTransfer.files) addFiles(e.dataTransfer.files);

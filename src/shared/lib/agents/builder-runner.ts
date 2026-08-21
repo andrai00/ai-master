@@ -12,6 +12,7 @@ import { readFileTool } from "./tools/read-file.tool";
 import { bulkImportTool } from "./tools/bulk-import.tool";
 import { deleteUploadedFilesTool } from "./tools/delete-uploaded-files.tool";
 import { deleteDocumentTool } from "./tools/delete-document.tool";
+import { deleteDocumentsByTypeTool } from "./tools/delete-documents-by-type.tool";
 import { builderGetSceneStateTool } from "./tools/get-scene-state.tool";
 import { builderGetPlayerSheetTool } from "./tools/get-player-sheet.tool";
 import {
@@ -235,6 +236,7 @@ function getTools(builderMode: string): ToolSet {
   return {
     ...shared,
     delete_document: deleteDocumentTool,
+    delete_documents_by_type: deleteDocumentsByTypeTool,
     bulk_import_to_glossary: bulkImportTool,
     explore_archive: exploreArchiveTool,
     list_uploaded_files: listUploadedFilesTool,
@@ -301,7 +303,7 @@ async function buildContext(sessionId: string) {
   const toolsNote =
     builderMode === "memory"
       ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
-      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
+      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, delete_documents_by_type, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
   let dynamic = "";

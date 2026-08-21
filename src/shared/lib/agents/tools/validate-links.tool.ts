@@ -8,7 +8,7 @@ import { validateLinksContent } from "@/src/shared/lib/documents/validate-links"
 
 export const validateLinksTool = {
   description:
-    "Check every internal link of a document: each link must resolve to an existing document and its category must be allowed from the document's category (glossary→glossary; brain→brain+glossary; hidden→glossary+hidden+visible; visible→glossary). Returns the link count and per-link errors. Use it on existing documents (or your draft content) to find broken or disallowed links before/after editing.",
+    "Check every internal link of a document: each link must resolve to an existing document, its category must be allowed from the document's category (glossary→glossary; brain→brain+glossary; hidden→glossary+hidden+visible; visible→glossary), and a #anchor must match a heading of the target document. Returns the link count and per-link errors. Use it on existing documents (or your draft content) to find broken links, disallowed categories, or bad anchors before/after editing.",
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID), path or title"),

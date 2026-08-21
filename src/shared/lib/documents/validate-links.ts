@@ -1,3 +1,4 @@
+import GithubSlugger from "github-slugger";
 import { normalizePath } from "./paths";
 import { resolveDocumentRef } from "./resolve-ref";
 
@@ -27,45 +28,101 @@ export interface ILinkValidation {
   errors: Record<string, string>;
 }
 
-const WIKI_RE = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
+interface ILinkRef {
+  key: string;
+  anchor?: string;
+}
+
+const WIKI_RE = /\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
 const MD_RE = /\]\(([^)\s]+)\)/g;
 const DOC_UUID_RE = /^\/doc\/([a-zA-Z0-9-]+)$/;
 
-/** Collects unique internal link targets, skipping external URLs and #anchors. */
-export function extractLinkKeys(content: string): string[] {
-  const keys = new Set<string>();
+/** Collects unique internal link targets (key + optional #anchor). */
+export function extractLinkKeys(content: string): ILinkRef[] {
+  const seen = new Set<string>();
+  const out: ILinkRef[] = [];
   let m: RegExpExecArray | null;
 
-  const push = (raw: string) => {
+  const push = (raw: string, anchor?: string) => {
     const t = raw.trim();
     if (!t) return;
     if (/^(https?:|mailto:|tel:|javascript:|#|data:|\/\/)/.test(t)) return;
 
-    // [text](/doc/<uuid>) resolves straight to the document id.
+    // [text](/doc/<uuid>#anchor) resolves straight to the document id.
     const docMatch = t.match(DOC_UUID_RE);
     if (docMatch) {
-      keys.add(docMatch[1]!);
+      const key = docMatch[1]!;
+      const id = `${key}#${anchor ?? ""}`;
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push({ key, anchor });
+      }
       return;
     }
 
     const norm = normalizePath(t);
-    if (norm) keys.add(norm);
+    if (!norm) return;
+    const id = `${norm}#${anchor ?? ""}`;
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push({ key: norm, anchor });
+    }
   };
 
   WIKI_RE.lastIndex = 0;
-  while ((m = WIKI_RE.exec(content)) !== null) push(m[1]!);
+  while ((m = WIKI_RE.exec(content)) !== null) {
+    push(m[1]!, m[2] || undefined);
+  }
 
   MD_RE.lastIndex = 0;
-  while ((m = MD_RE.exec(content)) !== null) push(m[1]!);
+  while ((m = MD_RE.exec(content)) !== null) {
+    const [pathPart, hashPart] = m[1]!.split("#");
+    push(pathPart, hashPart || undefined);
+  }
 
-  return [...keys];
+  return out;
+}
+
+function cleanHeading(text: string): string {
+  return text
+    .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => (display ? display.trim() : ""))
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * True when the target content contains an anchor: either an exact
+ * id="..." attribute (archive style: id="armor.shield", id="Воровские") or a
+ * heading whose cleaned text / slug matches the anchor. Mirrors the UI, which
+ * scrolls to the slugged heading OR the raw [id="anchor"] attribute.
+ */
+function hasAnchor(content: string, anchor: string): boolean {
+  if (new RegExp(`id=["']${escapeRegExp(anchor)}["']`).test(content)) return true;
+
+  const headingRe = /^#{1,6}\s+(.+)$/gm;
+  const target = new GithubSlugger().slug(anchor);
+  let m: RegExpExecArray | null;
+  while ((m = headingRe.exec(content)) !== null) {
+    const clean = cleanHeading(m[1]!.trim());
+    if (!clean) continue;
+    if (clean === anchor) return true;
+    if (new GithubSlugger().slug(clean) === target) return true;
+  }
+  return false;
 }
 
 /**
  * Validates the internal links of a document: every link must resolve to an
- * existing document and the target category must be allowed for the source
- * category. Returns null when the content has no internal links. Intended to
- * be returned by create/update document tools (parallel to formulaValidation)
+ * existing document, the target category must be allowed for the source
+ * category, and a #anchor must match a heading of the target document.
+ * Returns null when the content has no internal links. Intended to be
+ * returned by create/update document tools (parallel to formulaValidation)
  * and used by the standalone validate_links tool.
  */
 export async function validateLinksContent(
@@ -74,23 +131,39 @@ export async function validateLinksContent(
   sourceCategory: string,
   content: string
 ): Promise<ILinkValidation | null> {
-  const keys = extractLinkKeys(content);
-  if (keys.length === 0) return null;
+  const links = extractLinkKeys(content);
+  if (links.length === 0) return null;
 
   const allowed = LINK_TARGET_RULES[sourceCategory as TDocCategory] ?? null;
   const errors: Record<string, string> = {};
+  const contentCache = new Map<string, string | null>();
 
-  for (const key of keys) {
-    const ref = await resolveDocumentRef(prisma, masterId, key);
+  for (const link of links) {
+    const label = link.anchor ? `${link.key}#${link.anchor}` : link.key;
+    const ref = await resolveDocumentRef(prisma, masterId, link.key);
     if (!ref) {
-      errors[key] = "target-not-found";
+      errors[label] = "target-not-found";
       continue;
     }
     if (allowed && !allowed.includes(ref.category as TDocCategory)) {
-      errors[key] = `target-category-not-allowed (${ref.category})`;
+      errors[label] = `target-category-not-allowed (${ref.category})`;
+      continue;
+    }
+    if (link.anchor) {
+      if (!contentCache.has(ref.id)) {
+        const target = await prisma.document.findUnique({
+          where: { id: ref.id },
+          select: { content: true },
+        });
+        contentCache.set(ref.id, target?.content ?? null);
+      }
+      const targetContent = contentCache.get(ref.id);
+      if (targetContent == null || !hasAnchor(targetContent, link.anchor)) {
+        errors[label] = "anchor-not-found";
+      }
     }
   }
 
   const errorCount = Object.keys(errors).length;
-  return { ok: errorCount === 0, linkCount: keys.length, errorCount, errors };
+  return { ok: errorCount === 0, linkCount: links.length, errorCount, errors };
 }

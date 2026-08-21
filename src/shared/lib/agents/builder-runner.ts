@@ -151,6 +151,7 @@ A document's type is its MEANING — what the entry IS (creature, spell, item, a
 - Only link GLOSSARY documents (rules) in chat — never brain, game_hidden or game_visible.
 - Mentioned a spell, item, class, race, condition or rule? Link it right away — do not wait to be asked.
 - Inside documents you create, add [[<path>]] cross-references to related docs (glossary from brain/hidden; per the allowed-target rules).
+- To point at a specific SECTION, append #heading with the exact heading text from the target document's toc (read_document returns it): [[glossary/spells/98-sleep#улучшения|Усыпление]]. Bad anchors are reported as anchor-not-found in linkValidation — fix them.
 
 ## Renaming and path safety
 - Never change a path via update_document. To rename a document use rename_document — it updates ALL links to it automatically.

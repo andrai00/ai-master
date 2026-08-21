@@ -262,11 +262,14 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
             </button>
           );
         }
-        if (href && /^\/doc\/([a-zA-Z0-9-]+)$/.test(href)) {
-          const docId = href.slice(5);
+        if (href && /^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/.test(href)) {
+          const m = href.match(/^\/doc\/([a-zA-Z0-9-]+)(?:#(.+))?$/);
+          const docId = m![1]!;
+          const anchor = m![2] || undefined;
           return (
             <WikiLink
               docId={docId}
+              anchor={anchor}
               displayText={typeof children === "string" ? children : undefined}
               onNavigate={onNavigate}
             />

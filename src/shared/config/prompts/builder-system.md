@@ -188,10 +188,10 @@ Examples of CORRECT links:
 - **Opportunistic, not a dedicated pass**: add links while writing a document, using ids/paths you already have from studying — do NOT run a separate "find every link" task. One link per reference is enough.
 - **Broken link is fine**: if a target was deleted or renamed, [[id|text]] renders as plain text — move on, fix later if it becomes relevant, never loop on it.
 - **Allowed targets by document kind:**
-  - brain → glossary + other brain docs
   - glossary → glossary (cross-references between rules)
-  - game_hidden (memory mode) → glossary + game_visible + brain (rarely needed)
-  - game_visible (memory mode) → glossary ONLY — never brain or game_hidden (players open these)
+  - brain → brain + glossary
+  - game_hidden (memory) → glossary + game_hidden + game_visible
+  - game_visible (character sheets) → glossary ONLY — never brain or game_hidden (players open these)
 - **No loops when studying**: if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the id you already have.
 
 ### How to use links for navigation
@@ -203,6 +203,28 @@ Examples of CORRECT links:
 3. Verify a document has the content you expect before using it.
 
 **Prefer TOC + offset over full reads** for large documents. Only read what you need.
+
+### Anchors — link to a specific section (#heading)
+
+To link to a SECTION of a document (not just the top), append `#heading` where
+`heading` is the exact heading text from that document's `toc` (returned by
+`read_document`):
+
+```
+[[DOCUMENT_ID#Скрытая атака|Скрытая атака]]          ← wiki form
+[Скрытая атака](/doc/DOCUMENT_ID#Скрытая атака)      ← markdown form
+[Скрытая атака](/path/doc.md#Скрытая атака)          ← path form
+```
+
+- Take the heading text from `toc` — copy it as-is; the UI matches the heading
+  by its name (case-insensitive slug).
+- Use anchors when a document is long: link straight to the relevant section.
+  Examples: a character sheet linking to the "Скрытая атака" section of a
+  class rule, a spell card linking to its "На больших уровнях" section.
+- In tables use the markdown form — the `|` in `[[...|...]]` breaks table
+  columns.
+- `linkValidation` (returned by create/update) reports `anchor-not-found` for
+  anchors that match no heading — fix them like any other link error.
 
 ### Index documents — built incrementally during import
 

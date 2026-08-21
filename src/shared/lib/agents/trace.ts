@@ -52,7 +52,3 @@ export function traceAgent(input: ITraceInput): void {
     // never break the agent
   }
 }
-
-export function traceEnabled(): boolean {
-  return enabled;
-}

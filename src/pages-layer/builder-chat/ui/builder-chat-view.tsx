@@ -125,7 +125,7 @@ export const BuilderChatView = () => {
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -203,7 +203,7 @@ export const BuilderChatView = () => {
       // Save message (fire-and-forget, AI runs in background)
       const result = await sendMutation.mutateAsync({ sessionId, content, fileIds, fileNames });
       if (!result.success) {
-        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
       // Don't set typing — SSE does it when processing starts
@@ -335,10 +335,10 @@ export const BuilderChatView = () => {
         footerAction={requestBtn}
         stepsSessionId={sessionId ?? undefined}
         debugRows={debugRows}
-        onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
-        onStepsResync={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); }}
+        onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsDone={() => { setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsError={(msg: string) => { notification.error({ title: msg }); setTyping(false); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
+        onStepsResync={() => { setTyping(false); setStopping(false); queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}
       />
       <Modal
         title={t("chat.historyTitle")}

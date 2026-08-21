@@ -424,8 +424,8 @@ function isAbortError(err: unknown): boolean {
 type TStreamRes = ReturnType<typeof streamText<ToolSet>>;
 type TStreamSteps = Awaited<TStreamRes["steps"]>;
 
-const EMPTY_RETRY_PROMPT =
-  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
+const FORCE_ANSWER_PROMPT =
+  "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
 export async function runBuilderAgent(
   sessionId: string,
@@ -620,13 +620,14 @@ export async function runBuilderAgent(
       throw err;
     }
 
-    // The model ended without a reply — re-run once forcing it to deliver.
+    // The model ended without a reply — retry WITHOUT tools, forcing a text
+    // answer from what is already in the context (search results, reads).
     if (!builderText) {
-      console.log("[builder] RETRY empty reply");
+      console.log("[builder] RETRY empty reply (no tools)");
       const retryResult = await runWithRetries([
         ...messages,
-        { role: "user", content: EMPTY_RETRY_PROMPT },
-      ], ctx.system, tools, "retry");
+        { role: "user", content: FORCE_ANSWER_PROMPT },
+      ], ctx.system, {}, "retry");
       resultSteps = retryResult.steps;
       builderText = retryResult.text?.trim() ?? null;
     }

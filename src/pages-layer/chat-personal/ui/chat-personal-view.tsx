@@ -51,7 +51,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -107,25 +107,25 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
 
   const handleStepsStart = useCallback(() => {
     setTyping(true);
-    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsDone = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [queryClient, sessionId]);
 
   const handleStepsError = useCallback((msg: string) => {
     notification.error({ title: msg });
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [notification, queryClient, sessionId]);
 
   const handleStepsResync = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["personal", "rolls"] });
   }, [queryClient, sessionId]);
 
@@ -174,7 +174,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
       if (!sessionId || !content.trim()) return;
       const result = await sendMutation.mutateAsync({ sessionId, content });
       if (!result.success) {
-        queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["personal", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
     },

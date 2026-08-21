@@ -201,8 +201,8 @@ function getPersonalTools(): ToolSet {
   };
 }
 
-const EMPTY_RETRY_PROMPT =
-  "🛑 Ты закончил, но не написал полный ответ. Напиши полный текст своего ответа.";
+const FORCE_ANSWER_PROMPT =
+  "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
@@ -638,13 +638,13 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
-      gmLog("RETRY empty reply");
+      gmLog("RETRY empty reply (no tools)");
       const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
-        tools,
+        messages: [...existingMessages, { role: "user", content: FORCE_ANSWER_PROMPT }],
+        tools: {},
         ac,
         chat: "game",
         phase: "retry",
@@ -779,13 +779,13 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
-      console.log("[gm-personal] RETRY empty reply");
+      console.log("[gm-personal] RETRY empty reply (no tools)");
       const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: EMPTY_RETRY_PROMPT }],
-        tools,
+        messages: [...existingMessages, { role: "user", content: FORCE_ANSWER_PROMPT }],
+        tools: {},
         ac,
         chat: "personal",
         phase: "retry",

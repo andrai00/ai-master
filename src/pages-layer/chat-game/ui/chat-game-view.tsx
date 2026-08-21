@@ -51,7 +51,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -87,25 +87,25 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
 
   const handleStepsStart = useCallback(() => {
     setTyping(true);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsDone = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
   const handleStepsError = useCallback((msg: string) => {
     notification.error({ title: msg });
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [notification, queryClient, sessionId]);
 
   const handleStepsResync = useCallback(() => {
     setTyping(false); setStopping(false);
-    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+    queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
     queryClient.invalidateQueries({ queryKey: ["game", "rolls", sessionId] });
   }, [queryClient, sessionId]);
 
@@ -168,7 +168,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
       if (!sessionId || !content.trim()) return;
       const result = await sendMutation.mutateAsync({ sessionId, content });
       if (!result.success) {
-        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] });
+        queryClient.invalidateQueries({ queryKey: ["game", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] });
         notification.error({ title: t(result.error || "errors.unknownError") });
       }
     },

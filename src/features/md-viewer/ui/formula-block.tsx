@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { Tooltip } from "antd";
 import type { IFormulaResult } from "@/src/shared/lib/formula/types";
 import styles from "./formula-block.module.css";
 
 const formatValue = (v: number) => (v >= 0 ? `+${v}` : `${v}`);
 
 function FormulaError({ message }: { message: string }) {
-  return <span className={styles.err} title={message}>err</span>;
+  return (
+    <Tooltip title={<span className={styles.popoverText}>{message}</span>}>
+      <span className={styles.err}>err</span>
+    </Tooltip>
+  );
 }
 
 /** A collapsible panel rendering a whole ```formula config block. */
@@ -17,23 +22,16 @@ export const FormulaConfigBlock = ({ results }: { results: IFormulaResult[] }) =
 
   if (results.length === 0) return null;
 
-  const preview = results.map((r) => `${r.name} = ${r.expr}`).join("\n");
-
   return (
     <div className={styles.config}>
-      <button
-        type="button"
-        className={styles.configSummary}
-        onClick={toggle}
-        title={expanded ? undefined : `Формулы:\n${preview}`}
-      >
+      <button type="button" className={styles.configSummary} onClick={toggle}>
         <span className={styles.configArrow}>{expanded ? "▾" : "▸"}</span>
         <span>{expanded ? "Свернуть формулы" : `Развернуть формулы · ${results.length}`}</span>
       </button>
       {expanded && (
         <ul className={styles.configList}>
           {results.map((r) => (
-            <li key={r.name} className={styles.configItem} title={r.error ? r.error : undefined}>
+            <li key={r.name} className={styles.configItem}>
               <code className={styles.configExpr}>{r.name} = {r.expr}</code>
               <span className={styles.configEq}>=</span>
               {r.error || r.value === null ? (
@@ -49,10 +47,15 @@ export const FormulaConfigBlock = ({ results }: { results: IFormulaResult[] }) =
   );
 };
 
-/** Inline $var reference: shows the computed value, or "err". */
+/** Inline $var reference: shows the computed value, with the formula on hover. */
 export const FormulaInlineRef = ({ result }: { varName: string; result: IFormulaResult | undefined }) => {
   if (!result || result.error || result.value === null) {
     return <FormulaError message={result?.error ?? "нет значения"} />;
   }
-  return <span className={styles.inlineValue} title={`${result.expr} = ${formatValue(result.value)}`}>{formatValue(result.value)}</span>;
+  const formulaText = `${result.expr} = ${formatValue(result.value)}`;
+  return (
+    <Tooltip title={<code className={styles.popoverFormula}>{formulaText}</code>}>
+      <span className={styles.inlineValue}>{formatValue(result.value)}</span>
+    </Tooltip>
+  );
 };

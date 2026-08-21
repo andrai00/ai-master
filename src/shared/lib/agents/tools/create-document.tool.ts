@@ -8,6 +8,7 @@ import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanWrite, getWritableCategories } from "./builder-mode-guard";
 import { makePath } from "@/src/shared/lib/documents/paths";
+import { validateFormulaContent } from "../validate-formulas";
 
 export const createDocumentTool = {
   description: TOOL_DESCRIPTIONS.create_document,
@@ -80,6 +81,13 @@ export const createDocumentTool = {
       },
     });
     broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
-    return { id: doc.id, title: doc.title, category: doc.category, path: doc.path, created: true };
+    return {
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      path: doc.path,
+      created: true,
+      formulaValidation: validateFormulaContent(args.content),
+    };
   },
 };

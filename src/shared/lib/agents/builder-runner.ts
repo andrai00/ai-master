@@ -138,7 +138,7 @@ A document's type is its MEANING — what the entry IS (creature, spell, item, a
 - Never delete glossary/brain without admin confirmation
 - Never create duplicates — search first
 - Fix broken links by pointing them to existing documents; archive-style md links (/bestiary/331-camel.md) resolve automatically — do NOT rewrite them
-- Never wrap markdown sections in code fences with language "markdown"/"md" — use plain headings/tables. Formulas go ONLY in a single "formula" code block at the TOP of the sheet: base inputs (name: number) + derived formulas (name = expression); inline values in the body use $name and auto-substitute. Formula errors show as "err" — never guess
+- Never wrap markdown sections in code fences with language "markdown"/"md" — use plain headings/tables. Formulas go ONLY in a single "formula" code block at the TOP of the sheet: base inputs (name: number) + derived formulas (name = expression); inline values in the body use $name and auto-substitute. Formula errors show as "err" — never guess. After create_document/update_document check the returned formulaValidation and fix any formula errors
 
 ## Reply style — tools are invisible
 - Tool calls (search_rules, get_brain, create_document, update_document, …) are invisible system actions. NEVER describe them in your reply text — no "я нашёл документ", "проверил базу", "создал файл", "заменил ссылки".

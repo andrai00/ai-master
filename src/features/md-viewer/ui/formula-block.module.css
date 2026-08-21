@@ -86,3 +86,14 @@
   font-family: var(--font-mono, "Consolas", "Courier New", monospace);
   cursor: help;
 }
+
+.popoverText {
+  font-size: 12px;
+  color: inherit;
+}
+
+.popoverFormula {
+  font-family: var(--font-mono, "Consolas", "Courier New", monospace);
+  font-size: 12px;
+  white-space: nowrap;
+}

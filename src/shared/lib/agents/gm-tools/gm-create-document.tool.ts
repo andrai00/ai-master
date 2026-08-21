@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
 import { makePath } from "@/src/shared/lib/documents/paths";
+import { validateFormulaContent } from "../validate-formulas";
 
 export const gmCreateDocumentTool = {
   description: "Create a new document. Can create game_hidden (notes, plans, memory) and game_visible (character sheets, public info).",
@@ -70,6 +71,12 @@ export const gmCreateDocumentTool = {
       },
     });
     broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
-    return { id: doc.id, title: doc.title, path: doc.path, created: true };
+    return {
+      id: doc.id,
+      title: doc.title,
+      path: doc.path,
+      created: true,
+      formulaValidation: validateFormulaContent(args.content),
+    };
   },
 };

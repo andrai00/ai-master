@@ -7,6 +7,7 @@ import { isCancelled } from "@/src/shared/lib/agents/parse-cancel";
 import { TOOL_DESCRIPTIONS } from "@/src/shared/config/prompts/tool-descriptions";
 import { assertCanWrite } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
+import { validateFormulaContent } from "../validate-formulas";
 
 export const updateDocumentTool = {
   description: TOOL_DESCRIPTIONS.update_document,
@@ -42,6 +43,11 @@ export const updateDocumentTool = {
       data,
     });
     broadcastGameEvent("document_updated", { masterId: updated.masterId, documentId: updated.id });
-    return { id: updated.id, title: updated.title, category: updated.category };
+    return {
+      id: updated.id,
+      title: updated.title,
+      category: updated.category,
+      formulaValidation: validateFormulaContent(args.content),
+    };
   },
 };

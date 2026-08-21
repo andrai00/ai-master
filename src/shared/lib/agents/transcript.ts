@@ -113,8 +113,20 @@ export async function persistRun(input: IPersistRunInput): Promise<void> {
     status: string;
   }> = [];
 
+  // Some providers/setups can end a step with a tool call but no tool result
+  // (e.g. a tool error that terminated the stream). Persisting such an orphan
+  // tool-call breaks the next run (AI_MissingToolResultsError), so skip calls
+  // whose toolCallId has no matching result anywhere in the run.
+  const resultCallIds = new Set<string>();
+  for (const step of steps ?? []) {
+    for (const res of step.toolResults ?? []) {
+      if (res.toolCallId) resultCallIds.add(res.toolCallId);
+    }
+  }
+
   for (const step of steps ?? []) {
     for (const call of step.toolCalls ?? []) {
+      if (call.toolCallId && !resultCallIds.has(call.toolCallId)) continue;
       rows.push({
         sessionId, runId, seq: seq++, kind: "tool-call",
         toolName: call.toolName ?? null,
@@ -265,21 +277,32 @@ export async function buildTranscript(
   };
 
   const emitToolRows = (runRows: typeof rows) => {
+    // Skip orphan tool-calls (a call whose toolCallId has no matching result):
+    // emitting them makes the next streamText throw AI_MissingToolResultsError.
+    const resultCallIds = new Set<string>();
+    for (const r of runRows) {
+      if (r.kind === "tool-result" && r.toolCallId) resultCallIds.add(r.toolCallId);
+    }
     let i = 0;
     while (i < runRows.length) {
       const row = runRows[i];
       if (row.kind === "tool-call") {
         const content: ToolCallPart[] = [];
         while (i < runRows.length && runRows[i].kind === "tool-call") {
+          const callId = runRows[i].toolCallId;
+          if (callId && !resultCallIds.has(callId)) {
+            i++;
+            continue;
+          }
           content.push({
             type: "tool-call",
-            toolCallId: runRows[i].toolCallId ?? "",
+            toolCallId: callId ?? "",
             toolName: runRows[i].toolName ?? "",
             input: parseJson(runRows[i].args),
           });
           i++;
         }
-        out.push({ role: "assistant", content });
+        if (content.length > 0) out.push({ role: "assistant", content });
       } else if (row.kind === "tool-result") {
         const content: ToolResultPart[] = [{
           type: "tool-result",

@@ -65,6 +65,7 @@ const sessionState = new Map<string, ISessionState>();
 const reconnectListeners = new Set<ReconnectHandler>();
 const typingListeners = new Map<string, Set<TypingHandler>>();
 const presenceListeners = new Set<PresenceHandler>();
+let latestPresence: IPresenceUpdate | null = null;
 
 export function subscribeStep(sessionId: string, handler: StepHandler): () => void {
   let set = stepListeners.get(sessionId);
@@ -151,6 +152,9 @@ export function notifyTyping(sessionId: string, typing: boolean): void {
 
 export function subscribePresence(handler: PresenceHandler): () => void {
   presenceListeners.add(handler);
+  // Replay the last known presence snapshot so a (re)mounted consumer
+  // (e.g. sidebar on page navigation) shows online users immediately.
+  if (latestPresence) handler(latestPresence);
   return () => {
     presenceListeners.delete(handler);
   };
@@ -158,6 +162,7 @@ export function subscribePresence(handler: PresenceHandler): () => void {
 
 /** Incoming presence snapshot from the server (dispatched by the Shell). */
 export function dispatchPresence(update: IPresenceUpdate): void {
+  latestPresence = update;
   for (const h of [...presenceListeners]) h(update);
 }
 

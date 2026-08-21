@@ -364,12 +364,22 @@
 }
 
 .humanTyping {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 4px 16px;
   font-size: 11px;
   color: var(--text-dim);
   font-style: italic;
   text-align: center;
   border-bottom: 1px solid var(--border);
+}
+
+.humanTypingIcon {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .pendingIcon {

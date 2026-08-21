@@ -856,6 +856,7 @@ export const ChatPanel = ({
 
         {humanTyping.length > 0 && (
           <div className={styles.humanTyping}>
+            <EditOutlined className={styles.humanTypingIcon} />
             {humanTyping.map((u) => u.displayName).join(", ")}{" "}
             {humanTyping.length > 1 ? t("chat.typingMany") : t("chat.typingOne")}
           </div>

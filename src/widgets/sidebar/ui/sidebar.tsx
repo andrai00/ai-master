@@ -11,6 +11,7 @@ import {
   UnorderedListOutlined,
   CrownOutlined,
   IdcardOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect, Fragment } from "react";
 import { useTranslation } from "react-i18next";
@@ -134,6 +135,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         </div>
         {presenceList.map((u) => (
           <div key={u.userId} className={styles.presenceTooltipRow}>
+            <span className={styles.presenceDot} />
             {u.displayName}
           </div>
         ))}
@@ -158,7 +160,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
           <div className={styles.collapsedSpacer} />
           {presenceList.length > 0 && (
             <Tooltip title={presenceTooltip} placement="right">
-              <div className={styles.collapsedPresence} />
+              <TeamOutlined className={styles.collapsedPresence} />
             </Tooltip>
           )}
           <Dropdown menu={{ items: profileMenuItems }} placement="topRight" trigger={["click"]}>
@@ -199,7 +201,7 @@ export const Sidebar = ({ collapsed, onToggle, user, onGameChange }: ISidebarPro
         {presenceList.length > 0 && (
           <Tooltip title={presenceTooltip} placement="topRight">
             <div className={styles.presence}>
-              <span className={styles.presenceDot} />
+              <TeamOutlined className={styles.presenceIcon} />
               <span className={styles.presenceCount}>
                 {t("sidebar.online")} · {presenceList.length}
               </span>

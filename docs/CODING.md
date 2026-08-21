@@ -269,16 +269,25 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 - Сравнить с `Math.min(contextLimit × 0.7, 24_000)` (порог капится, иначе 128K × 0.7 = 89.6K никогда не срабатывает на реальных промптах)
 - При превышении: оставить system + последнее сообщение админа + **текущий tool-шаг** (не сжимать!), остальное заменить на саммари
 
-### Study summary: Pass 1 → Pass 2 (без дублирования чтения)
+### Транскрипт раундов (`AgentTranscript`) — вместо study-summary
 
-Оба агента (GM, Builder) работают в две фазы Plan → Execute. Результаты read-тулов Pass 1 передаются в Pass 2, чтобы модель не перечитывала те же данные (до 6 дублей чтения на батч = лишние LLM-вызовы по 30-100 сек).
+Агенты работают в **единый цикл** (single loop): одна `streamText`-генерация с полным набором тулов. Двухфазная схема Plan → Execute и `study-summary` УДАЛЕНЫ — модель не перечитывает изученное, потому что всё уже в контексте одной генерации, а между раундами контекст восстанавливается из транскрипта.
 
-- Модуль: `src/shared/lib/agents/study-summary.ts` → `buildStudySummary(toolResults, allowedTools)`
-- Наборы: `STUDY_TOOLS` (gm-runner), `BUILDER_STUDY_TOOLS` (builder-runner)
-- Кап: 1500 символов на результат, 12К суммарно
-- Вставка в Pass 2: `## Study summary (из фазы планирования — не перечитывай):\n${studySummary}\n\nВыполни план: ${planText}`
-- `EXEC_SYSTEM_PROMPT` запрещает перечитывать документы из сводки
+- Модуль: `src/shared/lib/agents/transcript.ts` → `persistRun` + `buildTranscript`
+- Таблица: `AgentTranscript` (тул-колы, результаты, финальный текст, статус, summarized)
+- Реконструкция: parts-формат ai@7; tool-result — `role: "tool"` c `output: { type:"json", value }`
+- Журнал изучения: `DocumentRead` (sessionId, documentId, readAt)
+- Сжатие старых волн: фоновый `chat-summarizer.ts` → `ChatSummary`
+- Удаление сообщения: `cascadeDeleteMessageRun` (транскрипт раунда удаляется — память «откатывается»)
 - См. G40.
+
+### Санитизация output'ов тулов (обязательно)
+
+ai@7 валидирует результат тула как JSONValue: Prisma `Date` (updatedAt и т.п.) ломает шаг с «No output generated». Все тулсеты оборачиваются `wrapToolSet` (`src/shared/lib/agents/tool-output.ts`) — JSON-roundtrip output'а (Date → ISO-строка). НЕ добавлять тул в раннер без обёртки.
+
+### Ретрай пустого ответа (единый цикл)
+
+Если модель вызвала тулы, но не написала текст — ОДИН retry БЕЗ тулов с `FORCE_ANSWER_PROMPT`; retry получает результаты текущего раунда через `stepsToModelMessages` (та же JSON-обёртка). Затем fallback-сообщение. Никаких тулов в retry.
 
 ### Лимиты чтения документов: GM капит, Builder читает полностью
 
@@ -291,7 +300,7 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 Правила записаны в гайд билдера (`get_builder_guide.tool.ts`, topic `brain` → «Brain structure rules»):
 - Секция ≤ ~6-7 КБ; темы больше — на под-секции `rules/<подтема>`
 - `_index` — навигация + политика (3-5 КБ), без сводок секций
-- Одна тема — одно место, дубли запрещены, ссылки `[[id]]`
+- Одна тема — одно место, дубли запрещены, ссылки `[[path]]`
 - После разбивки — обновить роутер в `_index` и перенаправить wiki-ссылки (`scan_wiki_links`/`replace_wiki_links`)
 - См. G42.
 
@@ -331,13 +340,15 @@ stopProcessing(sessionId); // ac.abort() — прерывает HTTP-запро�
 
 Массовые записи (импорт, обновление, сканирование) — пакетно: один `findMany` существующих + `createMany`/`updateMany` чанками по 500. Цикл `findFirst`+`create`/`update` на запись запрещён (тысячи запросов держат write-lock, замораживают сайт). Пример: `bulk-import.ts` — ~20 запросов вместо ~17 000.
 
-### Диагностика агентов (AGENT_TRACE)
+### Диагностика агентов (AGENT_TRACE / AGENT_DEBUG)
 
-При `AGENT_TRACE=1` пишется таблица `TraceEvent` (`src/shared/lib/agents/trace.ts` → `traceAgent`): каждый промт (system+messages), каждый тул-вызов (имя+аргументы), финальный ответ, ошибки — с тегом чата/фазы/sessionId. Лимиты: args ≤2К, result ≤4К, prompt ≤20К. Без флага ничего не пишется; после анализа флаг убрать и дропнуть таблицу.
+При `AGENT_TRACE=1` пишется таблица `TraceEvent` (`src/shared/lib/agents/trace.ts` → `traceAgent`): каждый промт (system+messages), каждый тул-вызов (имя+аргументы), финальный ответ, `finishReason`, ошибки, тайминги — с тегом чата/фазы/sessionId. Лимиты: args ≤2К, result ≤4К, prompt ≤20К. Фазы — `exec` / `retry` (plan/exec/idle больше нет). Без флага ничего не пишется; после анализа флаг убрать и дропнуть таблицу.
+
+При `AGENT_DEBUG=1` (admin) строки вызовов тулов показываются прямо в чате в реальном времени (иконка + имя + аргументы) и после ответа — из транскрипта. Файловые логи (`logs/*.log`) удалены.
 
 Важно:
 - **Аргументы тулов**: AI SDK v7 кладёт их в `call.input`, не `call.args`. Писать `JSON.stringify(call.input ?? call.args ?? {})` — иначе `args: {}`.
-- **elapsedMs**: реальный замер `performance.now()` вокруг `generateText` (фазы plan/exec/idle/retry/final) — без него тайминги бесполезны.
+- **elapsedMs**: реальный замер `performance.now()` вокруг генерации (exec/retry) — без него тайминги бесполезны.
 - Замеры времени между шагами: `SELECT strftime('%H:%M:%S',createdAt) ts, phase, stepIndex, toolName FROM TraceEvent WHERE sessionId=... ORDER BY createdAt;`
 
 ```sql

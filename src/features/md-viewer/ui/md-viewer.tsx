@@ -190,6 +190,22 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false }: IMd
           }
           return <code className={className} {...rest}>{children}</code>;
         }
+        // ```markdown / ```md code fences are just markdown that was wrapped
+        // in a fence (the Builder used to do this). Render their content as
+        // normal markdown so headings, tables and $formula refs work.
+        if (className === "language-markdown" || className === "language-md") {
+          return (
+            <div className={styles.markdownFence}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkWikiLink, remarkFormulaRef, remarkChatLink]}
+                rehypePlugins={[rehypeSlug]}
+                components={components}
+              >
+                {String(children)}
+              </ReactMarkdown>
+            </div>
+          );
+        }
         return <code className={className} {...rest}>{children}</code>;
       },
       a(props) {

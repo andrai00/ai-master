@@ -291,3 +291,15 @@
     margin: 0;
   }
 }
+
+.markdownFence {
+  margin: 0;
+}
+
+.markdownFence > *:first-child {
+  margin-top: 0;
+}
+
+.markdownFence > *:last-child {
+  margin-bottom: 0;
+}

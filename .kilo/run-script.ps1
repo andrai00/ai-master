@@ -35,4 +35,14 @@ if (-not (Test-Path "node_modules\.prisma")) {
 }
 
 Write-Host "Starting Next.js on port 3015"
-pnpm next dev -p 3015
+if (Test-Path "server.mjs") {
+    # A previous `next build` leaves production artifacts in .next that
+    # corrupt Turbopack dev chunks ("Failed to load chunk ... Unexpected end of input").
+    if (Test-Path ".next\dev") {
+        Remove-Item -LiteralPath ".next\dev" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "Custom server detected - starting Next.js + Socket.IO via node server.mjs"
+    node server.mjs
+} else {
+    pnpm next dev -p 3015
+}

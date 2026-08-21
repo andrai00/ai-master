@@ -1,5 +1,5 @@
 import "server-only";
-import { EventEmitter } from "events";
+import { getIO } from "@/src/shared/lib/realtime/io";
 
 export type TStepEventType = "started" | "step" | "done" | "error" | "stopping" | "stopped" | "text";
 
@@ -22,20 +22,11 @@ export interface ISessionSnapshot {
 
 const globalState = globalThis as unknown as {
   sessions: Map<string, ISessionSnapshot> | undefined;
-  emitter: EventEmitter | undefined;
 };
 
 function getMap(): Map<string, ISessionSnapshot> {
   if (!globalState.sessions) globalState.sessions = new Map();
   return globalState.sessions;
-}
-
-function getEmitter(): EventEmitter {
-  if (!globalState.emitter) {
-    globalState.emitter = new EventEmitter();
-    globalState.emitter.setMaxListeners(100);
-  }
-  return globalState.emitter;
 }
 
 export function initSession(sessionId: string): void {
@@ -73,7 +64,7 @@ function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
       break;
   }
 
-  getEmitter().emit("step", sessionId, full);
+  getIO().to(`steps:${sessionId}`).emit("step", { sessionId, ...full });
 
   // Deterministic cleanup: terminal states remove the snapshot.
   if (event.type === "done" || event.type === "stopped" || event.type === "error") {
@@ -116,19 +107,4 @@ export function emitStopped(sessionId: string): void {
 
 export function getSnapshot(sessionId: string): ISessionSnapshot | undefined {
   return getMap().get(sessionId);
-}
-
-/** Subscribe to step events for real-time push. Returns unsubscribe function. */
-export function onStep(
-  sessionId: string,
-  handler: (event: IStepEvent) => void,
-): () => void {
-  const emitter = getEmitter();
-  const wrapped = (sid: string, event: IStepEvent) => {
-    if (sid === sessionId) handler(event);
-  };
-  emitter.on("step", wrapped);
-  return () => {
-    emitter.off("step", wrapped);
-  };
 }

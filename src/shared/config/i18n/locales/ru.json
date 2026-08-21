@@ -18,7 +18,8 @@
     "chatMaster": "Вопрос мастеру",
     "aiMasterSettings": "Настройка АИ мастера",
     "unreadHint": "непрочитанных сообщений",
-    "guest": "Гость"
+    "guest": "Гость",
+    "online": "Онлайн"
   },
   "profile": {
     "settings": "Настройки профиля",
@@ -125,6 +126,8 @@
     "builderLabel": "Builder",
     "stopping": "Остановка...",
     "processingBlocked": "Мастер обрабатывает ответ — подождите",
+    "typingOne": "печатает…",
+    "typingMany": "печатают…",
     "scrollToBottom": "Вниз"
   },
   "tabs": {

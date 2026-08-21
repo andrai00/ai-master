@@ -231,24 +231,25 @@ sqlite3 data/ai-master.db ".schema Document"
 Альтернатива 2 — GUI: `npx prisma studio` (открывает браузер с таблицами).
 Не использовать `psql` (это PostgreSQL, а у нас SQLite).
 
-### Фичи затрагивающие всех пользователей → SSE-подписка
-Если фича меняет состояние которое должны увидеть все подключённые пользователи (смена игры, смена режима, потеря доступа, глобальные события) — делаем SSE-push, а не полагаемся на опрос каждым клиентом.
+### Фичи затрагивающие всех пользователей → Socket.IO push
+Если фича меняет состояние которое должны увидеть все подключённые пользователи (смена игры, смена режима, потеря доступа, глобальные события) — делаем Socket.IO push, а не полагаемся на опрос каждым клиентом.
 
 Паттерн:
-1. **API Route** `src/app/api/stream/route.ts` — единый SSE: `ReadableStream`, `text/event-stream`, мультиплексирует глобальные события + step-события (`ns: "events" | "steps"`)
-2. **Клиент** — `EventSource` в `useEffect`, слушает события и реагирует (редирект, `queryClient.invalidateQueries`, обновление UI). Нативный авто-реконнект — `onerror` пустой
-3. **Триггер** — Server Action при мутации вызывает `broadcastGameEvent` через глобальный EventEmitter
+1. **Сервер** — `server.mjs` (кастомный entry point): Socket.IO на том же HTTP-сервере Next.js (WebSocket + long-polling fallback). Инстанс в `globalThis.__socketIO`
+2. **Хаб** — `src/shared/lib/realtime/server.ts`: auth по JWT-cookie, комнаты (`user:`, `steps:`, `session:`, `presence:`), presence, typing. Регистрируется один раз через `src/instrumentation.ts`
+3. **Клиент** — `socket.io-client` в `src/shared/lib/realtime/client.ts` (единый сокет), Shell слушает `game:event` и реагирует (редирект, `queryClient.invalidateQueries`, обновление UI). Авто-реконнект + resync на `connect`
+4. **Триггер** — Server Action при мутации вызывает `broadcastGameEvent` → `io.emit("game:event")`
 
-Пример существующей реализации: `src/app/api/stream/route.ts` + подписка в `src/widgets/shell/ui/shell.tsx` + шина `src/shared/lib/realtime/client.ts`.
+Пример существующей реализации: `src/widgets/shell/ui/shell.tsx` + шина `src/shared/lib/realtime/client.ts` + `src/shared/lib/events/game-events.ts`.
 
-### Builder Agent: fire-and-forget + SSE
+### Builder Agent: fire-and-forget + Socket.IO
 
 Сообщение AI — долгий процесс (до 2 мин). Нельзя заставлять Server Action ждать. Паттерн:
 
 1. **Отправка:** Server Action сохраняет сообщение в БД → запускает `runBuilderAgent()` **без await** → сразу возвращает `{ success: true }`
-2. **Получение:** ответ AI и прогресс — через SSE (`/api/stream`, step-события). Все клиенты (включая отправителя) получают одинаково
-3. **SSE всегда подключён** — клиент подключается при заходе на страницу, не только при отправке
-4. **Типы SSE-событий:** `started`, `step`, `stopping`, `done`, `stopped`, `error`
+2. **Получение:** ответ AI и прогресс — через Socket.IO (step-события в комнату `steps:{sessionId}`). Все клиенты (включая отправителя) получают одинаково
+3. **Сокет всегда подключён** — клиент подключается при заходе на страницу, не только при отправке
+4. **Типы step-событий:** `started`, `step`, `stopping`, `done`, `stopped`, `error`
 
 ### Builder Agent: остановка (Stop)
 

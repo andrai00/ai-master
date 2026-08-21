@@ -18,7 +18,8 @@
     "chatMaster": "Ask Master",
     "aiMasterSettings": "AI Master",
     "unreadHint": "unread messages",
-    "guest": "Guest"
+    "guest": "Guest",
+    "online": "Online"
   },
   "profile": {
     "settings": "Profile Settings",
@@ -125,6 +126,8 @@
     "builderLabel": "Builder",
     "stopping": "Stopping...",
     "processingBlocked": "The master is processing a response — please wait",
+    "typingOne": "is typing…",
+    "typingMany": "are typing…",
     "scrollToBottom": "Scroll to bottom"
   },
   "tabs": {

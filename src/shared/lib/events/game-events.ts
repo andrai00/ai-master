@@ -1,5 +1,5 @@
 import "server-only";
-import { EventEmitter } from "events";
+import { getIO } from "@/src/shared/lib/realtime/io";
 
 export type TGameEvent =
   | "mode_switch"
@@ -40,45 +40,12 @@ interface IGameEvent {
   payload?: unknown;
 }
 
-type TGameEventListener = (event: IGameEvent) => void;
-
-const globalEvents = globalThis as unknown as {
-  emitter: EventEmitter | undefined;
-};
-
-function getEmitter(): EventEmitter {
-  if (!globalEvents.emitter) {
-    globalEvents.emitter = new EventEmitter();
-    globalEvents.emitter.setMaxListeners(100);
-  }
-  return globalEvents.emitter;
-}
-
-/** Server Actions call this to broadcast an event to all SSE-connected clients. */
+/** Server Actions call this to broadcast an event to all connected clients. */
 export function broadcastGameEvent(type: TGameEvent, payload?: unknown): void {
-  getEmitter().emit("event", { type, payload } as IGameEvent);
+  getIO().emit("game:event", { type, payload } as IGameEvent);
 }
 
-/** Send an event to a specific user by userId (for kick, access-loss notifications). */
+/** Send an event to a specific user by userId (kick, access-loss notifications). */
 export function broadcastToUser(userId: string, type: TGameEvent, payload?: unknown): void {
-  getEmitter().emit(`user:${userId}`, { type, payload } as IGameEvent);
-}
-
-/** SSE routes call this to subscribe to broadcast events. Returns unsubscribe function. */
-export function onGameEvent(listener: TGameEventListener): () => void {
-  const emitter = getEmitter();
-  emitter.on("event", listener);
-  return () => {
-    emitter.off("event", listener);
-  };
-}
-
-/** SSE routes call this to subscribe to events for a specific user. Returns unsubscribe function. */
-export function onUserEvent(userId: string, listener: TGameEventListener): () => void {
-  const emitter = getEmitter();
-  const channel = `user:${userId}`;
-  emitter.on(channel, listener);
-  return () => {
-    emitter.off(channel, listener);
-  };
+  getIO().to(`user:${userId}`).emit("game:event", { type, payload } as IGameEvent);
 }

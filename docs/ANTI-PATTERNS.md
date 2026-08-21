@@ -136,18 +136,18 @@
 
 ### Bad: `await runBuilderAgent()` в server action
 ### Why: ответ AI идёт до 2 минут → HTTP-запрос висит и отваливается по таймауту.
-### Good: server action сохраняет сообщение → `runBuilderAgent()` без await → ответ через SSE (`/api/stream`, step-события)
+### Good: server action сохраняет сообщение → `runBuilderAgent()` без await → ответ через Socket.IO (step-события в комнату `steps:{sessionId}`)
 
-### Bad: отправлять сообщение без подключения к SSE
+### Bad: отправлять сообщение без подключения к сокету
 ### Why: клиент не получит прогресс шагов и ответ.
-### Good: SSE подключается при заходе на страницу, не только при отправке
+### Good: сокет подключается при заходе на страницу, не только при отправке
 
 ### Bad: сохранять чанки файла в отдельные записи БД
-### Why: множественная запись чанков = SQLite single-writer lock на каждую запись → блокирует все остальные запросы (страницы, server actions, SSE).
+### Why: множественная запись чанков = SQLite single-writer lock на каждую запись → блокирует все остальные запросы (страницы, server actions, WebSocket).
 ### Good: `Document.content` — полный текст одной записью. Для импорта — пакетный `bulk_import_to_glossary` (`createMany`/`updateMany` чанками по 500, один `findMany` существующих). Архив распаковывается `adm-zip` на стороне сервера.
 
 ### Bad: цикл `findFirst` + `create`/`update` на каждый файл при импорте
-### Why: 8592 файла × 2 запроса ≈ 17 000 последовательных запросов к SQLite → write-lock на минуты, весь сайт замирает (чаты, страницы, SSE).
+### Why: 8592 файла × 2 запроса ≈ 17 000 последовательных запросов к SQLite → write-lock на минуты, весь сайт замирает (чаты, страницы, WebSocket).
 ### Good: пакетный upsert — один `findMany` существующих title в Map, `createMany` для новых, чанкованные `update` для существующих. ~20 запросов вместо ~17 000.
 
 ### Bad: O(n²) вложенный цикл при построении дерева папок
@@ -172,7 +172,7 @@
 
 ### Bad: полагаться что React Query сам синхронизирует мутации между клиентами
 ### Why: React Query cache — per-browser. `invalidateQueries` на админе A не влияет на админа B.
-### Good: SSE-push через `broadcastGameEvent` + `shell.tsx` обработчик. Пример: `builder_message_deleted` → `invalidateQueries` у всех подключённых.
+### Good: Socket.IO-push через `broadcastGameEvent` + `shell.tsx` обработчик (`game:event`). Пример: `builder_message_deleted` → `invalidateQueries` у всех подключённых.
 
 ### Bad: брать «последние» сообщения через `orderBy: asc` + `take`
 ### Why: asc + take берёт САМЫЕ СТАРЫЕ записи. Как только сообщений больше 20/30 — новые (включая ответы модели) не доходят ни до интерфейса, ни до агента.
@@ -252,27 +252,27 @@
 
 ---
 
-## Real-time / SSE
+## Real-time / Socket.IO
 
-### Bad: `setTimeout(poll, 300)` для опроса буфера в SSE-роуте
+### Bad: `setTimeout(poll, 300)` для опроса источника real-time событий
 ### Why: создаёт задержку 0-300ms между записью события и доставкой клиенту. Отправитель и получатели видят события в разное время — десинхронизация. Event loop может быть занят (загрузка файла) и poll откладывается ещё дальше.
-### Good: EventEmitter + подписка (`onStep`/`onGameEvent`). Источник пушит событие → подписчики получают мгновенно в той же итерации event loop. См. `step-tracker.ts` (EventEmitter) и `api/stream/route.ts` (подписка).
+### Good: источник пушит событие в комнату Socket.IO мгновенно (`io.emit` / `io.to(room).emit`). См. `step-tracker.ts` (комната `steps:{sessionId}`) и `src/shared/lib/realtime/server.ts` (hub).
 
-### Bad: `eventSource.close()` в `onerror` обработчике
-### Why: EventSource рассчитан на авто-реконнект. Закрытие в onerror убивает реконнект → клиент теряет все будущие события до перезагрузки страницы.
-### Good: оставить `onerror` пустым — EventSource сам переподключится.
+### Bad: вручную закрывать соединение в обработчике ошибки / ручной reconnect
+### Why: Socket.IO (как и EventSource раньше) рассчитаны на авто-реконнект с backoff. Ручное закрытие убивает реконнект → клиент теряет все будущие события до перезагрузки страницы.
+### Good: ничего не закрывать вручную — `socket.io-client` сам переподключается. Ре-синхронизация кэшей — на событии `connect` (бывший `onopen` у SSE).
 
 ### Bad: отложенная очистка состояния шагов через `setTimeout(clearSession, 10s)`
 ### Why: если новый батч стартует раньше 10 секунд — stale-таймер от предыдущего батча стирает состояние текущего, `emit` дропает `started`/`done` → бабл обдумывания не появляется или не закрывается, броски не отображаются до перезагрузки.
 ### Good: снапшот-модель в `step-tracker.ts` — одно состояние `{ processing, tool, seq }` на сессию, терминальное событие (`done`/`stopped`/`error`) детерминированно удаляет запись. Никаких таймеров очистки.
 
-### Bad: несколько отдельных SSE-эндпоинтов (`/api/game-events`, `/api/game-chat/steps`, `/api/builder/steps`)
+### Bad: несколько отдельных real-time соединений (несколько SSE-эндпоинтов)
 ### Why: HTTP/1.1 — лимит ~6 одновременных соединений на домен на браузер (на все вкладки). Несколько эндпоинтов × несколько вкладок исчерпывают лимит, соединения «тихо» отваливаются и не открываются заново.
-### Good: один `/api/stream` — мультиплексирование глобальных и step-событий (`ns: "events" | "steps"`) в одном соединении + нативный авто-реконнект + resync на `onopen`.
+### Good: один Socket.IO сервер на том же HTTP-сервере Next.js (`node server.mjs`). Одно WebSocket-соединение мультиплексирует всё: глобальные события (`game:event`), step-события (`step`), присутствие (`presence:update`), печать (`typing:indicator`). Комнаты изолируют доставку. Авто-реконнект + resync на `connect`.
 
-### Bad: `refetchInterval: 3000` в React Query как замена SSE
-### Why: создаёт лишние запросы к серверу (4 запроса каждые 3 секунды на двух клиентах). SSE должен быть единственным механизмом real-time обновлений.
-### Good: только SSE + `invalidateQueries`. При начальной загрузке — mount refetch. См. `useBuilderMessages.ts`, `useFileProgress.ts`.
+### Bad: `refetchInterval: 3000` в React Query как замена real-time push
+### Why: создаёт лишние запросы к серверу (4 запроса каждые 3 секунды на двух клиентах). Socket.IO должен быть единственным механизмом real-time обновлений.
+### Good: только Socket.IO + `invalidateQueries`. При начальной загрузке — mount refetch. См. `useBuilderMessages.ts`, `useFileProgress.ts`.
 
 ### Bad: `throwIfCancelled()` с `DOMException("AbortError")` внутри tool.execute
 ### Why: AI SDK ловит ошибки тулзов как tool results и отдаёт LLM, а не пробрасывает в `generateText()`. AbortError внутри тулза никогда не прерывает генерацию — LLM видит ошибку и ретраит тулз.

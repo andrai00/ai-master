@@ -8,13 +8,14 @@ import { assertNotGameMode } from "@/src/shared/lib/db/game-mode-guard";
 
 export const deleteDocumentsByTypeTool = {
   description:
-    "Delete ALL glossary documents of a given type (e.g. 'article', 'lore') in ONE operation. ONLY use when the admin explicitly asks to remove a whole type. Never delete brain/game_hidden/game_visible documents. Never delete types the admin did not ask to remove.",
+    "Delete ALL glossary documents of a given type (e.g. 'article', 'lore') in one operation. TWO-STEP: first call WITHOUT confirm to see the count (dry run), then call again with confirm: true ONLY after the admin approved the count. Never delete brain/game_hidden/game_visible. Never delete a type the admin did not explicitly approve.",
   inputSchema: zodSchema(
     z.object({
       type: z.string().describe("Document type to delete, e.g. 'article'"),
+      confirm: z.boolean().optional().describe("Omit or false = dry run (returns count). true = actually delete."),
     })
   ),
-  execute: async (args: { type: string }) => {
+  execute: async (args: { type: string; confirm?: boolean }) => {
     if (isCancelled()) throw new Error("errors.cancelled");
     await assertNotGameMode();
 
@@ -23,6 +24,19 @@ export const deleteDocumentsByTypeTool = {
     if (!masterId) throw new Error("errors.noActiveGameTool");
 
     const prisma = getPrisma();
+
+    const count = await prisma.document.count({
+      where: { masterId, category: "glossary", type: args.type },
+    });
+
+    if (args.confirm !== true) {
+      return {
+        type: args.type,
+        wouldDelete: count,
+        confirmRequired: true,
+        note: `This will permanently delete ${count} glossary documents of type "${args.type}". Ask the admin to confirm, then call again with confirm: true.`,
+      };
+    }
 
     const result = await prisma.document.deleteMany({
       where: { masterId, category: "glossary", type: args.type },

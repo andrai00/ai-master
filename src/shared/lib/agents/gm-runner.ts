@@ -42,6 +42,7 @@ import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
+import { wrapToolSet } from "./tool-output";
 
 export { emitStopped } from "./step-tracker";
 
@@ -580,7 +581,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const tools = getGameTools();
+    const tools = wrapToolSet(getGameTools());
 
     emitStarted(sessionId);
     gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
@@ -726,7 +727,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const tools = getPersonalTools();
+    const tools = wrapToolSet(getPersonalTools());
 
     emitStarted(sessionId);
     console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);

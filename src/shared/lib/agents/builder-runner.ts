@@ -38,6 +38,7 @@ import { traceAgent } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
+import { wrapToolSet } from "./tool-output";
 
 // ---------------------------------------------------------------------------
 // Processing guard (prevents concurrent sends per session)
@@ -499,7 +500,7 @@ export async function runBuilderAgent(
     const isStudy = fileIds.length > 0;
     console.log(`[builder] start — session=${sessionId} mode=${isStudy ? "STUDY" : "CHAT"} fileIds=${fileIds.length}`);
 
-    const tools = getTools(ctx.builderMode);
+    const tools = wrapToolSet(getTools(ctx.builderMode));
     runId = createRunId();
 
     // Retry loop: up to 5 attempts for transient errors

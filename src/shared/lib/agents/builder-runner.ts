@@ -437,6 +437,38 @@ type TStreamSteps = Awaited<TStreamRes["steps"]>;
 const FORCE_ANSWER_PROMPT =
   "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
+/** Rebuilds ModelMessages from a run's steps (tool calls + results) so a
+ * retry can answer from the results the main run already collected. */
+function stepsToModelMessages(steps: TStreamSteps): ModelMessage[] {
+  const out: ModelMessage[] = [];
+  for (const step of steps) {
+    const calls = step.toolCalls ?? [];
+    if (calls.length > 0) {
+      out.push({
+        role: "assistant",
+        content: calls.map((c) => ({
+          type: "tool-call",
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          input: c.input,
+        })),
+      });
+    }
+    for (const r of step.toolResults ?? []) {
+      out.push({
+        role: "tool",
+        content: [{
+          type: "tool-result",
+          toolCallId: r.toolCallId,
+          toolName: r.toolName,
+          output: r.output,
+        }],
+      });
+    }
+  }
+  return out;
+}
+
 export async function runBuilderAgent(
   sessionId: string,
   userMessage: string,
@@ -628,15 +660,17 @@ export async function runBuilderAgent(
       throw err;
     }
 
-    // The model ended without a reply — retry WITHOUT tools, forcing a text
-    // answer from what is already in the context (search results, reads).
+    // The model ended without a reply — retry WITHOUT tools, but give it the
+    // tool results the main run already collected so it answers FROM them.
     if (!builderText) {
-      console.log("[builder] RETRY empty reply (no tools)");
-      const retryResult = await runWithRetries([
+      console.log("[builder] RETRY empty reply — answer from the run's tool results");
+      const retryMsgs: ModelMessage[] = [
         ...messages,
+        ...stepsToModelMessages(resultSteps),
         { role: "user", content: FORCE_ANSWER_PROMPT },
-      ], ctx.system, {});
-      resultSteps = retryResult.steps;
+      ];
+      const retryResult = await runWithRetries(retryMsgs, ctx.system, {});
+      resultSteps = [...resultSteps, ...retryResult.steps];
       builderText = retryResult.text?.trim() ?? null;
       console.log(`[builder] RETRY done textLen=${builderText?.length ?? 0}`);
     }

@@ -192,6 +192,38 @@ function getPersonalTools(): ToolSet {
 const FORCE_ANSWER_PROMPT =
   "Ты уже изучил вопрос и вызывал тулы. СЕЙЧАС НЕ вызывай тулы — напиши ответ прямо, используя то, что уже есть в контексте (результаты поиска и чтения выше). Если конкретного правила нет в контексте — ответь по общим знаниям и честно отметь, что точного правила под рукой нет.";
 
+/** Rebuilds ModelMessages from a run's steps (tool calls + results) so a
+ * retry can answer from the results the main run already collected. */
+function stepsToModelMessages(steps: TStreamSteps): ModelMessage[] {
+  const out: ModelMessage[] = [];
+  for (const step of steps) {
+    const calls = step.toolCalls ?? [];
+    if (calls.length > 0) {
+      out.push({
+        role: "assistant",
+        content: calls.map((c) => ({
+          type: "tool-call",
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          input: c.input,
+        })),
+      });
+    }
+    for (const r of step.toolResults ?? []) {
+      out.push({
+        role: "tool",
+        content: [{
+          type: "tool-result",
+          toolCallId: r.toolCallId,
+          toolName: r.toolName,
+          output: r.output,
+        }],
+      });
+    }
+  }
+  return out;
+}
+
 async function buildRollsContext(
   prisma: ReturnType<typeof getPrisma>,
   sessionId: string
@@ -628,12 +660,16 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
 
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
-      gmLog("RETRY empty reply (no tools)");
+      gmLog("RETRY empty reply — answer from the run's tool results");
       const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: FORCE_ANSWER_PROMPT }],
+        messages: [
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
+          { role: "user", content: FORCE_ANSWER_PROMPT },
+        ],
         tools: {},
         ac,
         chat: "game",
@@ -769,12 +805,16 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
 
     // Retry empty reply — only for a real run, never silently.
     if (!gmText) {
-      console.log("[gm-personal] RETRY empty reply (no tools)");
+      console.log("[gm-personal] RETRY empty reply — answer from the run's tool results");
       const retryStart = performance.now();
       const retry = await makeRunText(sessionId, {
         model,
         system: ctx.system,
-        messages: [...existingMessages, { role: "user", content: FORCE_ANSWER_PROMPT }],
+        messages: [
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
+          { role: "user", content: FORCE_ANSWER_PROMPT },
+        ],
         tools: {},
         ac,
         chat: "personal",

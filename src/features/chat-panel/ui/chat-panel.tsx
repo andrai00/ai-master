@@ -558,14 +558,6 @@ export const ChatPanel = ({
         </div>
       );
     }
-    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
-    const runChain = runRows
-      ? [...new Set(runRows.filter((r) => r.kind === "tool-call").map((r) => r.toolName).filter((v): v is string => !!v))].join(" → ")
-      : "";
-    // Debug mode: each agent action is its own compact line in the chat (like
-    // Cursor/Kilo Code). Shown only for the assistant reply of a run, above it.
-    const runToolCalls = runRows ? runRows.filter((r) => r.kind === "tool-call") : [];
-    const showToolLog = (msg.role === "master" || msg.role === "builder") && runToolCalls.length > 0;
     return (
     <div
       key={msg.id}
@@ -579,17 +571,6 @@ export const ChatPanel = ({
       />
       <div className={styles.msgContent}>
         <div className={styles.sender}>{msg.sender}</div>
-        {showToolLog && (
-          <div className={styles.toolLog}>
-            {runToolCalls.map((row) => (
-              <div key={row.id} className={styles.toolLogLine}>
-                {getStepIcon(row.toolName ?? "")}
-                <code>{row.toolName}</code>
-                {row.args && <span className={styles.toolLogArgs}>{shortenDebug(row.args, 90)}</span>}
-              </div>
-            ))}
-          </div>
-        )}
         <div className={styles.bubbleRow}>
           <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
             {msg.prefix}
@@ -641,27 +622,33 @@ export const ChatPanel = ({
               </Tooltip>
             )}
           </div>
-          {runRows && (
-            <details className={styles.debugBlock}>
-              <summary>
-                {t("chat.debugInternals")}
-                {runChain ? <span className={styles.debugChain}> · {runChain}</span> : null}
-              </summary>
-              {runRows.map((row) => (
-                <div key={row.id} className={styles.debugRow}>
-                  <span className={styles.debugKind}>{row.kind}{row.status === "aborted" ? " (aborted)" : ""}</span>
-                  {row.toolName && <code>{row.toolName}</code>}
-                  {row.args && <pre>{shortenDebug(row.args)}</pre>}
-                  {row.result && <pre>{shortenDebug(row.result)}</pre>}
-                  {row.content && <pre>{shortenDebug(row.content)}</pre>}
-                </div>
-              ))}
-            </details>
-          )}
         </div>
       </div>
     </div>
   );
+  };
+
+  // Debug mode: each agent action becomes its own standalone line in the chat
+  // flow (like Cursor/Kilo Code), inserted right before the assistant reply of
+  // the run. Only present when debugRows is available (AGENT_DEBUG=1 + admin).
+  const renderMessageFlow = (msg: IMessage): ReactNode[] => {
+    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
+    const toolCalls =
+      (msg.role === "master" || msg.role === "builder") && runRows
+        ? runRows.filter((r) => r.kind === "tool-call")
+        : [];
+    const items: ReactNode[] = [];
+    for (const row of toolCalls) {
+      items.push(
+        <div key={`tool-${row.id}`} className={styles.toolLogRow}>
+          <span className={styles.toolLogRowIcon}>{getStepIcon(row.toolName ?? "")}</span>
+          <code>{row.toolName}</code>
+          {row.args && <span className={styles.toolLogRowArgs}>{shortenDebug(row.args, 90)}</span>}
+        </div>
+      );
+    }
+    items.push(renderBubble(msg));
+    return items;
   };
 
   const grouped = groupMessages(messages);
@@ -729,13 +716,13 @@ export const ChatPanel = ({
                   </button>
                   {expanded && (
                     <div className={styles.expandedShared}>
-                      {group.messages.map(renderBubble)}
+                      {group.messages.flatMap(renderMessageFlow)}
                     </div>
                   )}
                 </div>
               );
             }
-            return group.messages.map(renderBubble);
+            return group.messages.flatMap(renderMessageFlow);
           })}
           {typing && (
             <div className={`${styles.messageRow} ${styles.masterRow}`}>

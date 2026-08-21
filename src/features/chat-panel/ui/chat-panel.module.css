@@ -997,34 +997,30 @@
   opacity: 0.75;
 }
 
-.toolLog {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 2px 0 6px;
-  padding: 4px 8px;
-  background: var(--bg-elevated, rgba(0,0,0,0.03));
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 11px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.toolLogLine {
+.toolLogRow {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin: 2px 0 2px 44px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
+  max-width: 100%;
 }
 
-.toolLogLine code {
+.toolLogRowIcon {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.toolLogRow code {
   font-size: 11px;
   flex-shrink: 0;
 }
 
-.toolLogArgs {
+.toolLogRowArgs {
   font-size: 10px;
   opacity: 0.6;
   overflow: hidden;

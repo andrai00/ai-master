@@ -333,6 +333,7 @@ export const ChatPanel = ({
   const [dragOver, setDragOver] = useState(false);
   const [liveStep, setLiveStep] = useState<{ tool: string; detail?: string } | null>(null);
   const [streamedText, setStreamedText] = useState("");
+  const [liveTools, setLiveTools] = useState<Array<{ tool: string; args?: string }>>([]);
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -362,12 +363,14 @@ export const ChatPanel = ({
         case "started":
           started = true;
           setStreamedText("");
+          setLiveTools([]);
           onStepsStart?.();
           break;
         case "step": {
           const tool = data.tool ?? "";
           if (!started) { started = true; onStepsStart?.(); }
           setLiveStep({ tool, detail: data.detail });
+          setLiveTools((prev) => (prev[prev.length - 1]?.tool === tool && prev[prev.length - 1]?.args === data.args ? prev : [...prev, { tool, args: data.args }]));
           onToolStep?.(tool);
           queryClient.invalidateQueries({ queryKey: ["builder", "file-progress"] });
           break;
@@ -383,10 +386,12 @@ export const ChatPanel = ({
           started = false;
           setLiveStep(null);
           setStreamedText("");
+          setLiveTools([]);
           onStepsDone?.();
           break;
         case "error":
           setStreamedText("");
+          setLiveTools([]);
           onStepsError?.(data.message ?? t("errors.unknownError"));
           break;
       }
@@ -724,6 +729,17 @@ export const ChatPanel = ({
             }
             return group.messages.flatMap(renderMessageFlow);
           })}
+          {liveTools.length > 0 && (
+            <div className={styles.liveToolLog}>
+              {liveTools.map((lt, i) => (
+                <div key={`live-${i}`} className={styles.toolLogRow}>
+                  <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
+                  <code>{lt.tool}</code>
+                  {lt.args && <span className={styles.toolLogRowArgs}>{shortenDebug(lt.args, 90)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           {typing && (
             <div className={`${styles.messageRow} ${styles.masterRow}`}>
               <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />

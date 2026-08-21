@@ -857,7 +857,7 @@ function makeStepLogger(
       for (const call of calls) {
         // AI SDK v7 puts tool arguments in `input` (not `args`).
         traceAgent({ chat, sessionId, phase, toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
-        emitStep(sessionId, call.toolName as string);
+        emitStep(sessionId, call.toolName as string, undefined, JSON.stringify(call.input ?? call.args ?? {}));
       }
     }
   };

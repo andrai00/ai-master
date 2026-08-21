@@ -7,6 +7,7 @@ export interface IStepEvent {
   type: TStepEventType;
   tool?: string;
   detail?: string;
+  args?: string;
   message?: string;
   seq: number;
 }
@@ -15,6 +16,7 @@ export interface ISessionSnapshot {
   processing: boolean;
   tool?: string;
   detail?: string;
+  args?: string;
   seq: number;
 }
 
@@ -55,6 +57,7 @@ function emit(sessionId: string, event: Omit<IStepEvent, "seq">): void {
       s.processing = true;
       s.tool = event.tool;
       s.detail = event.detail;
+      s.args = event.args;
       break;
     case "text":
       s.processing = true;
@@ -82,8 +85,8 @@ export function emitStarted(sessionId: string): void {
   emit(sessionId, { type: "started" });
 }
 
-export function emitStep(sessionId: string, tool: string, detail?: string): void {
-  emit(sessionId, { type: "step", tool, detail });
+export function emitStep(sessionId: string, tool: string, detail?: string, args?: string): void {
+  emit(sessionId, { type: "step", tool, detail, args });
 }
 
 /**

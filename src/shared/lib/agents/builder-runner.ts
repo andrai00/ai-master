@@ -558,7 +558,7 @@ export async function runBuilderAgent(
               try {
                 // AI SDK v7 puts tool arguments in `input` (not `args`).
                 traceAgent({ chat: "builder", sessionId, phase: "exec", toolName: call.toolName as string, args: JSON.stringify(call.input ?? call.args ?? {}) });
-                emitStep(sessionId, call.toolName as string);
+                emitStep(sessionId, call.toolName as string, undefined, JSON.stringify(call.input ?? call.args ?? {}));
               } catch (e) {
                 console.error(`[builder] onStepFinish tool error — session=${sessionId} tool=${call.toolName} error=${e instanceof Error ? e.message : String(e)}`);
               }

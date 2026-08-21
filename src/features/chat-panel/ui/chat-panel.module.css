@@ -1026,3 +1026,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.liveToolLog {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

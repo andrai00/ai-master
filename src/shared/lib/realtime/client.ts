@@ -7,6 +7,7 @@ export interface IRealtimeStepEvent {
   type: TStepEventType;
   tool?: string;
   detail?: string;
+  args?: string;
   message?: string;
   seq?: number;
 }
@@ -15,6 +16,7 @@ interface ISessionState {
   processing: boolean;
   tool?: string;
   detail?: string;
+  args?: string;
 }
 
 type StepHandler = (event: IRealtimeStepEvent) => void;

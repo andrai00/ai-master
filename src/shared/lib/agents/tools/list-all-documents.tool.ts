@@ -27,7 +27,7 @@ export const listAllDocumentsTool = {
       prisma.document.findMany({
         where,
         orderBy: { updatedAt: "desc" },
-        select: { id: true, title: true, category: true, type: true, updatedAt: true },
+        select: { id: true, title: true, category: true, type: true, path: true, updatedAt: true },
         take: 60,
       }),
     ]);
@@ -40,10 +40,10 @@ export const listAllDocumentsTool = {
         .map((t) => ({ type: t.type, count: t._count._all })),
     }));
 
-    const recentTitles: Record<string, Array<{ id: string; title: string; type: string }>> = {};
+    const recentTitles: Record<string, Array<{ id: string; title: string; type: string; path: string | null }>> = {};
     for (const r of recent) {
       const list = recentTitles[r.category] ?? [];
-      if (list.length < 10) list.push({ id: r.id, title: r.title, type: r.type });
+      if (list.length < 10) list.push({ id: r.id, title: r.title, type: r.type, path: r.path });
       recentTitles[r.category] = list;
     }
 

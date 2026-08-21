@@ -107,6 +107,7 @@ export async function bulkImportToGlossaryAction(
   const newRows: Array<{
     masterId: string;
     title: string;
+    path: string;
     content: string;
     category: "glossary";
     type: string;
@@ -130,7 +131,8 @@ export async function bulkImportToGlossaryAction(
     if (existingId) {
       updates.push({ id: existingId, content: data.content, type: data.type, tags: data.tags });
     } else {
-      newRows.push({ masterId, title, ...data });
+      // Path = glossary/ + source-relative path (matches the backfill convention).
+      newRows.push({ masterId, title, path: `glossary/${title}`, ...data });
     }
 
     byType[f.type] = (byType[f.type] || 0) + 1;

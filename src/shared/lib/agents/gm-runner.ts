@@ -25,6 +25,7 @@ import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { gmDeleteDocumentTool } from "./gm-tools/gm-delete-document.tool";
 import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
+import { renameDocumentTool } from "./tools/rename-document.tool";
 import { gmGlossaryOverviewTool } from "./gm-tools/gm-glossary-overview.tool";
 import { clearActions, recordActions, getActions } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
@@ -170,6 +171,7 @@ function getGameTools(): ToolSet {
     get_players: gmGetPlayersTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
     delete_document: gmDeleteDocumentTool,
+    rename_document: renameDocumentTool,
   };
 }
 
@@ -195,6 +197,7 @@ function getPersonalTools(): ToolSet {
     update_chat_summary: updateChatSummaryTool,
     resolve_glossary_link: gmResolveGlossaryLinkTool,
     delete_document: gmDeleteDocumentTool,
+    rename_document: renameDocumentTool,
   };
 }
 

@@ -31,6 +31,7 @@ import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
 import { gmGetPlayersTool } from "./gm-tools/gm-get-players.tool";
 import { gmResolveGlossaryLinkTool } from "./gm-tools/gm-resolve-glossary-link.tool";
 import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
+import { renameDocumentTool } from "./tools/rename-document.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
 import { traceAgent } from "./trace";
@@ -91,6 +92,7 @@ function loadSystemPrompt(): string {
 - Study first: read/search what you need (read_document, search_rules, get_brain, get_gm_notes, get_player_sheet, get_scene_state, explore_archive).
 - Then act with write/import tools. Then write the FINAL reply — the text the admin sees.
 - Never re-read a document you have already read in this conversation — it is in your context. Re-read only something genuinely new or changed.
+- If a document you read contains a link [[path|...]] and you need its content — open it with read_document("<path>").
 - No planning report: tools and reads are invisible. Your reply is only the result.
 
 ## Who you are
@@ -132,11 +134,15 @@ A document's type is its MEANING — what the entry IS (creature, spell, item, a
 - Your reply is ONLY the summary/result the admin needs. What you did with tools is implied; write the outcome, not the system actions.
 
 ## Proactive document links
-- Always back up your chat answers with clickable wiki-links to the documents you reference: [[<document-id>]] or [[<document-id>|text]].
-- Only link GLOSSARY documents (rules) — never brain, game_hidden or game_visible.
-- Links ONLY work with the raw document ID (UUID), never with a title. Take the id from search_rules / read_document results or from the document you just created.
+- Always back up your chat answers with clickable wiki-links to the documents you reference: [[<path>|text]] or [[<path>]].
+- Links resolve by the unique document PATH with the category prefix, e.g. [[glossary/bestiary/331-camel|Верблюд]], [[brain/routing/main-router]]. Take paths from search_rules / read_document / list_all_documents results — never invent one.
+- Only link GLOSSARY documents (rules) in chat — never brain, game_hidden or game_visible.
 - Mentioned a spell, item, class, race, condition or rule? Link it right away — do not wait to be asked.
-- Inside documents you create, add [[<id>]] cross-references to related glossary docs.
+- Inside documents you create, add [[<path>]] cross-references to related docs (glossary from brain/hidden; per the allowed-target rules).
+
+## Renaming and path safety
+- Never change a path via update_document. To rename a document use rename_document — it updates ALL links to it automatically.
+- create_document rejects a busy path (title or path already exists) — choose another path or update the existing document explicitly.
 
 ## Language
 Use the same language as the admin's messages. Auto-detect.
@@ -201,6 +207,7 @@ function getTools(builderMode: string): ToolSet {
     get_builder_guide: getBuilderGuideTool,
     get_chat_summary: getChatSummaryTool,
     update_chat_summary: updateChatSummaryTool,
+    rename_document: renameDocumentTool,
   };
 
   if (builderMode === "memory") {

@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
+import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 
 export const gmReadDocumentTool = {
   description: "Read a document by ID. Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document.",
@@ -30,23 +31,28 @@ export const gmReadDocumentTool = {
         content: true,
         playerId: true,
         tags: true,
+        path: true,
         updatedAt: true,
       },
     });
     if (!doc) throw new Error("errors.documentNotFound");
+
+    // The model always sees glossary/ prefixed links — normalize archive-style
+    // internal links on the fly (storage stays as imported).
+    const content = await normalizeReadContent(prisma, activeGame.currentMasterId, doc.category, doc.content);
 
     // Table of contents — markdown headings with their offsets, so the model
     // can jump straight to the section it needs instead of reading from 0.
     const toc: Array<{ heading: string; offset: number }> = [];
     const headingRe = /^#{1,4}\s+(.+)$/gm;
     let match: RegExpExecArray | null;
-    while ((match = headingRe.exec(doc.content)) !== null) {
+    while ((match = headingRe.exec(content)) !== null) {
       toc.push({ heading: match[1]!.trim(), offset: match.index });
     }
 
     // Formulas are always computed on the FULL document — slicing the text
     // must not break boundary formulas.
-    const blocks = parseFormulaBlocks(doc.content);
+    const blocks = parseFormulaBlocks(content);
     const { results, errors } = evaluateFormulas(blocks);
     const formulaValues: Record<string, number> = {};
     results.forEach((v) => { if (v.value !== null) formulaValues[v.name] = v.value; });
@@ -61,9 +67,9 @@ export const gmReadDocumentTool = {
     // `limit` is hard-capped so the model cannot request the whole document.
     const offset = args.offset ?? 0;
     const limit = Math.min(args.limit ?? 3000, 8000);
-    const totalSize = doc.content.length;
+    const totalSize = content.length;
     const safeOffset = Math.min(offset, totalSize);
-    const text = doc.content.slice(safeOffset, safeOffset + limit);
+    const text = content.slice(safeOffset, safeOffset + limit);
     return {
       id: doc.id,
       title: doc.title,
@@ -71,6 +77,7 @@ export const gmReadDocumentTool = {
       type: doc.type,
       summary: doc.summary,
       playerId: doc.playerId,
+      path: doc.path,
       source: doc.category,
       updatedAt: doc.updatedAt,
       toc,

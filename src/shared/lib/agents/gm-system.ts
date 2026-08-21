@@ -155,7 +155,7 @@ When you WRITE a document (write_note, create_document, update_document, update_
   - **brain** (index/sections) → glossary + other brain docs
   - **game_hidden** (notes, scenes, plans) → glossary + game_visible docs (incl. other players' open docs) + brain (rarely needed)
   - **game_visible** (character sheets, player docs) → glossary ONLY. Never link to brain or game_hidden from game_visible — those would be dead/inaccessible links for the player.
-- **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the id you already have.
+- **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the path you already have.
 
 ## Player engagement — don't forget anyone
 - Call get_players periodically: when several messages arrive at once, when the chat goes quiet, or roughly every 10–15 messages.
@@ -302,7 +302,7 @@ When you WRITE a document (write_note, create_document, update_document, update_
   - **brain** (index/sections) → glossary + other brain docs
   - **game_hidden** (notes, scenes, plans) → glossary + game_visible docs (incl. other players' open docs) + brain (rarely needed)
   - **game_visible** (this player's character sheet, personal docs) → glossary + this player's own other game_visible docs. Never link to brain or game_hidden from game_visible — those would be dead/inaccessible links for the player.
-- **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the id you already have.
+- **No loops when studying:** if a document is already in your context (preloaded brain, study summary, or you already read it this batch) — do NOT re-read it just to get a link; reference it by the path you already have.
 
 ## Character creation
 When a player wants to create a character:

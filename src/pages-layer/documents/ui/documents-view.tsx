@@ -52,20 +52,27 @@ export const DocumentsView = () => {
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
 
-    // Ranked search: title/summary matches are primary, content matches are
-    // secondary and sort after them. Stable sort keeps original order within
-    // each group.
-    const ranked: Array<IDocumentItem & { _inContent?: boolean }> = [];
+    // Same ranking as the agent's search tool (search_documents / search_rules):
+    // 0 = exact title, 1 = title prefix, 2 = title contains, 3 = summary contains,
+    // 4 = content contains; within a rank — newest first (updatedAt desc).
+    // This lets the admin test the exact search the AI will use.
+    const scored: Array<IDocumentItem & { _inContent?: boolean; _score: number }> = [];
     for (const d of docs) {
-      const inTitle = d.title.toLowerCase().includes(q);
-      const inSummary = d.summary ? d.summary.toLowerCase().includes(q) : false;
-      const inContent = d.content.toLowerCase().includes(q);
-      if (inTitle || inSummary) ranked.push({ ...d, _inContent: false });
-      else if (inContent) ranked.push({ ...d, _inContent: true });
+      const t = d.title.toLowerCase();
+      const s = (d.summary ?? "").toLowerCase();
+      let score: number;
+      if (t === q) score = 0;
+      else if (t.startsWith(q)) score = 1;
+      else if (t.includes(q)) score = 2;
+      else if (s.includes(q)) score = 3;
+      else if (d.content.toLowerCase().includes(q)) score = 4;
+      else continue;
+      scored.push({ ...d, _inContent: score === 4, _score: score });
     }
-    return ranked;
+    scored.sort((a, b) => a._score - b._score || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return scored.slice(0, 100);
   }, [docs, searchQuery]);
 
   const getCategoryDocs = (cat: string) => filteredDocs.filter((d) => d.category === cat);

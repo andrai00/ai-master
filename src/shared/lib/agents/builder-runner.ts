@@ -117,7 +117,7 @@ You configure the AI Master that will run games. Read rule files → build gloss
 
 ## Document domains — separate logic, don't mix them
 - **Правила (glossary)** — the game rules: a huge corpus. NEVER read it wholesale. Search with search_rules by keywords, then read_document on the result.
-- **Мозг (brain)** — instructions for the AI Master: an index plus a few sections. Start from get_brain().
+- **Мозг (brain)** — instructions for the AI Master: an index plus a few sections. The index is always preloaded (router + triggers + always-needed policy); the details live in the sections. Start from get_brain().
 - **Игровая память (game_hidden)** — game memory: notes, current scene, state. get_gm_notes() lists notes, get_scene_state() reads the current scene.
 - **Данные игроков (game_visible with playerId)** — character sheets and player records. get_player_sheet() lists them; pass a playerId for one player.
 

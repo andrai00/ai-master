@@ -29,7 +29,9 @@ export function extractHeadings(content: string, maxLevel = 6): IHeadingEntry[] 
     }
 
     if (!inFence) {
-      const m = line.match(/^(#{1,6})\s+(.+)$/);
+      // CRLF content (common in imported glossary docs) leaves a trailing \r
+      // on each line after split("\n") — strip it so `$` matches.
+      const m = line.replace(/\r$/, "").match(/^(#{1,6})\s+(.+)$/);
       if (m && m[1]!.length <= maxLevel) {
         out.push({ text: m[2]!.trim(), level: m[1]!.length, offset });
       }

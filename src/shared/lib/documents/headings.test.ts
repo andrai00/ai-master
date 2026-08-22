@@ -47,6 +47,13 @@ describe("extractHeadings", () => {
     const hs = extractHeadings("## Метамагия (ед. чародейства: $sorcery_points_max)");
     expect(hs[0]!.text).toBe("Метамагия (ед. чародейства: $sorcery_points_max)");
   });
+
+  it("extracts headings from CRLF content", () => {
+    const content = "# Title\r\n\r\n## Штормовое колдовство\r\n\r\n#### Удвоенное заклинание\r\n";
+    const hs = extractHeadings(content);
+    expect(hs.map((h) => h.text)).toEqual(["Title", "Штормовое колдовство", "Удвоенное заклинание"]);
+    expect(hs[1]!.offset).toBe(11);
+  });
 });
 
 describe("headingSlugText", () => {

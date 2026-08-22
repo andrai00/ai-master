@@ -149,9 +149,11 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
         isRollEntry: true,
         // Player rolls show their signature ("Имя: Проверка"), master rolls
         // show only "Мастер" — the check name and dice detail stay hidden.
-        rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : t("chat.master"),
+        // With SHOW_MASTER_ROLL_NAMES=1 the master's check name and detail are
+        // revealed to everyone in the game chat (temporary debug toggle).
+        rollCheckName: r.playerName ? `${r.playerName}: ${r.checkName}` : (r.revealMasterRollNames ? `${t("chat.master")}: ${r.checkName}` : t("chat.master")),
         rollResult: r.result ?? "",
-        rollDetail: r.playerName ? (r.detail ?? "") : "",
+        rollDetail: r.playerName ? (r.detail ?? "") : (r.revealMasterRollNames ? (r.detail ?? "") : ""),
         rollExpression: r.diceExpression,
         rollTimestamp: new Date(r.completedAt!).getTime(),
       }));

@@ -16,6 +16,8 @@ export type TSessionRoll = {
   assignedBy: string | null;
   createdAt: Date;
   completedAt: Date | null;
+  /** True when SHOW_MASTER_ROLL_NAMES=1 — master rolls reveal their check name in the game chat. */
+  revealMasterRollNames: boolean;
 };
 
 export async function getSessionRollsAction(sessionId: string): Promise<TSessionRoll[]> {
@@ -65,5 +67,11 @@ export async function getSessionRollsAction(sessionId: string): Promise<TSession
     : [];
   const nameMap = new Map(players.map(p => [p.id, p.displayName]));
 
-  return rolls.map(r => ({ ...r, playerName: r.playerId ? (nameMap.get(r.playerId) ?? null) : null }));
+  const revealMasterRollNames = process.env.SHOW_MASTER_ROLL_NAMES === "1";
+
+  return rolls.map(r => ({
+    ...r,
+    playerName: r.playerId ? (nameMap.get(r.playerId) ?? null) : null,
+    revealMasterRollNames,
+  }));
 }

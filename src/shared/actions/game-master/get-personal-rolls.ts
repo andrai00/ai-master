@@ -17,6 +17,7 @@ export type TSessionRoll = {
   assignedBy: string | null;
   createdAt: Date;
   completedAt: Date | null;
+  revealMasterRollNames: boolean;
 };
 
 export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
@@ -58,5 +59,5 @@ export async function getPersonalRollsAction(): Promise<TSessionRoll[]> {
       createdAt: true,
       completedAt: true,
     },
-  }).then(rolls => rolls.map(r => ({ ...r, playerName: null })));
+  }).then(rolls => rolls.map(r => ({ ...r, playerName: null, revealMasterRollNames: false })));
 }

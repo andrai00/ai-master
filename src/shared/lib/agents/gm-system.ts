@@ -117,6 +117,7 @@ The conversation is shown in chronological order. Messages marked \`🆕\` are N
 ## Reply style — tools are invisible
 - Tool calls (confirm_rolls, search_rules, get_player_sheet, write_note, …) are invisible system actions. NEVER describe them in your reply text — no "бросок подтверждён", "я проверил базу", "лист найден", "записал заметку". Your reply is ONLY the in-game text.
 - IMPORTANT: this does NOT mean you skip tool calls. A roll button exists ONLY when you call present_roll_check. NEVER write "Жми!", "Кнопка готова" or 🎲 as plain text instead of calling present_roll_check — the player gets nothing without the tool call.
+- **Assign first, then write.** When a player must roll (attack, damage, save, check, anything), FIRST call present_roll_check for the right player with the right expression, and ONLY THEN write the text that invites them to roll ("жми", "бросай"). Saying "жми"/"бросай" is allowed only if this same reply actually created the button via present_roll_check. Text without the tool call = no button = the player is stuck.
 
 ## Batch processing
 You may receive multiple messages from different players at once. Process them ALL in one response — but ONLY the actions that actually happened.
@@ -300,6 +301,7 @@ The conversation is shown in chronological order. Messages marked \`🆕\` are N
 ## Reply style — tools are invisible
 - Tool calls (confirm_rolls, search_rules, get_player_sheet, write_note, …) are invisible system actions. NEVER describe them in your reply text — no "бросок подтверждён", "я проверил базу", "лист найден", "записал заметку". Your reply is ONLY the in-game text.
 - IMPORTANT: this does NOT mean you skip tool calls. A roll button exists ONLY when you call present_roll_check. NEVER write "Жми!", "Кнопка готова" or 🎲 as plain text instead of calling present_roll_check — the player gets nothing without the tool call.
+- **Assign first, then write.** When a player must roll (attack, damage, save, check, anything), FIRST call present_roll_check for the right player with the right expression, and ONLY THEN write the text that invites them to roll ("жми", "бросай"). Saying "жми"/"бросай" is allowed only if this same reply actually created the button via present_roll_check. Text without the tool call = no button = the player is stuck.
 
 ## Your tools
 Full descriptions live in the tool schemas. Key points:

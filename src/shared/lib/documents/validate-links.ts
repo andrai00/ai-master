@@ -1,7 +1,6 @@
-import GithubSlugger from "github-slugger";
 import { normalizePath } from "./paths";
 import { resolveDocumentRef } from "./resolve-ref";
-import { extractHeadings, headingSlugText } from "./headings";
+import { hasAnchor } from "./sections";
 
 type TPrisma = ReturnType<typeof import("@/src/shared/lib/db/prisma").getPrisma>;
 
@@ -91,39 +90,13 @@ export function extractLinkKeys(content: string): ILinkRef[] {
   return out;
 }
 
-function cleanHeading(text: string): string {
-  return text
-    .replace(/\[\[[^\]|#]+(?:#[^\]]+)?(?:\|([^\]]+))?\]\]/g, (_, display) => (display ? display.trim() : ""))
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
  * True when the target content contains an anchor: either an exact
  * id="..." attribute (archive style: id="armor.shield", id="Воровские") or a
  * heading whose cleaned text / slug matches the anchor. Mirrors the UI, which
  * scrolls to the slugged heading OR the raw [id="anchor"] attribute.
+ * Shared with the read_document tools — see ./sections.
  */
-function hasAnchor(content: string, anchor: string): boolean {
-  if (new RegExp(`id=["']${escapeRegExp(anchor)}["']`).test(content)) return true;
-
-  // Match the ids the UI actually produces (rehype-slug on heading text where
-  // $var refs and [[wiki links]] are empty spans at slug time).
-  const target = new GithubSlugger().slug(headingSlugText(anchor));
-  for (const h of extractHeadings(content, 6)) {
-    const clean = cleanHeading(h.text);
-    if (!clean) continue;
-    if (clean === anchor) return true;
-    if (new GithubSlugger().slug(headingSlugText(clean)) === target) return true;
-  }
-  return false;
-}
 
 /**
  * Validates the internal links of a document: every link must resolve to an

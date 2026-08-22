@@ -9,20 +9,23 @@ import { resolveDocId } from "../tools/resolve-doc-id";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 import { numberLines } from "@/src/shared/lib/documents/line-utils";
 import { extractHeadings } from "@/src/shared/lib/documents/headings";
+import { cleanHeading, sliceSectionByAnchor } from "@/src/shared/lib/documents/sections";
 
 export const gmReadDocumentTool = {
-  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets) so you can jump directly to a section with offset. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. Set offset explicitly to read further parts of a large document. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
+  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets). For LONG documents prefer reading a section instead of the whole thing: toc_only: true shows the structure cheaply, then anchor: '<exact heading text from toc>' returns ONLY that section (mode:'section') — not the whole document; a long section sets hasMore, continue with offset=sectionStart+text.length. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link. Auto-resolves."),
       offset: z.number().optional().describe("Character offset for reading a section (default 0, or a toc heading offset)"),
-      limit: z.number().optional().describe("Max characters of text to return (default 3000, hard cap 8000)"),
+      limit: z.number().optional().describe("Max characters of text to return (default 3000, hard cap 8000). With anchor, caps the section length."),
+      anchor: z.string().optional().describe("Exact heading text / #anchor of the section to read (copy it from the toc or from a [[...]] link). Returns ONLY that section (mode:'section') — NOT the whole document. anchor-not-found error if nothing matches."),
+      toc_only: z.boolean().optional().describe("When true, return only summary + toc without content — a cheap way to inspect a long document's structure before reading a section by anchor."),
       numbered: z.boolean().optional().describe("When true, return the document as absolute 1-based numbered lines (`   12 | content`) instead of a character slice — use the numbers to edit specific lines via update_document edits. Character offset/limit are ignored in numbered mode."),
       start_line: z.number().optional().describe("First line to return in numbered mode (1-based, default 1)"),
       line_limit: z.number().optional().describe("Max lines to return in numbered mode (default 400)"),
     })
   ),
-  execute: async (args: { id: string; offset?: number; limit?: number; numbered?: boolean; start_line?: number; line_limit?: number }) => {
+  execute: async (args: { id: string; offset?: number; limit?: number; numbered?: boolean; start_line?: number; line_limit?: number; anchor?: string; toc_only?: boolean }) => {
     const activeGame = await getActiveGame();
     if (!activeGame || activeGame.mode !== "game") throw new Error("errors.notInGameMode");
 
@@ -53,10 +56,29 @@ export const gmReadDocumentTool = {
     // Table of contents — markdown headings with their offsets, so the model
     // can jump straight to the section it needs instead of reading from 0.
     // Fence-aware: #-comments inside ```formula blocks are not headings.
+    // Heading text is cleaned so the model can copy it straight into `anchor`.
     const toc: Array<{ heading: string; offset: number }> = extractHeadings(content, 4).map((h) => ({
-      heading: h.text,
+      heading: cleanHeading(h.text),
       offset: h.offset,
     }));
+
+    // TOC-only: cheap structural read for long documents — no content, no
+    // formula evaluation (nothing to compute on a navigation view).
+    if (args.toc_only) {
+      return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        type: doc.type,
+        summary: doc.summary,
+        playerId: doc.playerId,
+        path: doc.path,
+        source: doc.category,
+        updatedAt: doc.updatedAt,
+        mode: "toc",
+        toc,
+      };
+    }
 
     // Formulas are only meaningful on character sheets and master memory;
     // brain/glossary documents hold formula EXAMPLES and must not be evaluated.
@@ -97,6 +119,40 @@ export const gmReadDocumentTool = {
         endLine: num.endLine,
         totalLines: num.totalLines,
         hasMore: num.hasMore,
+        toc,
+        ...formulaData,
+      };
+    }
+
+    // Anchor read: only the section under the heading — not the whole document.
+    // The response is explicitly mode:'section' with the section's offsets and
+    // hasMore, so the model knows it got a piece and can continue reading
+    // (offset=sectionStart+text.length) or fall back to a full read.
+    if (args.anchor !== undefined) {
+      const slice = sliceSectionByAnchor(content, args.anchor);
+      if (!slice) throw new Error("errors.anchorNotFound");
+      const sectionText = slice.text;
+      const cap = Math.min(args.limit ?? 3000, 8000);
+      const text = sectionText.slice(0, cap);
+      return {
+        id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        type: doc.type,
+        summary: doc.summary,
+        playerId: doc.playerId,
+        path: doc.path,
+        source: doc.category,
+        updatedAt: doc.updatedAt,
+        mode: "section",
+        anchor: args.anchor,
+        heading: slice.heading,
+        level: slice.level,
+        text,
+        sectionStart: slice.start,
+        sectionEnd: slice.end,
+        sectionSize: slice.end - slice.start,
+        hasMore: text.length < sectionText.length,
         toc,
         ...formulaData,
       };

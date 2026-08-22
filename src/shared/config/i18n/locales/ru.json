@@ -405,6 +405,7 @@
     "aiResponseFormat": "Ошибка AI: формат ответа не распознан. Попробуйте другую модель или провайдера.",
     "noActiveGameTool": "Нет активной игры",
     "documentNotFound": "Документ не найден: {{id}}",
+    "anchorNotFound": "Секция с якорем не найдена",
     "fileParseError": "Ошибка разбора файла: {{error}}",
     "fileParseTimeout": "Таймаут разбора файла: {{fileId}}",
     "cancelled": "Отменено.",

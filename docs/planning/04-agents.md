@@ -310,6 +310,7 @@ Created 12 documents. Updated 3 documents. Searched 5 times.
 | `scene-narration` | Описание сцены | Как описывать, сколько деталей, когда остановиться |
 | `hidden-action` | Скрытное действие | Как обработать не раскрывая другим |
 | `handle-migration` | После переключения dev→game | Как прочитать migration summary, оценить влияние, решить что обновить |
+| `read-by-anchor` | Чтение длинных документов | Когда читать секцию по якорю (`read_document(id, anchor=...)` + `toc_only`), как понять что получен лишь кусок (`mode:'section'`, `hasMore`), когда перейти к полному чтению |
 
 **Игро-специфичные (создаёт Builder под игру):**
 

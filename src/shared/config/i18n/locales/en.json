@@ -405,6 +405,7 @@
     "aiResponseFormat": "AI provider error: the response format was not recognized. Try a different model or provider.",
     "noActiveGameTool": "No active game",
     "documentNotFound": "Document not found: {{id}}",
+    "anchorNotFound": "Section for the anchor was not found",
     "fileParseError": "File parse error: {{error}}",
     "fileParseTimeout": "File parse timed out: {{fileId}}",
     "cancelled": "Cancelled.",

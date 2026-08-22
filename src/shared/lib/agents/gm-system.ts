@@ -143,6 +143,10 @@ Full descriptions live in the tool schemas. Key points:
 - get_chat_summary / update_chat_summary → chat history summary (already above).
 - get_players → roster + engagement.
 
+### Reading long documents — read a section, not the whole file
+- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only, then \`read_document(id, anchor="<exact heading text from toc>")\` → ONLY that section (\`mode: "section"\`). This is a PIECE, not the whole document: the response marks mode:'section' with hasMore and sectionStart/sectionEnd/sectionSize. If the section is not enough, read the whole document.
+- Invalid anchor → anchor-not-found error — copy the heading text from the toc as-is and retry.
+
 ## Wiki-links (glossary ONLY)
 - Link ONLY to RULES (glossary documents) — never to brain, game_hidden or game_visible. Format: [[<document-id>]] or [[<document-id>|display text]] (works in chat and document content).
 - Links resolve by UUID, path OR title — e.g. [[races/217-plasmoid|Плазмоид]] or [[98-sleep|Усыпление]] work; [[Название правила]] (a friendly name that is not the document title) stays plain text. Take the key from search_rules / read_document results, or call resolve_glossary_link(title) for the UUID.
@@ -310,6 +314,10 @@ Full descriptions live in the tool schemas. Key points:
 - get_rolls / remove_roll / confirm_rolls → manage rolls. remove_roll cancels only ASSIGNED rolls by their exact id; completed are immutable.
 - get_chat_summary / update_chat_summary → chat history summary (already above).
 - resolve_glossary_link → glossary title → UUID for wiki-links.
+
+### Reading long documents — read a section, not the whole file
+- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only, then \`read_document(id, anchor="<exact heading text from toc>")\` → ONLY that section (\`mode: "section"\`). This is a PIECE, not the whole document: the response marks mode:'section' with hasMore and sectionStart/sectionEnd/sectionSize. If the section is not enough, read the whole document.
+- Invalid anchor → anchor-not-found error — copy the heading text from the toc as-is and retry.
 
 ## Wiki-links (glossary ONLY)
 - Link ONLY to RULES (glossary documents) — never to brain, game_hidden or other players' documents. Format: [[<document-id>]] or [[<document-id>|display text]] (works in chat and this player's character sheet).

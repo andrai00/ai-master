@@ -97,6 +97,7 @@ Wiki-links auto-resolve to document IDs (UUID, path or title all work).
 Link rules:
 - Always add cross-references: brain docs link to glossary, glossary docs link to related rules
 - To link a specific SECTION, append #heading with the exact heading text from the target document's toc (read_document returns it): [[DocTitle#Heading|text]] or [text](/path/doc.md#Heading). The UI scrolls to that section.
+- To READ a specific section instead of the whole document: read_document(id, toc_only=true) → summary + toc, then read_document(id, anchor="<heading>") → ONLY that section (mode:'section', not the whole doc). Read the whole document only when the section is not enough.
 - Allowed targets by kind: glossary→glossary; brain→brain+glossary; hidden→glossary+hidden+visible; visible→glossary only
 - create_document / update_document return linkValidation ({ ok, linkCount, errorCount, errors }) — it flags target-not-found, target-category-not-allowed and anchor-not-found. Check it after saving and fix the links.`,
 

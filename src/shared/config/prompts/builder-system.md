@@ -204,6 +204,15 @@ Examples of CORRECT links:
 
 **Prefer TOC + offset over full reads** for large documents. Only read what you need.
 
+### Reading a section by anchor (recommended for long documents)
+
+Instead of pulling a whole long document, read only the section you need:
+
+1. `read_document(id, toc_only=true)` — summary + TOC only, no content. Cheap way to see the structure.
+2. `read_document(id, anchor="<exact heading text from toc>")` — returns ONLY that section (`mode: "section"`), not the whole document. Copy the heading text from the toc or from a `[[doc#heading]]` link as-is.
+3. Understand you got only a piece: the response is `mode: "section"` with `hasMore`, `sectionStart`/`sectionEnd`/`sectionSize`. A section is NOT the whole document — if the section is not enough, read the whole document.
+4. Invalid anchor → error `anchor-not-found` — copy the heading from the toc as-is and retry.
+
 ### Anchors — link to a specific section (#heading)
 
 To link to a SECTION of a document (not just the top), append `#heading` where

@@ -14,6 +14,7 @@ import { gmUpdateDocumentTool } from "./gm-tools/gm-update-document.tool";
 import { gmUpdateCharSheetTool } from "./gm-tools/gm-update-char-sheet.tool";
 import { gmWriteNoteTool } from "./gm-tools/gm-write-note.tool";
 import { gmRollDiceTool } from "./gm-tools/gm-roll-dice.tool";
+import { appendDiceBreakdown } from "@/src/shared/lib/dice/roll";
 import { gmPersonalRollDiceTool } from "./gm-tools/gm-personal-roll-dice.tool";
 import { gmPersonalPresentRollCheckTool } from "./gm-tools/gm-personal-present-roll-check.tool";
 import { gmSetSceneStateTool } from "./gm-tools/gm-set-scene-state.tool";
@@ -237,7 +238,7 @@ async function buildRollsContext(
     .filter((r) => r.playerId)
     .map((r) => {
       const who = nameById.get(r.playerId!) ?? "игрок";
-      const detail = r.detail ? ` (${r.detail})` : "";
+      const detail = r.detail ? ` (${appendDiceBreakdown(r.detail)})` : "";
       return {
         role: "user" as const,
         content: `🆕 🎲 [roll id: ${r.id}] [${who}] бросок «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,
@@ -249,7 +250,7 @@ async function buildRollsContext(
   const masterRolls = completedRolls
     .filter((r) => !r.playerId)
     .map((r) => {
-      const detail = r.detail ? ` (${r.detail})` : "";
+      const detail = r.detail ? ` (${appendDiceBreakdown(r.detail)})` : "";
       return {
         role: "user" as const,
         content: `🎲 [roll id: ${r.id}] [твой бросок (GM)] «${r.checkName}» (${r.diceExpression}) → ${r.result}${detail}`,

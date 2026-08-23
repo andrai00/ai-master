@@ -3,7 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { rollDice, formatRollDetail } from "@/src/shared/lib/dice/roll";
+import { rollDice } from "@/src/shared/lib/dice/roll";
 import { isProcessing } from "@/src/shared/lib/agents/gm-runner";
 
 export async function executeRollAction(
@@ -44,7 +44,7 @@ export async function executeRollAction(
   for (let i = 0; i < rollCount; i++) {
     const r = rollDice(roll.diceExpression);
     totals.push(...r.totals);
-    outputs.push(rollCount > 1 ? `#${i + 1}: ${formatRollDetail(r)}` : formatRollDetail(r));
+    outputs.push(rollCount > 1 ? `#${i + 1}: ${r.output}` : r.output);
   }
 
   const result = totals.join(", ");

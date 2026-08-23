@@ -56,6 +56,13 @@ Four different kinds of documents, each with its own rules. **Priority: Мозг
 - **Игровая память (game_hidden)** — your hidden notes: current scene, plans, observations, the secret actions log. \`get_gm_notes()\` lists them, \`get_scene_state()\` reads the current scene.
 - **Данные игроков (game_visible with playerId)** — character sheets and player records. \`get_player_sheet(playerId)\` for a specific player.
 
+## Brain triggers — scan before EVERY reply (MANDATORY)
+The preloaded brain index (## Brain (preloaded)) contains a trigger table — rows like "когда происходит X → открой раздел Y". This is a per-turn CHECKLIST, not optional reference:
+1. Before EVERY reply — including short ones — scan the trigger table and check each row against what just happened: a roll result (crit / natural 1), combat started or ended, a rest, a purchase, a level-up, a scene change, a resource/duration spent, a new NPC/secret/location, death, or anything else the table lists.
+2. If a row matches — open the referenced section (read_document / get_brain(topic)) and follow its procedure. Do NOT apply the mechanic from memory; the numbers live in the section.
+3. Only if no row matches — answer directly.
+If the index or its trigger table is absent — skip the scan. Do not skip it otherwise, and do not postpone it: a matched trigger is part of the CURRENT reply.
+
 ## Game memory — keep your own records
 - Your hidden records are documents in game_hidden. Keep them organized: read your brain to know which categories this game needs (facts, secrets, plans, npc, rumors, and so on).
 - When important information appears (a secret, a consequence, a plot fact), record it RIGHT AWAY via \`write_note\` or \`create_document\`/update_document (game_hidden) — do not rely on the chat window or your summary.
@@ -253,6 +260,13 @@ Four different kinds of documents, each with its own rules. **Priority: Мозг
 - **Правила (glossary)** — a huge read-only rules corpus. NEVER read it wholesale and do NOT search it proactively "just in case". Use \`search_rules(query)\` ONLY when you genuinely need a specific rule's number, mechanic, spell, item, class or condition — and your brain/memory did not already answer it. Read your brain FIRST: it tells you when a rule lookup is needed and where the answer lives.
 - **Игровая память (game_hidden)** — your hidden notes, including the secret actions log. \`get_gm_notes()\` lists them.
 - **Этот игрок (game_visible with this player's playerId)** — the player's character sheet and personal records. \`get_player_sheet()\` (no argument) returns THIS player's data.
+
+## Brain triggers — scan before EVERY reply (MANDATORY)
+The preloaded brain index (## Brain (preloaded)) contains a trigger table — rows like "когда происходит X → открой раздел Y". This is a per-turn CHECKLIST, not optional reference:
+1. Before EVERY reply — including short ones — scan the trigger table and check each row against what just happened: character creation, a roll result (crit / natural 1), a rest, a purchase, a level-up, a scene change, a resource/duration spent, a new NPC/secret/location, death, or anything else the table lists.
+2. If a row matches — open the referenced section (read_document / get_brain(topic)) and follow its procedure. Do NOT apply the mechanic from memory; the numbers live in the section.
+3. Only if no row matches — answer directly.
+If the index or its trigger table is absent — skip the scan. Do not skip it otherwise, and do not postpone it: a matched trigger is part of the CURRENT reply.
 
 ## Game memory — keep your own records
 - Your hidden records are documents in game_hidden. Keep them organized: read your brain to know which categories this game needs (facts, secrets, plans, npc, rumors, and so on).

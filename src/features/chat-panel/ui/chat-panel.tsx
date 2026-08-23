@@ -45,7 +45,7 @@ import {
   SwapOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
-import { useRef, useEffect, useState, useCallback, type DragEvent } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo, memo, type DragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -244,6 +244,10 @@ interface IChatPanelProps {
 
 const DEFAULT_MAX_FILES = 5;
 const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB per file
+// Re-send the typing indicator while the user keeps typing, so the remote
+// side's stale-clear timer (5s) keeps resetting and the "typing…" line stays
+// visible for as long as the message is actually being typed.
+const TYPING_HEARTBEAT_MS = 2500;
 
 function groupMessages(messages: IMessage[]) {
   const result: { event?: { ids: string[]; sender: string }; messages: IMessage[] }[] = [];
@@ -376,6 +380,257 @@ function getStepLabel(tool: string, t: (key: string, opts?: { returnObjects?: bo
   return raw;
 }
 
+function getBubbleClass(role: string) {
+  if (role === "master" || role === "builder") return styles.masterBubble;
+  return styles.playerBubble;
+}
+
+function getAvatarIcon(role: string) {
+  if (role === "builder") return <CodeOutlined />;
+  if (role === "master") return <RobotOutlined />;
+  return <UserOutlined />;
+}
+
+interface IChatMessageBubbleProps {
+  msg: IMessage;
+  hideShare?: boolean;
+  typing?: boolean;
+  confirmDelete: string | null;
+  onDeleteClick: (id: string) => void;
+  onDeleteBlur: () => void;
+  onDelete?: (id: string) => void;
+  onShare?: (id: string) => void;
+  onCopy: (text: string) => void;
+  onWikiClick: (docId: string, anchor?: string) => void;
+}
+
+/**
+ * One chat message bubble. memoized so re-renders of the panel (e.g. typing
+ * in the input, live agent steps) don't re-parse its markdown.
+ */
+const MessageBubble = memo(function MessageBubble({
+  msg, hideShare, typing, confirmDelete, onDeleteClick, onDeleteBlur,
+  onDelete, onShare, onCopy, onWikiClick,
+}: IChatMessageBubbleProps) {
+  const { t } = useTranslation();
+  const components = useMemo(() => wikiComponents(onWikiClick), [onWikiClick]);
+
+  if (msg.isRollEntry) {
+    return (
+      <div className={styles.rollEntry}>
+        <Tooltip title={msg.rollDetail ?? msg.rollResult ?? ""}>
+          <span className={styles.rollEntryBadge}>
+            🎲 {msg.rollCheckName}: <strong>{msg.rollResult ?? ""}</strong>
+          </span>
+        </Tooltip>
+      </div>
+    );
+  }
+  return (
+    <div className={`${styles.messageRow} ${(msg.role === "master" || msg.role === "builder") ? styles.masterRow : styles.playerRow}`}>
+      <Avatar
+        size={32}
+        src={msg.avatarUrl}
+        icon={getAvatarIcon(msg.role)}
+        className={styles.msgAvatar}
+      />
+      <div className={styles.msgContent}>
+        <div className={styles.sender}>{msg.sender}</div>
+        <div className={styles.bubbleRow}>
+          <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
+            {msg.prefix}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkWikiLink, remarkChatLink]}
+              components={components}
+            >
+              {String(msg.text)}
+            </ReactMarkdown>
+          </div>
+          <div className={styles.actions}>
+            <Tooltip title={t("chat.copy")} placement="top">
+              <button className={styles.actionBtn} onClick={() => onCopy(String(msg.text))}>
+                <CopyOutlined />
+              </button>
+            </Tooltip>
+            {!hideShare && onShare && (
+              <Tooltip title={t("chat.share")} placement="top">
+                <button className={styles.actionBtn} onClick={() => onShare(msg.id)}>
+                  <ShareAltOutlined />
+                </button>
+              </Tooltip>
+            )}
+            {onDelete && !msg.summarized && !typing && (
+              <Tooltip
+                title={confirmDelete === msg.id ? t("chat.deleteConfirm") : t("chat.delete")}
+                placement="top"
+              >
+                <button
+                  className={`${styles.actionBtn} ${confirmDelete === msg.id ? styles.deleteConfirming : ""}`}
+                  onClick={() => onDeleteClick(msg.id)}
+                  onBlur={onDeleteBlur}
+                >
+                  <DeleteOutlined />
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+interface IChatMessagesProps {
+  messages: IMessage[];
+  debugRows?: Record<string, ITranscriptRow[]>;
+  expandedEvents: Record<string, boolean>;
+  onToggleEvent: (id: string) => void;
+  confirmDelete: string | null;
+  onDeleteClick: (id: string) => void;
+  onDeleteBlur: () => void;
+  onDelete?: (id: string) => void;
+  onShare?: (id: string) => void;
+  hideShare?: boolean;
+  onCopy: (text: string) => void;
+  onWikiClick: (docId: string, anchor?: string) => void;
+  typing?: boolean;
+  stopping?: boolean;
+  streamedText?: string;
+  liveStep?: { tool: string; detail?: string } | null;
+  stepLabel?: string;
+  liveTools?: Array<{ tool: string; args?: string }>;
+  typingSender?: string;
+}
+
+/**
+ * The full message list (bubbles + debug tool log + typing bubble). memoized:
+ * while the user types, `messages`/callbacks stay referentially stable, so the
+ * heavy markdown rendering is skipped on every keystroke.
+ */
+const ChatMessages = memo(function ChatMessages({
+  messages, debugRows, expandedEvents, onToggleEvent, confirmDelete,
+  onDeleteClick, onDeleteBlur, onDelete, onShare, hideShare, onCopy, onWikiClick,
+  typing, stopping, streamedText, liveStep, stepLabel, liveTools, typingSender,
+}: IChatMessagesProps) {
+  const { t } = useTranslation();
+  const debugMode = debugRows !== undefined;
+
+  const renderMessageFlow = (msg: IMessage): ReactNode[] => {
+    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
+    const isAgentReply = msg.role === "master" || msg.role === "builder";
+    const toolCalls = isAgentReply && runRows ? runRows.filter((r) => r.kind === "tool-call") : [];
+    const resultsByCall = new Map<string, string | null>();
+    if (runRows) {
+      for (const r of runRows) {
+        if (r.kind === "tool-result" && r.toolCallId) resultsByCall.set(r.toolCallId, r.result);
+      }
+    }
+    const items: ReactNode[] = [];
+    for (const row of toolCalls) {
+      const s = formatToolCall(row.toolName, row.args, row.toolCallId ? resultsByCall.get(row.toolCallId) ?? null : null);
+      items.push(
+        <div key={`tool-${row.id}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
+          <span className={styles.toolLogRowIcon}>{getStepIcon(row.toolName ?? "")}</span>
+          <code>{row.toolName}</code>
+          {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
+        </div>
+      );
+    }
+    items.push(
+      <MessageBubble
+        key={msg.id}
+        msg={msg}
+        hideShare={hideShare}
+        typing={typing}
+        confirmDelete={confirmDelete}
+        onDeleteClick={onDeleteClick}
+        onDeleteBlur={onDeleteBlur}
+        onDelete={onDelete}
+        onShare={onShare}
+        onCopy={onCopy}
+        onWikiClick={onWikiClick}
+      />
+    );
+    return items;
+  };
+
+  const grouped = groupMessages(messages);
+
+  return (
+    <div className={styles.messages}>
+      {grouped.map((group) => {
+        if (group.event) {
+          const eventId = group.event.ids[0];
+          const expanded = expandedEvents[eventId];
+          return (
+            <div key={`event-${eventId}`}>
+              <button className={styles.eventLine} onClick={() => onToggleEvent(eventId)}>
+                <span className={styles.eventDot} />
+                <span className={styles.eventText}>
+                  {group.event.sender} {t("chat.sharedEvent")}
+                </span>
+                {expanded ? <DownOutlined className={styles.eventArrow} /> : <RightOutlined className={styles.eventArrow} />}
+                <span className={styles.eventDot} />
+              </button>
+              {expanded && (
+                <div className={styles.expandedShared}>
+                  {group.messages.flatMap(renderMessageFlow)}
+                </div>
+              )}
+            </div>
+          );
+        }
+        return group.messages.flatMap(renderMessageFlow);
+      })}
+      {debugMode && (liveTools ?? []).length > 0 && (
+        <div className={styles.liveToolLog}>
+          {(liveTools ?? []).map((lt, i) => {
+            const s = formatToolCall(lt.tool, lt.args, null);
+            return (
+              <div key={`live-${i}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
+                <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
+                <code>{lt.tool}</code>
+                {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {typing && (
+        <div className={`${styles.messageRow} ${styles.masterRow}`}>
+          <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
+          <div className={styles.msgContent}>
+            <div className={styles.sender}>{typingSender || t("chat.builderLabel")}</div>
+            <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
+              {stopping ? (
+                <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>
+              ) : streamedText ? (
+                <div className={styles.streamText}>{streamedText}</div>
+              ) : liveStep ? (
+                <div className={styles.liveStepsLine}>
+                  {getStepIcon(liveStep.tool)}
+                  <span>
+                    {stepLabel}{liveStep.detail ? ` (${liveStep.detail})` : ""}
+                  </span>
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                </div>
+              ) : (
+                <>
+                  <span style={{ color: "var(--text-dim)", fontSize: 12, marginRight: 4 }}>{t("chat.thinking")}</span>
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 export const ChatPanel = ({
   messages, placeholder, disabled, disabledText, hideShare, title,
   onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
@@ -402,10 +657,6 @@ export const ChatPanel = ({
   const [humanTyping, setHumanTyping] = useState<ITypingIndicator[]>([]);
   const typingSentRef = useRef(false);
   const lastTypingEmitRef = useRef(0);
-
-  // Live tool rows and the current-step label are debug-only (AGENT_DEBUG=1).
-  // The views leave debugRows undefined when debug is off.
-  const debugMode = debugRows !== undefined;
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -508,11 +759,16 @@ export const ChatPanel = ({
     if (!stepsSessionId) return;
     const text = value.trim();
     const now = Date.now();
-    if (text && !typingSentRef.current && now - lastTypingEmitRef.current > 300) {
-      typingSentRef.current = true;
-      lastTypingEmitRef.current = now;
-      notifyTyping(stepsSessionId, true);
-    } else if (!text && typingSentRef.current) {
+    // Re-send typing:true on the first keystroke AND periodically (heartbeat)
+    // while the user keeps typing, so the receiver's stale-clear timer keeps
+    // resetting and the indicator stays visible the whole time.
+    if (text) {
+      if (!typingSentRef.current || now - lastTypingEmitRef.current > TYPING_HEARTBEAT_MS) {
+        typingSentRef.current = true;
+        lastTypingEmitRef.current = now;
+        notifyTyping(stepsSessionId, true);
+      }
+    } else if (typingSentRef.current) {
       typingSentRef.current = false;
       notifyTyping(stepsSessionId, false);
     }
@@ -560,12 +816,6 @@ export const ChatPanel = ({
     setShowScrollToBottom(false);
     setHumanTyping([]);
   }
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      notification.success({ title: t("chat.copied") });
-    });
-  };
 
   const handleSend = () => {
     const text = inputValue.trim();
@@ -655,132 +905,32 @@ export const ChatPanel = ({
 
   // ---- render ----
 
-  const toggleEvent = (id: string) => {
+  const toggleEvent = useCallback((id: string) => {
     setExpandedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  }, []);
 
-  const getBubbleClass = (role: string) => {
-    if (role === "master" || role === "builder") return styles.masterBubble;
-    return styles.playerBubble;
-  };
-
-  const getAvatarIcon = (role: string) => {
-    if (role === "builder") return <CodeOutlined />;
-    if (role === "master") return <RobotOutlined />;
-    return <UserOutlined />;
-  };
-
-  const renderBubble = (msg: IMessage) => {
-    if (msg.isRollEntry) {
-      return (
-        <div key={msg.id} className={styles.rollEntry}>
-          <Tooltip title={msg.rollDetail ?? msg.rollResult ?? ""}>
-            <span className={styles.rollEntryBadge}>
-              🎲 {msg.rollCheckName}: <strong>{msg.rollResult ?? ""}</strong>
-            </span>
-          </Tooltip>
-        </div>
-      );
+  const handleDeleteClick = useCallback((id: string) => {
+    if (confirmDelete === id) {
+      onDelete?.(id);
+      setConfirmDelete(null);
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    } else {
+      setConfirmDelete(id);
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 3000);
     }
-    return (
-    <div
-      key={msg.id}
-      className={`${styles.messageRow} ${(msg.role === "master" || msg.role === "builder") ? styles.masterRow : styles.playerRow}`}
-    >
-      <Avatar
-        size={32}
-        src={msg.avatarUrl}
-        icon={getAvatarIcon(msg.role)}
-        className={styles.msgAvatar}
-      />
-      <div className={styles.msgContent}>
-        <div className={styles.sender}>{msg.sender}</div>
-        <div className={styles.bubbleRow}>
-          <div className={`${styles.bubble} ${getBubbleClass(msg.role)}`}>
-            {msg.prefix}
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkWikiLink, remarkChatLink]}
-               components={wikiComponents(handleWikiClick)}
-            >
-              {String(msg.text)}
-            </ReactMarkdown>
-          </div>
-          <div className={styles.actions}>
-            <Tooltip title={t("chat.copy")} placement="top">
-              <button className={styles.actionBtn} onClick={() => handleCopy(String(msg.text))}>
-                <CopyOutlined />
-              </button>
-            </Tooltip>
-            {!hideShare && onShare && (
-              <Tooltip title={t("chat.share")} placement="top">
-                <button className={styles.actionBtn} onClick={() => onShare(msg.id)}>
-                  <ShareAltOutlined />
-                </button>
-              </Tooltip>
-            )}
-            {onDelete && !msg.summarized && !typing && (
-              <Tooltip
-                title={confirmDelete === msg.id ? t("chat.deleteConfirm") : t("chat.delete")}
-                placement="top"
-              >
-                <button
-                  className={`${styles.actionBtn} ${confirmDelete === msg.id ? styles.deleteConfirming : ""}`}
-                  onClick={() => {
-                    if (confirmDelete === msg.id) {
-                      onDelete(msg.id);
-                      setConfirmDelete(null);
-                      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-                    } else {
-                      setConfirmDelete(msg.id);
-                      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-                      confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 3000);
-                    }
-                  }}
-                  onBlur={() => {
-                    // Reset on focus loss (with small delay to allow click)
-                    confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 200);
-                  }}
-                >
-                  <DeleteOutlined />
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-  };
+  }, [confirmDelete, onDelete]);
 
-  // Debug mode: each agent action becomes its own standalone line in the chat
-  // flow (like Cursor/Kilo Code), inserted right before the assistant reply of
-  // the run. Only present when debugRows is available (AGENT_DEBUG=1 + admin).
-  const renderMessageFlow = (msg: IMessage): ReactNode[] => {
-    const runRows = msg.runId ? debugRows?.[msg.runId] : undefined;
-    const isAgentReply = msg.role === "master" || msg.role === "builder";
-    const toolCalls = isAgentReply && runRows ? runRows.filter((r) => r.kind === "tool-call") : [];
-    const resultsByCall = new Map<string, string | null>();
-    if (runRows) {
-      for (const r of runRows) {
-        if (r.kind === "tool-result" && r.toolCallId) resultsByCall.set(r.toolCallId, r.result);
-      }
-    }
-    const items: ReactNode[] = [];
-    for (const row of toolCalls) {
-      const s = formatToolCall(row.toolName, row.args, row.toolCallId ? resultsByCall.get(row.toolCallId) ?? null : null);
-      items.push(
-        <div key={`tool-${row.id}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
-          <span className={styles.toolLogRowIcon}>{getStepIcon(row.toolName ?? "")}</span>
-          <code>{row.toolName}</code>
-          {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
-        </div>
-      );
-    }
-    items.push(renderBubble(msg));
-    return items;
-  };
+  const handleDeleteBlur = useCallback(() => {
+    // Reset on focus loss (with small delay to allow click)
+    confirmTimerRef.current = setTimeout(() => setConfirmDelete(null), 200);
+  }, []);
 
-  const grouped = groupMessages(messages);
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      notification.success({ title: t("chat.copied") });
+    });
+  }, [notification, t]);
 
   return (
     <>
@@ -828,77 +978,27 @@ export const ChatPanel = ({
         </div>
       )}
       <div className={styles.inner} ref={scrollRef} onScroll={handleScroll}>
-        <div className={styles.messages}>
-          {grouped.map((group) => {
-            if (group.event) {
-              const eventId = group.event.ids[0];
-              const expanded = expandedEvents[eventId];
-              return (
-                <div key={`event-${eventId}`}>
-                  <button className={styles.eventLine} onClick={() => toggleEvent(eventId)}>
-                    <span className={styles.eventDot} />
-                    <span className={styles.eventText}>
-                      {group.event.sender} {t("chat.sharedEvent")}
-                    </span>
-                    {expanded ? <DownOutlined className={styles.eventArrow} /> : <RightOutlined className={styles.eventArrow} />}
-                    <span className={styles.eventDot} />
-                  </button>
-                  {expanded && (
-                    <div className={styles.expandedShared}>
-                      {group.messages.flatMap(renderMessageFlow)}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            return group.messages.flatMap(renderMessageFlow);
-          })}
-          {debugMode && liveTools.length > 0 && (
-            <div className={styles.liveToolLog}>
-              {liveTools.map((lt, i) => {
-                const s = formatToolCall(lt.tool, lt.args, null);
-                return (
-                  <div key={`live-${i}`} className={`${styles.toolLogRow} ${toneClass(s.tone)}`}>
-                    <span className={styles.toolLogRowIcon}>{getStepIcon(lt.tool)}</span>
-                    <code>{lt.tool}</code>
-                    {s.detail && <span className={styles.toolLogRowArgs}>{s.detail}</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {typing && (
-            <div className={`${styles.messageRow} ${styles.masterRow}`}>
-              <Avatar size={32} icon={<CodeOutlined />} className={styles.msgAvatar} />
-              <div className={styles.msgContent}>
-                <div className={styles.sender}>{typingSender || t("chat.builderLabel")}</div>
-                <div className={`${styles.bubble} ${styles.masterBubble} ${styles.typingBubble}`}>
-                  {stopping ? (
-                    <span style={{ color: "var(--text-dim)", fontSize: 12 }}>{t("chat.stopping")}</span>
-                  ) : streamedText ? (
-                    <div className={styles.streamText}>{streamedText}</div>
-                  ) : liveStep ? (
-                    <div className={styles.liveStepsLine}>
-                      {getStepIcon(liveStep.tool)}
-                      <span>
-                        {stepLabel}{liveStep.detail ? ` (${liveStep.detail})` : ""}
-                      </span>
-                      <span className={styles.dot} />
-                      <span className={styles.dot} />
-                    </div>
-                  ) : (
-                    <>
-                      <span style={{ color: "var(--text-dim)", fontSize: 12, marginRight: 4 }}>{t("chat.thinking")}</span>
-                      <span className={styles.dot} />
-                      <span className={styles.dot} />
-                      <span className={styles.dot} />
-                    </>
-            )}
-        </div>
-      </div>
-            </div>
-          )}
-        </div>
+        <ChatMessages
+          messages={messages}
+          debugRows={debugRows}
+          expandedEvents={expandedEvents}
+          onToggleEvent={toggleEvent}
+          confirmDelete={confirmDelete}
+          onDeleteClick={handleDeleteClick}
+          onDeleteBlur={handleDeleteBlur}
+          onDelete={onDelete}
+          onShare={onShare}
+          hideShare={hideShare}
+          onCopy={handleCopy}
+          onWikiClick={handleWikiClick}
+          typing={typing}
+          stopping={stopping}
+          streamedText={streamedText}
+          liveStep={liveStep}
+          stepLabel={stepLabel}
+          liveTools={liveTools}
+          typingSender={typingSender}
+        />
         {showScrollToBottom && (
           <div className={styles.scrollToBottomWrap}>
             <Tooltip title={t("chat.scrollToBottom")} placement="top">

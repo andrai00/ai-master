@@ -14,6 +14,7 @@ export const gmGetSceneStateTool = {
     const prisma = getPrisma();
     const doc = await prisma.document.findFirst({
       where: { masterId: activeGame.currentMasterId, category: "game_hidden", type: "scene", status: "active" },
+      orderBy: { updatedAt: "desc" },
       select: { id: true, title: true, content: true, updatedAt: true },
     });
 

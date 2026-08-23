@@ -144,9 +144,11 @@ model DocumentRead {
   sessionId  String
   documentId String
   readAt     DateTime @default(now())
+  runId      String?  // run that last read/wrote the doc; used to evict reads after summarization
 
   @@unique([sessionId, documentId])
   @@index([sessionId])
+  @@index([runId])
 }
 
 model UploadedFile {

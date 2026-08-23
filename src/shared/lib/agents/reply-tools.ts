@@ -6,11 +6,13 @@
 const actionLedger = new Map<string, string[]>();
 const planDone = new Map<string, boolean>();
 const reviewDone = new Map<string, boolean>();
+const plannedFacts = new Map<string, string[]>();
 
 export function clearActions(sessionId: string): void {
   actionLedger.delete(sessionId);
   planDone.delete(sessionId);
   reviewDone.delete(sessionId);
+  plannedFacts.delete(sessionId);
 }
 
 export function recordActions(sessionId: string, toolCalls: Array<{ toolName?: string }>): void {
@@ -44,4 +46,14 @@ export function markReviewDone(sessionId: string): void {
 /** Whether review_turn was called this run. */
 export function isReviewDone(sessionId: string): boolean {
   return reviewDone.get(sessionId) ?? false;
+}
+
+/** Records the new facts the model declared in plan_turn (review completeness). */
+export function setPlannedFacts(sessionId: string, facts: string[]): void {
+  plannedFacts.set(sessionId, facts ?? []);
+}
+
+/** Facts the model declared it would create this run (plan_turn). */
+export function getPlannedFacts(sessionId: string): string[] {
+  return plannedFacts.get(sessionId) ?? [];
 }

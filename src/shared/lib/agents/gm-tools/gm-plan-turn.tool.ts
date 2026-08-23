@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zodSchema } from "ai";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { buildTurnDigest, formatTurnDigest } from "../turn-digest";
-import { markPlanDone } from "../reply-tools";
+import { markPlanDone, setPlannedFacts } from "../reply-tools";
 
 /**
  * plan_turn — the first tool of every GM run that is going to change state.
@@ -14,7 +14,7 @@ import { markPlanDone } from "../reply-tools";
 export function createPlanTurnTool(sessionId: string) {
   return {
     description:
-      "PLAN this turn. MANDATORY before ANY write/roll tool (create/update/delete document, write_note, set_scene_state, update_char_sheet, present_roll_check, confirm_rolls, roll_dice). Declare what happened (triggers from the brain index that apply), what you will read, what you will write, what you will roll. Returns the current state digest (changed docs, scene, memory index, pending rolls) — plan your actions from it. Call it FIRST, before acting.",
+      "PLAN this turn. MANDATORY before ANY write/roll tool (create/update/delete document, write_note, set_scene_state, update_char_sheet, present_roll_check, confirm_rolls, roll_dice). Declare what happened (triggers from the brain index that apply), what you will read, what you will write, what you will roll, and which NEW facts this turn's narration will reveal. Returns the current state digest (changed docs, scene, memory index, pending rolls) — plan your actions from it. Call it FIRST, before acting.",
     inputSchema: zodSchema(
       z.object({
         intent: z
@@ -26,6 +26,9 @@ export function createPlanTurnTool(sessionId: string) {
         reads: z.array(z.string()).describe("Documents/sections you plan to READ this turn (paths or titles)."),
         writes: z.array(z.string()).describe("Documents you plan to CREATE/UPDATE/DELETE this turn (paths or titles). Empty if you will not write."),
         rolls: z.array(z.string()).describe("Rolls you plan to ASSIGN or CONFIRM this turn (short names). Empty if none."),
+        new_facts: z
+          .array(z.string())
+          .describe("NEW facts this turn's narration will reveal that MUST be recorded in your memory (game_hidden) this turn: named NPCs (e.g. 'магистр Роук'), schedules, items, security measures, secrets, location details, clues. The player's notebook is NOT your memory — you must record these facts yourself. Empty if no new facts."),
       })
     ),
     execute: async (args: {
@@ -34,11 +37,13 @@ export function createPlanTurnTool(sessionId: string) {
       reads: string[];
       writes: string[];
       rolls: string[];
+      new_facts: string[];
     }) => {
       const activeGame = await getActiveGame();
       if (!activeGame || activeGame.mode !== "game") throw new Error("errors.notInGameMode");
 
       markPlanDone(sessionId);
+      setPlannedFacts(sessionId, args.new_facts ?? []);
 
       const digest = await buildTurnDigest(sessionId, activeGame.currentMasterId);
 
@@ -51,6 +56,7 @@ export function createPlanTurnTool(sessionId: string) {
         planned_reads: args.reads,
         planned_writes: args.writes,
         planned_rolls: args.rolls,
+        planned_new_facts: args.new_facts ?? [],
         state: stateBlock.trim(),
       };
     },

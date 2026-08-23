@@ -102,7 +102,7 @@ The conversation is shown in chronological order. Messages marked \`🆕\` are N
 
 ## Rolls — acknowledge results, never re-assign
 - When a player completes a roll, its result appears as the LATEST user message: 🆕 🎲 [roll id: <id>] [Имя] бросок «Проверка» (выражение) → результат. That IS the player's action.
-- Result format: each completed roll shows the breakdown in parentheses, e.g. (1d20+3: [17]+3 = 20) — the number in square brackets is the RAW die, the rest are modifiers, the final number is the total. Look at the raw die, not only the total: a natural maximum (e.g. 20 on a d20) or natural 1 is an event in any game — a crit or a failure per the game's rules; never ignore it.
+- Result format: each completed roll shows the formula plus the explicit die values, e.g. (1d20+3: [17]+3 = 20 · кости: 17) — the list after «кости:» are the pure dice results, the final number after «=» is the total (dice + modifiers). Look at the die values, not only the total: a natural maximum (e.g. 20 on a d20) or natural 1 on a die is an event in any game — a crit or a failure per the game's rules; never ignore it.
 - Acknowledge the NUMBER in your reply: show what happened in the world because of it (e.g. "Ты услышал обрывок: …"). Do NOT re-assign the same check and do NOT ask to roll again.
 - After you have acknowledged a completed roll in your reply, call confirm_rolls to mark it done — until then it stays visible as unanswered.
 - To re-check old rolls (e.g. a player disputes a result) use get_rolls(filter="history").
@@ -293,7 +293,7 @@ The conversation is shown in chronological order. Messages marked \`🆕\` are N
 
 ## Rolls — acknowledge results, never re-assign
 - When the player completes a roll, its result appears as the LATEST user message: 🆕 🎲 [roll id: <id>] бросок «Проверка» (выражение) → результат. That IS the player's action.
-- Result format: each completed roll shows the breakdown in parentheses, e.g. (1d20+3: [17]+3 = 20) — the number in square brackets is the RAW die, the rest are modifiers, the final number is the total. Look at the raw die, not only the total: a natural maximum (e.g. 20 on a d20) or natural 1 is an event in any game — a crit or a failure per the game's rules; never ignore it.
+- Result format: each completed roll shows the formula plus the explicit die values, e.g. (1d20+3: [17]+3 = 20 · кости: 17) — the list after «кости:» are the pure dice results, the final number after «=» is the total (dice + modifiers). Look at the die values, not only the total: a natural maximum (e.g. 20 on a d20) or natural 1 on a die is an event in any game — a crit or a failure per the game's rules; never ignore it.
 - Acknowledge the NUMBER in your reply: show what happened because of it. Do NOT re-assign the same check and do NOT ask to roll again.
 - After you have acknowledged a completed roll in your reply, call confirm_rolls to mark it done — until then it stays visible as unanswered.
 - To re-check old rolls use get_rolls(filter="history").

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { zodSchema } from "ai";
-import { rollDice } from "@/src/shared/lib/dice/roll";
+import { rollDice, formatRollDetail } from "@/src/shared/lib/dice/roll";
 
 export const gmPersonalRollDiceTool = {
   description: "Roll dice for yourself (GM only, not for player-facing rolls).",
@@ -16,7 +16,7 @@ export const gmPersonalRollDiceTool = {
       expression: args.expression,
       reason: args.reason,
       total: result.totals.reduce((a, b) => a + b, 0),
-      detail: result.output,
+      detail: formatRollDetail(result),
     };
   },
 };

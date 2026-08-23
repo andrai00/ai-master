@@ -3,7 +3,7 @@ import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
-import { rollDice } from "@/src/shared/lib/dice/roll";
+import { rollDice, formatRollDetail } from "@/src/shared/lib/dice/roll";
 
 export const gmRollDiceTool = {
   description: "Roll dice for yourself (GM only). Saves result to session roll strip.",
@@ -39,7 +39,7 @@ export const gmRollDiceTool = {
             // never mistakes its own roll for a player's action. The UI roll
             // strip still shows them (it filters by status, not consumed).
             result: result.totals.join(", "),
-            detail: result.output,
+            detail: formatRollDetail(result),
             consumed: true,
             completedAt: new Date(),
           },
@@ -52,7 +52,7 @@ export const gmRollDiceTool = {
       expression: args.expression,
       reason: args.reason,
       total: result.totals.reduce((a, b) => a + b, 0),
-      detail: result.output,
+      detail: formatRollDetail(result),
       savedToSession: !!sessionId,
     };
   },

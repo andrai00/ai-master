@@ -3,6 +3,21 @@ import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 export interface IDiceRollResult {
   totals: number[];
   output: string;
+  breakdown: string;
+}
+
+function diceValues(output: string): string {
+  const values: string[] = [];
+  for (const group of output.matchAll(/\[([^\]]*)\]/g)) {
+    for (const die of group[1].matchAll(/[+-]?\d+/g)) {
+      values.push(die[0]);
+    }
+  }
+  return values.length ? `кости: ${values.join(", ")}` : "";
+}
+
+export function formatRollDetail(result: IDiceRollResult): string {
+  return result.breakdown ? `${result.output} · ${result.breakdown}` : result.output;
 }
 
 export function rollDice(notation: string): IDiceRollResult {
@@ -10,13 +25,15 @@ export function rollDice(notation: string): IDiceRollResult {
   if (compound) {
     const parts = notation.match(/\[\[[^\]]+\]\]/g) ?? [];
     const results = parts.map(p => new DiceRoll(p));
+    const output = results.map(r => r.output).join(" | ");
     return {
       totals: results.map(r => r.total),
-      output: results.map(r => r.output).join(" | "),
+      output,
+      breakdown: diceValues(output),
     };
   }
   const roll = new DiceRoll(notation);
-  return { totals: [roll.total], output: roll.output };
+  return { totals: [roll.total], output: roll.output, breakdown: diceValues(roll.output) };
 }
 
 export function validateNotation(notation: string): boolean {

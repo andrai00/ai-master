@@ -3,7 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { assertNotGameMode, GameModeReadOnlyError } from "@/src/shared/lib/db/game-mode-guard";
-import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 import { isProcessing } from "@/src/shared/lib/agents/builder-runner";
 
 export async function sendBuilderMessageAction(
@@ -32,7 +32,7 @@ export async function sendBuilderMessageAction(
     filename: fileNames[i] ?? id,
   }));
 
-  await prisma.message.create({
+  const created = await prisma.message.create({
     data: {
       sessionId,
       senderId: session.userId,
@@ -41,9 +41,10 @@ export async function sendBuilderMessageAction(
       hasFiles: fileIds.length > 0,
       attachedFiles: JSON.stringify(attachedFiles),
     },
+    include: { sender: { select: { displayName: true, avatar: true } } },
   });
 
-  broadcastGameEvent("builder_message_sent", { sessionId });
+  broadcastMessageCreated("builder_message_sent", sessionId, created);
 
   return { success: true };
 }

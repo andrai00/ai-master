@@ -34,6 +34,7 @@ import { validateLinksTool } from "./tools/validate-links.tool";
 import { clearActions, recordActions } from "./reply-tools";
 import { compressMessages } from "./context-compress";
 import { traceAgent } from "./trace";
+import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
 import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
@@ -668,6 +669,7 @@ export async function runBuilderAgent(
         role: "builder",
         content: builderText,
       },
+      include: { sender: { select: { displayName: true, avatar: true } } },
     });
 
     await persistRun({
@@ -678,6 +680,8 @@ export async function runBuilderAgent(
       finalText: builderText,
       userMessageIds,
     });
+
+    broadcastMessageCreated("builder_message_sent", sessionId, created);
 
     // Background auto-summarization when the session grows.
     scheduleSummarize(ctx.masterId, sessionId);

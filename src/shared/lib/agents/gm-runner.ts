@@ -37,7 +37,7 @@ import {
   initSession, emitStarted, emitStep, emitDone, emitError,
   emitStopped, emitText,
 } from "./step-tracker";
-import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
 import { traceAgent, type TraceChat } from "./trace";
 import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
@@ -672,6 +672,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
           role: "master",
           content: gmText,
         },
+        include: { sender: { select: { displayName: true, avatar: true } } },
       });
       await persistRun({
         sessionId,
@@ -681,7 +682,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
         finalText: gmText,
         userMessageIds,
       });
-      broadcastGameEvent("game_message_sent", { sessionId });
+      broadcastMessageCreated("game_message_sent", sessionId, created);
       gmLog(`SAVE len=${gmText.length}`);
     }
 
@@ -816,6 +817,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
           role: "master",
           content: gmText,
         },
+        include: { sender: { select: { displayName: true, avatar: true } } },
       });
       await persistRun({
         sessionId,
@@ -825,7 +827,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
         finalText: gmText,
         userMessageIds,
       });
-      broadcastGameEvent("personal_message_sent", { sessionId });
+      broadcastMessageCreated("personal_message_sent", sessionId, created);
     }
 
     scheduleSummarize(ctx.masterId, sessionId);

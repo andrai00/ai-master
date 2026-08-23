@@ -3,7 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
-import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 
 export async function shareMessageAction(
   messageId: string
@@ -55,7 +55,7 @@ export async function shareMessageAction(
   });
   if (!gameSession) return { success: false, error: "errors.sessionNotFound" };
 
-  await prisma.message.create({
+  const created = await prisma.message.create({
     data: {
       sessionId: gameSession.id,
       senderId: msg.senderId,
@@ -63,9 +63,10 @@ export async function shareMessageAction(
       content: msg.content,
       shared: true,
     },
+    include: { sender: { select: { displayName: true, avatar: true } } },
   });
 
-  broadcastGameEvent("game_message_sent", { sessionId: gameSession.id });
+  broadcastMessageCreated("game_message_sent", gameSession.id, created);
 
   return { success: true };
 }

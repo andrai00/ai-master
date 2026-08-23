@@ -10,10 +10,50 @@ import { DocumentPreviewProvider } from "@/src/shared/ui/document-preview-provid
 import { connectSocket, disconnectSocket, emitStep, emitReconnect, emitDocumentDeleted, dispatchTypingIndicator, dispatchPresence } from "@/src/shared/lib/realtime/client";
 import type { IRealtimeStepEvent } from "@/src/shared/lib/realtime/client";
 import type { ISessionPayload } from "@/src/shared/lib/auth/session";
+import type { IMessagePayload } from "@/src/shared/lib/events/message-payload";
 import styles from "./shell.module.css";
 
 const { Content } = Layout;
 const MOBILE_BREAKPOINT = 768;
+
+interface IMessageListCache {
+  messages: Array<{ id: string; createdAt: Date | string }>;
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Inserts a freshly broadcast chat message into the matching React Query
+ * caches (all pages of the session) so it renders instantly. Replaces the
+ * sender's optimistic placeholder and keeps `total` consistent. When the
+ * query is still loading or absent (fresh page), seeds it with just this
+ * message — the background refetch fills the full list afterwards.
+ */
+function upsertMessageInCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  prefix: "game" | "personal" | "builder",
+  sessionId: string,
+  msg: IMessagePayload
+): void {
+  queryClient.setQueriesData(
+    { queryKey: [prefix, "messages", sessionId] },
+    (old: unknown) => {
+      const inserted = { ...msg, createdAt: new Date(msg.createdAt) };
+      if (!old || typeof old !== "object" || !("messages" in old) || !Array.isArray(old.messages)) {
+        return { messages: [inserted], total: 1, page: 1, pageSize: 30 };
+      }
+      const data = old as IMessageListCache;
+      if (data.messages.some((m) => m.id === msg.id)) return old;
+      const hasOptimistic = data.messages.some((m) => m.id.startsWith("optimistic-"));
+      return {
+        ...data,
+        messages: [inserted, ...data.messages.filter((m) => m.id !== msg.id && !m.id.startsWith("optimistic-"))],
+        total: hasOptimistic ? data.total : data.total + 1,
+      };
+    }
+  );
+}
 
 interface IShellProps {
   user?: ISessionPayload;
@@ -55,7 +95,7 @@ export const Shell = ({ user, children }: IShellProps) => {
       queryClient.invalidateQueries({ queryKey: ["game", "responseState"] });
     };
 
-    const handleGameEvent = (parsed: { type?: string; payload?: { sessionId?: string; documentId?: string } }) => {
+    const handleGameEvent = (parsed: { type?: string; payload?: { sessionId?: string; documentId?: string; message?: IMessagePayload } }) => {
       const type = parsed?.type ?? "";
       const payload = parsed?.payload;
 
@@ -81,6 +121,9 @@ export const Shell = ({ user, children }: IShellProps) => {
       }
       if (type === "builder_message_deleted" || type === "builder_message_sent" || type === "builder_chat_cleared") {
         if (payload?.sessionId) {
+          if (type === "builder_message_sent" && payload.message) {
+            upsertMessageInCache(queryClient, "builder", payload.sessionId, payload.message);
+          }
           queryClient.invalidateQueries({ queryKey: ["builder", "messages", payload.sessionId] });
         }
       }
@@ -97,10 +140,22 @@ export const Shell = ({ user, children }: IShellProps) => {
       if (type === "ai_config_updated") {
         queryClient.invalidateQueries({ queryKey: ["admin", "aiConfig"] });
       }
-      if (type === "game_message_sent" || type === "game_message_deleted") {
+      if (type === "game_message_sent") {
+        if (payload?.sessionId && payload.message) {
+          upsertMessageInCache(queryClient, "game", payload.sessionId, payload.message);
+        }
         queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
       }
-      if (type === "personal_message_sent" || type === "personal_message_deleted") {
+      if (type === "game_message_deleted") {
+        queryClient.invalidateQueries({ queryKey: ["game", "messages"] });
+      }
+      if (type === "personal_message_sent") {
+        if (payload?.sessionId && payload.message) {
+          upsertMessageInCache(queryClient, "personal", payload.sessionId, payload.message);
+        }
+        queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
+      }
+      if (type === "personal_message_deleted") {
         queryClient.invalidateQueries({ queryKey: ["personal", "messages"] });
       }
       if (type === "profile_updated") {

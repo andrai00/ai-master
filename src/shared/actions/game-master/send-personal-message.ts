@@ -3,7 +3,7 @@
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
-import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 import { isProcessing } from "@/src/shared/lib/agents/gm-runner";
 
 export async function sendPersonalMessageAction(
@@ -37,16 +37,17 @@ export async function sendPersonalMessageAction(
     if (!access) return { success: false, error: "errors.noGameAccess" };
   }
 
-  await prisma.message.create({
+  const created = await prisma.message.create({
     data: {
       sessionId,
       senderId: session.userId,
       role: session.role,
       content: content.trim(),
     },
+    include: { sender: { select: { displayName: true, avatar: true } } },
   });
 
-  broadcastGameEvent("personal_message_sent", { sessionId });
+  broadcastMessageCreated("personal_message_sent", sessionId, created);
 
   return { success: true };
 }

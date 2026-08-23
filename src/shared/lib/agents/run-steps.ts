@@ -13,9 +13,23 @@ type RunStep = {
  * message validation.
  */
 export function stepsToModelMessages(steps: RunStep[]): ModelMessage[] {
+  // Skip orphan tool-calls (a call whose toolCallId has no matching result).
+  // A run can end with a tool call whose result never arrived (provider stream
+  // cut off). Feeding that call back without its result makes the next
+  // streamText throw AI_MissingToolResultsError, so filter them out — same
+  // guard persistRun and buildTranscript already apply.
+  const resultCallIds = new Set<string>();
+  for (const step of steps) {
+    for (const r of step.toolResults ?? []) {
+      if (r.toolCallId) resultCallIds.add(r.toolCallId);
+    }
+  }
+
   const out: ModelMessage[] = [];
   for (const step of steps) {
-    const calls = step.toolCalls ?? [];
+    const calls = (step.toolCalls ?? []).filter(
+      (c) => c.toolCallId && resultCallIds.has(c.toolCallId)
+    );
     if (calls.length > 0) {
       out.push({
         role: "assistant",

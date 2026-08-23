@@ -30,4 +30,29 @@ describe("stepsToModelMessages", () => {
     expect(result.content[0].output.type).toBe("json");
     expect(result.content[0].output.value).toEqual({ total: 3 });
   });
+
+  it("drops orphan tool-calls that have no matching tool result", () => {
+    const msgs = stepsToModelMessages([
+      {
+        toolCalls: [
+          { toolCallId: "c1", toolName: "present_roll_check", input: { checkName: "Инициатива" } },
+          { toolCallId: "c2", toolName: "get_rolls", input: {} },
+        ],
+        toolResults: [{ toolCallId: "c2", toolName: "get_rolls", output: [] }],
+      },
+    ]);
+    expect(msgs).toHaveLength(2);
+
+    const call = msgs[0] as {
+      role: string;
+      content: Array<{ toolCallId: string }>;
+    };
+    expect(call.role).toBe("assistant");
+    expect(call.content).toHaveLength(1);
+    expect(call.content[0].toolCallId).toBe("c2");
+
+    const result = msgs[1] as { role: string; content: Array<{ toolCallId: string }> };
+    expect(result.role).toBe("tool");
+    expect(result.content[0].toolCallId).toBe("c2");
+  });
 });

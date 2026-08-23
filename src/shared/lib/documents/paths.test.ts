@@ -17,6 +17,19 @@ describe("makePath", () => {
     expect(makePath("glossary", "bestiary/331-camel")).toBe("glossary/bestiary/331-camel");
     expect(makePath("game_visible", "sheet-valera", "player1")).toBe("visible/player1/sheet-valera");
   });
+
+  it("scopes game_hidden notes with playerId under hidden/players/<id>/", () => {
+    expect(makePath("game_hidden", "Создание персонажа: Кирилл", "p1")).toBe(
+      "hidden/players/p1/Создание персонажа: Кирилл"
+    );
+    expect(makePath("game_hidden", "hidden/players/p1/Создание персонажа: Кирилл", "p1")).toBe(
+      "hidden/players/p1/Создание персонажа: Кирилл"
+    );
+  });
+
+  it("keeps game_hidden without playerId unprefixed", () => {
+    expect(makePath("game_hidden", "memory/scene-3")).toBe("hidden/memory/scene-3");
+  });
 });
 
 describe("replacePathLinks (rename cascade)", () => {

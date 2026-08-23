@@ -32,6 +32,8 @@ export function categoryPrefix(category: string): string {
 /**
  * Builds a valid path for a new document: normalizes the given value and
  * guarantees the category prefix. For game_visible, includes the playerId.
+ * For game_hidden with a playerId, scopes the note under hidden/players/<id>/
+ * so per-player hidden notes never collide and are discoverable by player.
  */
 export function makePath(category: string, value: string, playerId?: string): string {
   const prefix = categoryPrefix(category);
@@ -39,6 +41,12 @@ export function makePath(category: string, value: string, playerId?: string): st
   if (prefix === "visible/") {
     const who = normalizePath(playerId ?? "shared");
     return raw.startsWith(`${prefix}${who}/`) ? raw : `${prefix}${who}/${raw}`;
+  }
+  if (prefix === "hidden/" && playerId) {
+    const who = normalizePath(playerId);
+    const scoped = `hidden/players/${who}`;
+    if (raw === scoped || raw.startsWith(`${scoped}/`)) return raw;
+    return `${scoped}/${raw}`;
   }
   return raw.startsWith(prefix) ? raw : `${prefix}${raw}`;
 }

@@ -9,7 +9,7 @@ import { validateLinksContent } from "@/src/shared/lib/documents/validate-links"
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const gmCreateDocumentTool = {
-  description: "Create a new document. Can create game_hidden (notes, plans, memory) and game_visible (character sheets, public info).",
+  description: "Create a new document. Can create game_hidden (notes, plans, memory) and game_visible (character sheets, public info). Pass playerId to bind a PERSONAL document to a player: game_visible sheet OR game_hidden per-player note (e.g. their character creation progress — stays invisible to the player).",
   inputSchema: zodSchema(
     z.object({
       title: z.string().describe("Document title"),
@@ -17,7 +17,7 @@ export const gmCreateDocumentTool = {
       category: z.enum(["game_hidden", "game_visible"]).describe("Document category"),
       type: z.string().describe("Document type (e.g. note, character_sheet, scene, template)"),
       path: z.string().optional().describe("Unique document path with category prefix, e.g. 'hidden/memory/scene-3'. If omitted, derived from the title."),
-      playerId: z.string().optional().describe("Player ID for game_visible personal docs. Omit for common docs."),
+      playerId: z.string().optional().describe("Player ID to bind a personal document to that player (game_visible sheet OR game_hidden per-player note). Omit for common docs."),
       summary: z.string().optional().describe("1-2 sentence summary"),
       tags: z.array(z.string()).optional().describe("Tags for searchability"),
     })

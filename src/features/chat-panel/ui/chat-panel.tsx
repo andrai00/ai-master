@@ -657,6 +657,8 @@ export const ChatPanel = ({
   const [humanTyping, setHumanTyping] = useState<ITypingIndicator[]>([]);
   const typingSentRef = useRef(false);
   const lastTypingEmitRef = useRef(0);
+  const textareaRef = useRef<import("antd").InputRef>(null);
+  const refocusPendingRef = useRef(false);
 
   const handleWikiClick = useCallback((docId: string, anchor?: string) => {
     openDocument(docId, anchor);
@@ -823,11 +825,25 @@ export const ChatPanel = ({
     onSend(text, attachedFiles);
     setInputValue("");
     setAttachedFiles([]);
+    // Keep the cursor in the input after sending so the user can keep typing.
+    // The textarea may be briefly disabled (sending/typing) — refocus as soon
+    // as it becomes interactive again.
+    refocusPendingRef.current = true;
     if (typingSentRef.current) {
       typingSentRef.current = false;
       if (stepsSessionId) notifyTyping(stepsSessionId, false);
     }
   };
+
+  // Restore focus to the chat input after a send once it is editable again
+  // (covers click-on-send-button focus loss and the disabled sending/typing
+  // window). Also refocus immediately on Enter.
+  useEffect(() => {
+    if (!refocusPendingRef.current) return;
+    if (disabled || sending || typing) return;
+    refocusPendingRef.current = false;
+    textareaRef.current?.focus();
+  }, [disabled, sending, typing]);
 
   // ---- file helpers ----
 
@@ -1078,6 +1094,7 @@ export const ChatPanel = ({
         <div className={styles.inputInner}>
           {inputPrefix}
           <Input.TextArea
+            ref={textareaRef}
             placeholder={placeholder || t("chat.placeholder")}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className={styles.input}

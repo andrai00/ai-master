@@ -3,9 +3,12 @@ import { zodSchema } from "ai";
 import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { broadcastGameEvent } from "@/src/shared/lib/events/game-events";
+import { validateFormulaContent } from "../validate-formulas";
+import { validateLinksContent } from "@/src/shared/lib/documents/validate-links";
+import { supportsFormulaCategory } from "@/src/shared/lib/formula";
 
 export const gmWriteNoteTool = {
-  description: "Write a hidden note for yourself (game_hidden). Use for auto-summaries, plans, observations, and memory.",
+  description: "Write a hidden note for yourself (game_hidden). Use for auto-summaries, plans, observations, and memory. Returns formulaValidation (check and fix formula errors) and linkValidation.",
   inputSchema: zodSchema(
     z.object({
       title: z.string().describe("Note title (e.g. 'Session Summary #3', 'Plan for next scene')"),
@@ -34,7 +37,13 @@ export const gmWriteNoteTool = {
         data: { content: args.content },
       });
       broadcastGameEvent("document_updated", { masterId: activeGame.currentMasterId, documentId: existing.id });
-      return { id: existing.id, title: existing.title, updated: true };
+      return {
+        id: existing.id,
+        title: existing.title,
+        updated: true,
+        formulaValidation: supportsFormulaCategory("game_hidden") ? validateFormulaContent(args.content) : null,
+        linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, "game_hidden", args.content),
+      };
     }
 
     const doc = await prisma.document.create({
@@ -47,6 +56,12 @@ export const gmWriteNoteTool = {
       },
     });
     broadcastGameEvent("document_created", { masterId: activeGame.currentMasterId, documentId: doc.id });
-    return { id: doc.id, title: doc.title, created: true };
+    return {
+      id: doc.id,
+      title: doc.title,
+      created: true,
+      formulaValidation: supportsFormulaCategory("game_hidden") ? validateFormulaContent(args.content) : null,
+      linkValidation: await validateLinksContent(prisma, activeGame.currentMasterId, "game_hidden", args.content),
+    };
   },
 };

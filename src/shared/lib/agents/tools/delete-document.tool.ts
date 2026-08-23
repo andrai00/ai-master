@@ -9,7 +9,7 @@ import { assertCanWrite } from "./builder-mode-guard";
 import { resolveDocId } from "./resolve-doc-id";
 
 export const deleteDocumentTool = {
-  description: "Delete a glossary or brain document by ID. ONLY use this when the admin explicitly asks you to delete a specific document. Never delete documents on your own initiative.",
+  description: "Delete a document by ID. The allowed categories depend on the current builder mode: BRAIN mode — glossary and brain; MEMORY mode — game_hidden (game memory) and game_visible (player data). Deleting a category outside your current mode fails. ONLY use this when the admin explicitly asks you to delete a specific document. Never delete documents on your own initiative.",
   inputSchema: zodSchema(
     z.object({
       docId: z.string().describe("Document ID (UUID) or path (e.g. 'spells/207-faerie_fire'). Auto-resolves."),

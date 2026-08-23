@@ -240,6 +240,7 @@ function getTools(builderMode: string): ToolSet {
       get_player_sheet: builderGetPlayerSheetTool,
       get_players: gmGetPlayersTool,
       resolve_glossary_link: gmResolveGlossaryLinkTool,
+      delete_document: deleteDocumentTool,
     };
   }
 
@@ -313,7 +314,7 @@ async function buildContext(sessionId: string) {
 
   const toolsNote =
     builderMode === "memory"
-      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, get_builder_guide, get_chat_summary, update_chat_summary.`
+      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, delete_document, get_builder_guide, get_chat_summary, update_chat_summary.`
       : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, delete_documents_by_type, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 

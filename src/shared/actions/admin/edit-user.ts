@@ -22,7 +22,7 @@ export async function editUserAction(
 
   const update: Record<string, string> = {};
   if (data.displayName !== undefined) update.displayName = data.displayName;
-  if (data.password) update.passwordHash = hashPassword(data.password);
+  if (data.password !== undefined) update.passwordHash = hashPassword(data.password);
   if (data.role && data.role !== user.role) update.role = data.role;
 
   if (Object.keys(update).length > 0) {

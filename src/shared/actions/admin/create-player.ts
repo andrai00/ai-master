@@ -18,8 +18,7 @@ export async function createPlayerAction(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
-  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
-  if (password.length < 4) return { success: false, error: "errors.passwordTooShort" };
+  if (!login) return { success: false, error: "errors.emptyLoginPassword" };
 
   const prisma = getPrisma();
   const existing = await prisma.user.findUnique({ where: { login } });

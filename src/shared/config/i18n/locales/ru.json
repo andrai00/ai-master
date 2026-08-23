@@ -48,8 +48,7 @@
     "confirmPassword": "Подтвердите пароль",
     "changePassword": "Сменить пароль",
     "passwordChanged": "Пароль изменён",
-    "passwordMismatch": "Пароли не совпадают",
-    "passwordTooShort": "Пароль должен быть не менее 4 символов"
+    "passwordMismatch": "Пароли не совпадают"
   },
   "settings": {
     "title": "Настройки",
@@ -67,7 +66,6 @@
     "loginPlaceholder": "Логин",
     "passwordPlaceholder": "Пароль",
     "loginError": "Неверный логин или пароль",
-    "loginEmpty": "Введите логин и пароль",
     "setupTitle": "Первоначальная настройка",
     "setupDesc": "Создайте учётную запись администратора. Через неё вы сможете добавлять игроков.",
     "setupBtn": "Создать администратора",
@@ -354,11 +352,10 @@
     "inputBlocked": "Мастер отвечает..."
   },
   "errors": {
-    "emptyLoginPassword": "Введите логин и пароль",
+    "emptyLoginPassword": "Введите логин",
     "invalidCredentials": "Неверный логин или пароль",
     "noActiveGame": "Администратор ещё не настроил игру",
     "noGameAccess": "У вас нет доступа к текущей игре",
-    "passwordTooShort": "Пароль должен быть не менее 4 символов",
     "adminExists": "Администратор уже существует",
     "unauthorized": "Не авторизован",
     "nameEmpty": "Имя не может быть пустым",

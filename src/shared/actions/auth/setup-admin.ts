@@ -15,8 +15,7 @@ export async function setupFirstAdminAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
-  if (password.length < 4) return { success: false, error: "errors.passwordTooShort" };
+  if (!login) return { success: false, error: "errors.emptyLoginPassword" };
 
   const prisma = getPrisma();
   const existingAdmin = await prisma.user.findFirst({ where: { role: "admin" } });

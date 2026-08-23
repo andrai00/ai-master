@@ -9,7 +9,7 @@ export async function loginAction(
   login: string,
   password: string
 ): Promise<{ success: boolean; error?: string; role?: string }> {
-  if (!login || !password) return { success: false, error: "errors.emptyLoginPassword" };
+  if (!login) return { success: false, error: "errors.emptyLoginPassword" };
 
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({ where: { login } });

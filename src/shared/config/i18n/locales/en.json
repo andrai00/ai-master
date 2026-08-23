@@ -48,8 +48,7 @@
     "confirmPassword": "Confirm password",
     "changePassword": "Change password",
     "passwordChanged": "Password changed",
-    "passwordMismatch": "Passwords don't match",
-    "passwordTooShort": "Password must be at least 4 characters"
+    "passwordMismatch": "Passwords don't match"
   },
   "settings": {
     "title": "Settings",
@@ -67,7 +66,6 @@
     "loginPlaceholder": "Login",
     "passwordPlaceholder": "Password",
     "loginError": "Invalid login or password",
-    "loginEmpty": "Enter login and password",
     "setupTitle": "Initial setup",
     "setupDesc": "Create an administrator account. You will be able to add players through it.",
     "setupBtn": "Create administrator",
@@ -354,11 +352,10 @@
     "inputBlocked": "Master is responding..."
   },
   "errors": {
-    "emptyLoginPassword": "Enter login and password",
+    "emptyLoginPassword": "Enter login",
     "invalidCredentials": "Invalid login or password",
     "noActiveGame": "Game not yet configured by admin",
     "noGameAccess": "You do not have access to the current game",
-    "passwordTooShort": "Password must be at least 4 characters",
     "adminExists": "Administrator already exists",
     "unauthorized": "Not authorized",
     "nameEmpty": "Name cannot be empty",

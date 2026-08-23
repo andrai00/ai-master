@@ -39,8 +39,6 @@ export async function changePasswordAction(
   const session = await getSession();
   if (!session) return { success: false, error: "errors.unauthorized" };
 
-  if (newPassword.length < 4) return { success: false, error: "errors.passwordTooShort" };
-
   const prisma = getPrisma();
   await prisma.user.update({
     where: { id: session.userId },

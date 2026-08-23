@@ -27,9 +27,12 @@ import { gmDeleteDocumentTool } from "./gm-tools/gm-delete-document.tool";
 import { listAllDocumentsTool } from "./tools/list-all-documents.tool";
 import { renameDocumentTool } from "./tools/rename-document.tool";
 import { gmGlossaryOverviewTool } from "./gm-tools/gm-glossary-overview.tool";
-import { clearActions, recordActions, getActions } from "./reply-tools";
+import { clearActions, recordActions, getActions, isPlanDone, isReviewDone } from "./reply-tools";
 import { gmRemoveRollTool, gmConfirmRollsTool } from "./gm-tools/gm-manage-rolls.tool";
 import { getChatSummaryTool, updateChatSummaryTool } from "./gm-tools/gm-chat-summary.tool";
+import { createPlanTurnTool } from "./gm-tools/gm-plan-turn.tool";
+import { createReviewTurnTool } from "./gm-tools/gm-review-turn.tool";
+import { buildTurnDigest, formatTurnDigest } from "./turn-digest";
 import {
   GM_GAME_SYSTEM,
   GM_PERSONAL_SYSTEM,
@@ -41,7 +44,7 @@ import {
 import { broadcastMessageCreated } from "@/src/shared/lib/events/game-events";
 import { compressMessages } from "./context-compress";
 import { traceAgent, type TraceChat } from "./trace";
-import { buildTranscript, persistRun, createRunId, buildStudyJournalContext } from "./transcript";
+import { buildTranscript, persistRun, createRunId, buildStudyJournalContext, wrapLiveCache } from "./transcript";
 import { stepsToModelMessages } from "./run-steps";
 import { scheduleSummarize } from "./chat-summarizer";
 import { wrapToolSet } from "./tool-output";
@@ -138,8 +141,49 @@ function makePrepareStep(sessionId: string, chat: TraceChat, phase: string) {
   };
 }
 
-function getGameTools(): ToolSet {
-  return {
+// Write/roll tools that MUST be preceded by plan_turn (they change game state).
+const PLAN_GATED_TOOLS = new Set([
+  "create_document",
+  "update_document",
+  "update_char_sheet",
+  "write_note",
+  "set_scene_state",
+  "delete_document",
+  "rename_document",
+  "present_roll_check",
+  "confirm_rolls",
+  "remove_roll",
+  "roll_dice",
+]);
+
+/**
+ * Wraps a tool so it refuses to run until plan_turn was called this run.
+ * The model sees the error and calls plan_turn first — deterministic gate.
+ */
+function gatePlanTools(tools: ToolSet, sessionId: string): ToolSet {
+  const anyTools = tools as Record<string, unknown>;
+  for (const name of PLAN_GATED_TOOLS) {
+    const t = anyTools[name] as { execute?: (args: unknown) => Promise<unknown> } | undefined;
+    if (!t?.execute) continue;
+    anyTools[name] = {
+      ...t,
+      execute: async (args: unknown) => {
+        if (!isPlanDone(sessionId)) {
+          throw new Error(
+            "errors.planRequired: СНАЧАЛА вызови plan_turn — объяви план хода (что произошло, какие триггеры, что будешь читать/писать/бросать). Без него write/roll тулы заблокированы."
+          );
+        }
+        return t.execute!(args);
+      },
+    };
+  }
+  return anyTools as ToolSet;
+}
+
+function getGameTools(sessionId: string): ToolSet {
+  const tools: ToolSet = {
+    plan_turn: createPlanTurnTool(sessionId),
+    review_turn: createReviewTurnTool(sessionId),
     search_rules: gmSearchRulesTool,
     glossary_overview: gmGlossaryOverviewTool,
     list_all_documents: listAllDocumentsTool,
@@ -166,10 +210,13 @@ function getGameTools(): ToolSet {
     rename_document: renameDocumentTool,
     validate_links: validateLinksTool,
   };
+  return gatePlanTools(tools, sessionId);
 }
 
-function getPersonalTools(): ToolSet {
-  return {
+function getPersonalTools(sessionId: string): ToolSet {
+  const tools: ToolSet = {
+    plan_turn: createPlanTurnTool(sessionId),
+    review_turn: createReviewTurnTool(sessionId),
     search_rules: gmSearchRulesTool,
     glossary_overview: gmGlossaryOverviewTool,
     list_all_documents: listAllDocumentsTool,
@@ -193,6 +240,7 @@ function getPersonalTools(): ToolSet {
     rename_document: renameDocumentTool,
     validate_links: validateLinksTool,
   };
+  return gatePlanTools(tools, sessionId);
 }
 
 const FORCE_ANSWER_PROMPT =
@@ -359,6 +407,14 @@ async function buildGameContext(sessionId: string) {
     dynamic += await buildMemoryContext(prisma, activeGame.currentMasterId);
   }
 
+  // Auto state digest: what changed since the last read — the trigger checklist
+  // for the turn. plan_turn/review_turn recompute it fresh; this is the always-on
+  // baseline so the model sees stale docs / scene / memory index every turn.
+  if (activeGame) {
+    const digest = await buildTurnDigest(sessionId, activeGame.currentMasterId);
+    dynamic += formatTurnDigest(digest);
+  }
+
   const rollsCtx = await buildRollsContext(prisma, sessionId);
 
   const summary = await prisma.chatSummary.findFirst({
@@ -411,7 +467,7 @@ async function buildGameContext(sessionId: string) {
   // Full system prompt (Pass) — the complete operating instructions.
   const system =
     GM_GAME_SYSTEM +
-    `\n\nWork in one pass: study what you need (read/search tools), then act (write/roll tools), then write the FINAL reply — the text the players see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
+    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the players see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
     dynamic;
 
   return {
@@ -448,6 +504,12 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
   if (activeGame) {
     dynamic += await buildBrainContext(prisma, activeGame.currentMasterId);
     dynamic += await buildMemoryContext(prisma, activeGame.currentMasterId);
+  }
+
+  // Auto state digest: what changed since the last read.
+  if (activeGame) {
+    const digest = await buildTurnDigest(sessionId, activeGame.currentMasterId);
+    dynamic += formatTurnDigest(digest);
   }
 
   const rollsCtx = await buildRollsContext(prisma, sessionId);
@@ -496,7 +558,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   const system =
     GM_PERSONAL_SYSTEM +
-    `\n\nWork in one pass: study what you need (read/search tools), then act (write/roll tools), then write the FINAL reply — the text the player will see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
+    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the player will see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
     dynamic;
 
   return {
@@ -585,7 +647,7 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
     userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const tools = wrapToolSet(getGameTools());
+    const tools = wrapToolSet(wrapLiveCache(getGameTools(sessionId), sessionId));
 
     emitStarted(sessionId);
     gmLog(`START session=${sessionId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
@@ -655,6 +717,38 @@ export async function runGameMasterBatch(sessionId: string): Promise<void> {
       gmText = retry.text?.trim() ?? null;
       traceAgent({ chat: "game", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: retry.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - retryStart) });
       gmLog(`RETRY done textLen=${gmText?.length ?? 0}`);
+    }
+
+    // Retry missing review — the run changed state (write/roll tools) but the
+    // model answered without review_turn. Run ONE more pass WITH tools so it
+    // calls review_turn, fixes the listed items, and only then replies.
+    const changedState = getActions(sessionId).some((t) => PLAN_GATED_TOOLS.has(t));
+    if (changedState && !isReviewDone(sessionId)) {
+      gmLog("RETRY missing review — force review_turn before the reply");
+      const reviewStart = performance.now();
+      const review = await makeRunText(sessionId, {
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
+          {
+            role: "user",
+            content:
+              "Ты изменил состояние игры (write/roll тулы), но не вызвал review_turn перед ответом. СЕЙЧАС: если ещё не вызывал plan_turn — вызови его. Затем вызови review_turn, исправь ВСЁ, что он перечислит (при необходимости повторяй, пока не вернёт ok:true), и только потом напиши финальный ответ.",
+          },
+        ],
+        tools,
+        ac,
+        chat: "game",
+        phase: "retry",
+        log: gmLog,
+        liveSteps,
+      });
+      allSteps = [...allSteps, ...review.steps];
+      gmText = review.text?.trim() ?? null;
+      traceAgent({ chat: "game", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: review.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - reviewStart) });
+      gmLog(`RETRY review done textLen=${gmText?.length ?? 0}`);
     }
 
     // Last resort — short fallback so the thinking bubble never ends silently.
@@ -732,7 +826,7 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
     userMessageIds = ctx.newUserMessageIds;
 
     const model = await createProvider();
-    const tools = wrapToolSet(getPersonalTools());
+    const tools = wrapToolSet(wrapLiveCache(getPersonalTools(sessionId), sessionId));
 
     emitStarted(sessionId);
     console.log(`[gm-personal] start — session=${sessionId} playerId=${playerId} msgs=${existingMessages.length} new=${ctx.newCount} completedRolls=${ctx.hasCompletedRolls} pending=${ctx.hasPendingRolls}`);
@@ -801,6 +895,36 @@ export async function runGameMasterPersonal(sessionId: string, playerId: string)
       gmText = retry.text?.trim() ?? null;
       traceAgent({ chat: "personal", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: retry.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - retryStart) });
       console.log(`[gm-personal] RETRY done textLen=${gmText?.length ?? 0}`);
+    }
+
+    // Retry missing review — the run changed state but answered without review_turn.
+    const changedState = getActions(sessionId).some((t) => PLAN_GATED_TOOLS.has(t));
+    if (changedState && !isReviewDone(sessionId)) {
+      console.log("[gm-personal] RETRY missing review — force review_turn before the reply");
+      const reviewStart = performance.now();
+      const review = await makeRunText(sessionId, {
+        model,
+        system: ctx.system,
+        messages: [
+          ...existingMessages,
+          ...stepsToModelMessages(allSteps),
+          {
+            role: "user",
+            content:
+              "Ты изменил состояние (write/roll тулы), но не вызвал review_turn перед ответом. СЕЙЧАС: если ещё не вызывал plan_turn — вызови его. Затем вызови review_turn, исправь ВСЁ, что он перечислит (при необходимости повторяй, пока не вернёт ok:true), и только потом напиши финальный ответ.",
+          },
+        ],
+        tools,
+        ac,
+        chat: "personal",
+        phase: "retry",
+        log: (l) => console.log(`[gm-personal] ${l}`),
+        liveSteps,
+      });
+      allSteps = [...allSteps, ...review.steps];
+      gmText = review.text?.trim() ?? null;
+      traceAgent({ chat: "personal", sessionId, phase: "retry", result: gmText?.slice(0, 4000), finishReason: review.finishReason ?? undefined, elapsedMs: Math.round(performance.now() - reviewStart) });
+      console.log(`[gm-personal] RETRY review done textLen=${gmText?.length ?? 0}`);
     }
 
     // Last resort — short fallback so the bubble never ends silently.

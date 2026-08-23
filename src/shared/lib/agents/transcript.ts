@@ -54,12 +54,23 @@ function parseJson(value: string | null): unknown {
 }
 
 // Read tools whose results mean "the agent studied these documents".
-const STUDY_TOOLS = new Set([
+export const STUDY_TOOLS = new Set([
   "read_document",
   "get_brain",
   "get_gm_notes",
   "get_scene_state",
   "get_player_sheet",
+]);
+
+// Write tools whose result id means "the agent now knows this document's
+// current content" (it wrote it), so the cache entry must be refreshed.
+export const WRITE_TOOLS = new Set([
+  "create_document",
+  "update_document",
+  "update_char_sheet",
+  "write_note",
+  "set_scene_state",
+  "rename_document",
 ]);
 
 function collectDocIds(value: unknown, acc: Set<string>): void {
@@ -166,18 +177,28 @@ export async function persistRun(input: IPersistRunInput): Promise<void> {
     await prisma.agentTranscript.createMany({ data: rows });
   }
 
-  // Record studied documents for the journal (DocumentRead).
-  const studied = new Set<string>();
+  // Refresh the study journal (DocumentRead): reads AND writes mark the doc as
+  // "known in its current state" (readAt = now). Delete removes the entry.
+  // Summarization later evicts rows whose runId got summarized (the content
+  // is no longer in the context, so the doc is not "studied" anymore).
+  const touchIds = new Set<string>();
+  const deleteIds = new Set<string>();
   for (const step of steps ?? []) {
     for (const res of step.toolResults ?? []) {
-      if (res.toolName && STUDY_TOOLS.has(res.toolName)) {
-        collectDocIds(res.output, studied);
+      if (res.toolName && (STUDY_TOOLS.has(res.toolName) || WRITE_TOOLS.has(res.toolName))) {
+        collectDocIds(res.output, touchIds);
+      }
+    }
+    // delete_document has no id in its result — grab it from the call args.
+    for (const call of step.toolCalls ?? []) {
+      if (call.toolName === "delete_document") {
+        const id = (call.input as { id?: unknown } | undefined)?.id;
+        if (typeof id === "string") deleteIds.add(id);
       }
     }
   }
-  if (studied.size > 0) {
-    const docIds = [...studied];
-    // SQLite createMany has no skipDuplicates — filter existing rows manually.
+  if (touchIds.size > 0) {
+    const docIds = [...touchIds];
     const existing = await prisma.documentRead.findMany({
       where: { sessionId, documentId: { in: docIds } },
       select: { documentId: true },
@@ -186,9 +207,18 @@ export async function persistRun(input: IPersistRunInput): Promise<void> {
     const missing = docIds.filter((id) => !have.has(id));
     if (missing.length > 0) {
       await prisma.documentRead.createMany({
-        data: missing.map((documentId) => ({ sessionId, documentId })),
+        data: missing.map((documentId) => ({ sessionId, documentId, runId })),
       });
     }
+    if (have.size > 0) {
+      await prisma.documentRead.updateMany({
+        where: { sessionId, documentId: { in: [...have] } },
+        data: { readAt: new Date(), runId },
+      });
+    }
+  }
+  if (deleteIds.size > 0) {
+    await prisma.documentRead.deleteMany({ where: { sessionId, documentId: { in: [...deleteIds] } } });
   }
 
   // Tag chat messages of a successful run so buildTranscript can interleave
@@ -348,6 +378,86 @@ export async function buildTranscript(
   }
 
   return out;
+}
+
+/** Live cache refresh for a single tool execution (called by the runner's
+ * tool wrapper DURING the generation, so review_turn sees fresh state, and
+ * again by persistRun at the end). Reads and writes mark the doc as known
+ * (readAt = now); delete_document removes the entry. */
+export async function refreshDocumentCache(
+  sessionId: string,
+  toolName: string,
+  output: unknown,
+  callInput?: unknown
+): Promise<void> {
+  const prisma = getPrisma();
+  const touch = new Set<string>();
+
+  if (toolName === "delete_document") {
+    // Only evict the cache entry when the doc was actually deleted (the tool
+    // returns { success:false } for forbidden categories like brain/glossary).
+    const ok = (output as { deleted?: boolean; success?: boolean } | undefined)?.deleted === true;
+    if (!ok) return;
+    const id = (callInput as { id?: unknown } | undefined)?.id;
+    if (typeof id === "string") {
+      await prisma.documentRead.deleteMany({ where: { sessionId, documentId: id } });
+    }
+    return;
+  }
+
+  if (STUDY_TOOLS.has(toolName) || WRITE_TOOLS.has(toolName)) {
+    collectDocIds(output, touch);
+  }
+  if (touch.size === 0) return;
+
+  const docIds = [...touch];
+  const existing = await prisma.documentRead.findMany({
+    where: { sessionId, documentId: { in: docIds } },
+    select: { documentId: true },
+  });
+  const have = new Set(existing.map((d) => d.documentId));
+  const missing = docIds.filter((id) => !have.has(id));
+  if (missing.length > 0) {
+    await prisma.documentRead.createMany({
+      data: missing.map((documentId) => ({ sessionId, documentId })),
+    });
+  }
+  if (have.size > 0) {
+    await prisma.documentRead.updateMany({
+      where: { sessionId, documentId: { in: [...have] } },
+      data: { readAt: new Date() },
+    });
+  }
+}
+
+/**
+ * Wraps every tool's execute so the study journal (DocumentRead) stays live
+ * DURING the generation: reads/writes refresh the cache entry immediately.
+ * Used by the GM runner alongside wrapToolSet. Never throws — the cache must
+ * never break a tool result.
+ */
+export function wrapLiveCache<T extends Record<string, unknown>>(tools: T, sessionId: string): T {
+  const out: Record<string, unknown> = {};
+  for (const [name, tool] of Object.entries(tools)) {
+    const t = tool as { execute?: (args: unknown) => Promise<unknown> } | undefined;
+    if (!t?.execute) {
+      out[name] = tool;
+      continue;
+    }
+    out[name] = {
+      ...t,
+      execute: async (args: unknown) => {
+        const result = await t.execute!(args);
+        try {
+          await refreshDocumentCache(sessionId, name, result, args);
+        } catch (e) {
+          console.error(`[cache] refresh failed for ${name}:`, e instanceof Error ? e.message : String(e));
+        }
+        return result;
+      },
+    };
+  }
+  return out as T;
 }
 
 /**

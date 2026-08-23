@@ -78,6 +78,10 @@ export async function maybeSummarizeChat(masterId: string, sessionId: string): P
       where: { runId: { in: runIds } },
       data: { summarized: true },
     });
+    // Evict the study journal (DocumentRead) of the summarized runs: their
+    // content is no longer in the model context, so those docs are no longer
+    // "studied/in cache" — they must be re-read when needed again.
+    await prisma.documentRead.deleteMany({ where: { runId: { in: runIds } } });
   }
 }
 

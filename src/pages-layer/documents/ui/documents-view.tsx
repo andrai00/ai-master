@@ -8,7 +8,7 @@ import { type IDocumentItem } from "@/src/shared/actions/admin/list-documents";
 import { MdViewer } from "@/src/features/md-viewer";
 import { ImportMasterModal } from "./import-master-modal";
 import { ExportMasterModal } from "./export-master-modal";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { ColumnsType } from "antd/es/table";
 import styles from "./documents-view.module.css";
@@ -27,7 +27,10 @@ export const DocumentsView = () => {
   const [previewDoc, setPreviewDoc] = useState<IDocumentItem | null>(null);
   const [navStack, setNavStack] = useState<IDocumentItem[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
+  const [restoreTop, setRestoreTop] = useState(0);
   const [prevOpenDocId, setPrevOpenDocId] = useState<string | null>(null);
+  const scrollTopRef = useRef(0);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
   const [pageSize, setPageSize] = useState(20);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,8 +67,16 @@ export const DocumentsView = () => {
       setPrevOpenDocId(openDocId);
       setPreviewDoc(target ?? null);
       setNavStack([]);
+      setRestoreTop(0);
     }
   }
+
+  // Reset the scroll-position cache when the deep-linked doc changes (refs
+  // cannot be mutated during render — the "adjusting state" block handles state).
+  useEffect(() => {
+    scrollTopRef.current = 0;
+    scrollPositionsRef.current = {};
+  }, [openDocId]);
 
   const filteredDocs = useMemo(() => {
     if (!searchQuery.trim()) return docs;
@@ -96,8 +107,12 @@ export const DocumentsView = () => {
 
   const handleOpenDoc = useCallback((doc: IDocumentItem) => {
     setScrollTo(undefined);
+    setRestoreTop(0);
     setPreviewDoc((prev) => {
-      if (prev) setNavStack((s) => [...s, prev]);
+      if (prev) {
+        scrollPositionsRef.current[prev.id] = scrollTopRef.current;
+        setNavStack((s) => [...s, prev]);
+      }
       return doc;
     });
   }, []);
@@ -113,6 +128,7 @@ export const DocumentsView = () => {
     setScrollTo(anchor || "");
     setPreviewDoc((prev) => {
       if (prev && prev.id !== docId) {
+        scrollPositionsRef.current[prev.id] = scrollTopRef.current;
         setNavStack((s) => [...s, prev]);
       }
       return { ...target, content: target.content };
@@ -121,17 +137,26 @@ export const DocumentsView = () => {
 
   const handleBack = useCallback(() => {
     setScrollTo(undefined);
+    if (previewDoc) scrollPositionsRef.current[previewDoc.id] = scrollTopRef.current;
     setNavStack((s) => {
       if (s.length === 0) return s;
       const prev = s[s.length - 1]!;
       setPreviewDoc(prev);
+      setRestoreTop(scrollPositionsRef.current[prev.id] ?? 0);
       return s.slice(0, -1);
     });
+  }, [previewDoc]);
+
+  const handleScroll = useCallback((top: number) => {
+    scrollTopRef.current = top;
   }, []);
 
   const handleClose = useCallback(() => {
     setPreviewDoc(null);
     setNavStack([]);
+    setRestoreTop(0);
+    scrollTopRef.current = 0;
+    scrollPositionsRef.current = {};
   }, []);
 
   const columns: ColumnsType<IDocumentItem & { _inContent?: boolean }> = [
@@ -255,6 +280,8 @@ export const DocumentsView = () => {
               content={previewDoc.content}
               onNavigate={handleNavigate}
               scrollTo={scrollTo}
+              initialScrollTop={restoreTop}
+              onScroll={handleScroll}
               showToc
               formulas={supportsFormulaCategory(previewDoc.category)}
             />

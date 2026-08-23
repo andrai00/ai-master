@@ -28,6 +28,10 @@ interface IMdViewerProps {
   content: string;
   onNavigate?: (docId: string, anchor?: string) => void;
   scrollTo?: string;
+  /** Restore scroll to this offset on mount (used when navigating "back" to a doc). */
+  initialScrollTop?: number;
+  /** Reports the content container's current scroll offset (throttled to a rAF). */
+  onScroll?: (scrollTop: number) => void;
   showToc?: boolean;
   /**
    * When false, formula blocks and $var refs are NOT evaluated or validated:
@@ -104,8 +108,9 @@ function unwrapMarkdownFences(content: string): string {
   return out.join("\n");
 }
 
-export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formulas = true }: IMdViewerProps) => {
+export const MdViewer = ({ content, onNavigate, scrollTo, initialScrollTop = 0, onScroll, showToc = false, formulas = true }: IMdViewerProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const scrollFrame = useRef<number | null>(null);
 
   // Strip blockquote markers from table rows and fix separator/header order.
   // Some imported content has `> | col |` (blockquote pollution) and
@@ -150,11 +155,11 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
     setMobileTocOpen(false);
   }, []);
 
-  // Scroll to top on mount — only if no anchor is provided
+  // Restore scroll on mount (to initialScrollTop, or top) — only if no anchor is provided.
   useEffect(() => {
     if (scrollTo !== undefined) return;
     const id = requestAnimationFrame(() => {
-      contentRef.current?.scrollTo({ top: 0 });
+      contentRef.current?.scrollTo({ top: initialScrollTop ?? 0 });
     });
     return () => cancelAnimationFrame(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -176,6 +181,28 @@ export const MdViewer = ({ content, onNavigate, scrollTo, showToc = false, formu
     }, 200);
     return () => clearTimeout(timer);
   }, [scrollTo]);
+
+  // Report live scroll position (throttled to one rAF callback per frame).
+  useEffect(() => {
+    if (!onScroll) return;
+    const el = contentRef.current;
+    if (!el) return;
+    const handle = () => {
+      if (scrollFrame.current !== null) return;
+      scrollFrame.current = requestAnimationFrame(() => {
+        scrollFrame.current = null;
+        onScroll(el.scrollTop);
+      });
+    };
+    el.addEventListener("scroll", handle, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handle);
+      if (scrollFrame.current !== null) {
+        cancelAnimationFrame(scrollFrame.current);
+        scrollFrame.current = null;
+      }
+    };
+  }, [onScroll]);
 
   const components: Components = useMemo(
     () => ({

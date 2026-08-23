@@ -2,7 +2,7 @@
 
 import { Modal, Button, Space } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { MdViewer } from "@/src/features/md-viewer";
 import { useDocument } from "@/src/shared/api/documents/use-document";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
@@ -18,7 +18,10 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
   const [targetId, setTargetId] = useState<string | null>(null);
   const [navStack, setNavStack] = useState<string[]>([]);
   const [scrollTo, setScrollTo] = useState<string | undefined>(undefined);
+  const [restoreTop, setRestoreTop] = useState(0);
   const [loadedKey, setLoadedKey] = useState<{ open: boolean; docId: string | null }>({ open: false, docId: null });
+  const scrollTopRef = useRef(0);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
 
   const activeId = targetId ?? docId;
   const { data: doc, isLoading } = useDocument(activeId, open);
@@ -32,12 +35,22 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
       setNavStack([]);
       setScrollTo(anchor || undefined);
       setTargetId(null);
+      setRestoreTop(0);
     }
   }
+
+  // Reset the scroll-position cache when a new document is opened (refs cannot
+  // be mutated during render — the "adjusting state" block above handles state).
+  useEffect(() => {
+    if (!open || !docId) return;
+    scrollTopRef.current = 0;
+    scrollPositionsRef.current = {};
+  }, [open, docId]);
 
   const handleNavigate = useCallback((nextId: string, nextAnchor?: string) => {
     setScrollTo(nextAnchor || "");
     if (nextId !== activeId) {
+      if (activeId) scrollPositionsRef.current[activeId] = scrollTopRef.current;
       setNavStack((s) => (activeId ? [...s, activeId] : s));
       setTargetId(nextId);
     }
@@ -45,12 +58,18 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
 
   const handleBack = useCallback(() => {
     setScrollTo(undefined);
+    if (activeId) scrollPositionsRef.current[activeId] = scrollTopRef.current;
     setNavStack((s) => {
       if (s.length === 0) return s;
       const prev = s[s.length - 1]!;
       setTargetId(prev);
+      setRestoreTop(scrollPositionsRef.current[prev] ?? 0);
       return s.slice(0, -1);
     });
+  }, [activeId]);
+
+  const handleScroll = useCallback((top: number) => {
+    scrollTopRef.current = top;
   }, []);
 
   return (
@@ -81,6 +100,8 @@ export function DocumentPreviewModal({ open, docId, anchor, onClose }: IDocument
           content={doc.content}
           onNavigate={handleNavigate}
           scrollTo={scrollTo}
+          initialScrollTop={restoreTop}
+          onScroll={handleScroll}
           showToc
           formulas={supportsFormulaCategory(doc.category)}
         />

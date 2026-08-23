@@ -15,6 +15,8 @@ import { UserAvatarCell } from "./user-avatar-cell";
 import { PageHeader } from "@/src/shared/ui/page-header";
 import type { ColumnsType } from "antd/es/table";
 
+const PASSWORD_UNCHANGED = "••••••••";
+
 export const UsersTable = () => {
   const { t } = useTranslation();
   const { notification } = App.useApp();
@@ -25,6 +27,7 @@ export const UsersTable = () => {
 
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<IUserListItem | null>(null);
+  const [editLogin, setEditLogin] = useState("");
   const [editName, setEditName] = useState("");
   const [editPw, setEditPw] = useState("");
   const [editRole, setEditRole] = useState("");
@@ -49,8 +52,9 @@ export const UsersTable = () => {
 
   const openEdit = (user: IUserListItem) => {
     setEditUser(user);
+    setEditLogin(user.login);
     setEditName(user.displayName || user.login);
-    setEditPw("");
+    setEditPw(PASSWORD_UNCHANGED);
     setEditRole(user.role);
     setEditOpen(true);
   };
@@ -61,6 +65,8 @@ export const UsersTable = () => {
         if (result.success) {
           notification.success({ title: t("admin.playerCreated") });
           setNewLogin(""); setNewPassword(""); setCreateOpen(false);
+        } else {
+          notification.error({ title: t(result.error || "errors.unknownError") });
         }
       },
     });
@@ -69,13 +75,18 @@ export const UsersTable = () => {
   const handleEdit = () => {
     if (!editUser) return;
     editMutation.mutate({
-      userId: editUser.id, displayName: editName, password: editPw,
+      userId: editUser.id,
+      login: editLogin !== editUser.login ? editLogin : undefined,
+      displayName: editName,
+      password: editPw === PASSWORD_UNCHANGED ? undefined : editPw,
       role: editRole !== editUser.role ? editRole : undefined, gameAccess: selectedAccess,
     }, {
       onSuccess: (result) => {
         if (result.success) {
           notification.success({ title: t("admin.userUpdated") });
           setEditOpen(false);
+        } else {
+          notification.error({ title: t(result.error || "errors.unknownError") });
         }
       },
     });
@@ -187,8 +198,9 @@ export const UsersTable = () => {
         okButtonProps={{ disabled: accessQuery.isLoading }}
         okText={t("common.save")} cancelText={t("gameSelector.cancel")} centered>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 8 }}>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.loginCol")}</div><Input value={editLogin} onChange={(e) => setEditLogin(e.target.value)} /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.nameCol")}</div><Input value={editName} onChange={(e) => setEditName(e.target.value)} autoComplete="off" /></div>
-          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.passwordHint")}</div><Input.Password value={editPw} onChange={(e) => setEditPw(e.target.value)} /></div>
+          <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.passwordHint")}</div><Input.Password value={editPw} placeholder="••••••••" onChange={(e) => setEditPw(e.target.value)} /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.roleCol")}</div>
             <Select value={editRole} onChange={setEditRole} style={{ width: "100%" }} options={[{ value: "admin", label: t("admin.roleAdmin") }, { value: "player", label: t("admin.rolePlayer") }]} /></div>
           <div><div style={{ marginBottom: 4, fontSize: 12, color: "var(--text-muted)" }}>{t("admin.gameAccess")}</div>

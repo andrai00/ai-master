@@ -7,7 +7,7 @@ import { broadcastGameEvent, broadcastToUser } from "@/src/shared/lib/events/gam
 
 export async function editUserAction(
   userId: string,
-  data: { displayName?: string; password?: string; role?: string }
+  data: { login?: string; displayName?: string; password?: string; role?: string }
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { success: false, error: "errors.forbidden" };
@@ -21,6 +21,15 @@ export async function editUserAction(
   }
 
   const update: Record<string, string> = {};
+  if (data.login !== undefined) {
+    const newLogin = data.login.trim();
+    if (!newLogin) return { success: false, error: "errors.emptyLoginPassword" };
+    if (newLogin !== user.login) {
+      const clash = await prisma.user.findUnique({ where: { login: newLogin } });
+      if (clash) return { success: false, error: "errors.duplicateLogin" };
+      update.login = newLogin;
+    }
+  }
   if (data.displayName !== undefined) update.displayName = data.displayName;
   if (data.password !== undefined) update.passwordHash = hashPassword(data.password);
   if (data.role && data.role !== user.role) update.role = data.role;

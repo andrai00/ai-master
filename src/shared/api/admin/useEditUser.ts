@@ -7,10 +7,11 @@ import { setUserGameAccessAction } from "@/src/shared/actions/admin/manage-game-
 export function useEditUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (params: { userId: string; displayName: string; password?: string; role?: string; gameAccess: string[] }) => {
+    mutationFn: async (params: { userId: string; login?: string; displayName: string; password?: string; role?: string; gameAccess: string[] }) => {
       const result = await editUserAction(params.userId, {
+        login: params.login,
         displayName: params.displayName,
-        password: params.password || undefined,
+        password: params.password,
         role: params.role,
       });
       if (result.success) {

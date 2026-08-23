@@ -81,6 +81,7 @@
     "shareDone": "Поделились в общий чат",
     "messagesPending": "{{count}} сообщ. ожидают ответа...",
     "requestMasterResponse": "Запросить ответ ИИ мастера",
+    "requestMasterShortcut": "Запросить ответ ИИ мастера (Ctrl+Enter)",
                 "debugInternals": "Внутренности агента (debug)",
     "masterThinking": "Мастер думает...",
     "thinking": "Думает…",

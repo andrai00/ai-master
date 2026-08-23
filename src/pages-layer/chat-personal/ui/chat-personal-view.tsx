@@ -13,6 +13,7 @@ import { useSendPersonalMessage } from "@/src/shared/api/game-master/use-send-pe
 import { useDeletePersonalMessage } from "@/src/shared/api/game-master/use-delete-personal-message";
 import { useClearPersonalChat } from "@/src/shared/api/game-master/useClearPersonalChat";
 import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
+import { useMobileMenu } from "@/src/shared/ui/page-header";
 import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
 import { useShareMessage } from "@/src/shared/api/game-master/use-share-message";
 import { usePersonalRolls, useExecuteRoll } from "@/src/shared/api/game-master/use-session-rolls";
@@ -26,6 +27,7 @@ const DEFAULT_PAGE_SIZE = 30;
 
 export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boolean; userId?: string; isAdmin?: boolean }) => {
   const { t } = useTranslation();
+  const { isMobile } = useMobileMenu();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
   const [page] = useState(1);
@@ -95,6 +97,8 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
     if (!sessionId) return;
     await requestMutation.mutateAsync();
   }, [sessionId, requestMutation]);
+
+  const canRequestMaster = !disabled && !typing && !stopping && !requestMutation.isPending && !!sessionId;
 
   const handleStop = useCallback(async () => {
     if (!sessionId) return;
@@ -238,7 +242,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
   ];
 
   const requestBtn = (
-    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+    <Tooltip title={typing ? t("chat.masterThinking") : (isMobile ? t("chat.requestMasterResponse") : t("chat.requestMasterShortcut"))}>
       <Button
         type="default"
         size="small"
@@ -279,6 +283,7 @@ export const ChatPersonalView = ({ disabled, userId, isAdmin }: { disabled?: boo
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
         footerAction={requestBtn}
+        onRequestAi={canRequestMaster ? handleRequestMaster : undefined}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id, { onError: (e) => notification.error({ title: t(e instanceof Error ? e.message : "errors.unknownError") }) })} executing={executeRollMutation.isPending} disabled={typing} />}
       />
       <Modal

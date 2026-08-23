@@ -81,6 +81,7 @@
     "shareDone": "Shared to game chat",
     "messagesPending": "{{count}} messages awaiting response...",
     "requestMasterResponse": "Request GM response",
+    "requestMasterShortcut": "Request GM response (Ctrl+Enter)",
                 "debugInternals": "Agent internals (debug)",
     "masterThinking": "Master is thinking...",
     "thinking": "Thinking…",

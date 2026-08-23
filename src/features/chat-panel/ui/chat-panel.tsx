@@ -206,6 +206,8 @@ interface IChatPanelProps {
   onClearChat?: () => void;
   onSend?: (text: string, files: File[]) => void;
   onStop?: () => void;
+  /** Ctrl+Enter shortcut for the "request AI response" action */
+  onRequestAi?: () => void;
   sending?: boolean;
   typing?: boolean;
   /** Show file attachment UI */
@@ -634,6 +636,7 @@ const ChatMessages = memo(function ChatMessages({
 export const ChatPanel = ({
   messages, placeholder, disabled, disabledText, hideShare, title,
   onDelete, onShare, onHistoryClick, onClearChat, onSend, onStop,
+  onRequestAi,
   sending, typing,
   allowFiles, acceptFiles, maxFiles = DEFAULT_MAX_FILES, maxFileSize = DEFAULT_MAX_SIZE,
   stepsSessionId, stopping, onStepsDone, onStepsStart, onStepsError, onStepsResync, onToolStep,
@@ -1102,6 +1105,11 @@ export const ChatPanel = ({
             value={inputValue}
             onChange={handleInputChange}
             onPressEnter={(e) => {
+              if (e.ctrlKey) {
+                e.preventDefault();
+                onRequestAi?.();
+                return;
+              }
               if (!e.shiftKey) {
                 e.preventDefault();
                 handleSend();

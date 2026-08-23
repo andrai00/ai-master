@@ -20,11 +20,13 @@ import { useChatHistory } from "@/src/shared/api/history/use-chat-history";
 import type { ColumnsType } from "antd/es/table";
 import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
 import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
+import { useMobileMenu } from "@/src/shared/ui/page-header";
 
 const DEFAULT_PAGE_SIZE = 30;
 
 export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean; userId?: string; isAdmin?: boolean }) => {
   const { t } = useTranslation();
+  const { isMobile } = useMobileMenu();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
   const [page] = useState(1);
@@ -192,6 +194,8 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
     await requestMutation.mutateAsync();
   }, [sessionId, requestMutation]);
 
+  const canRequestMaster = !typing && !stopping && !requestMutation.isPending && !!sessionId;
+
   const handleStopMaster = useCallback(async () => {
     if (!sessionId) return;
     await stopMutation.mutateAsync();
@@ -232,7 +236,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
   ];
 
   const requestBtn = (
-    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+    <Tooltip title={typing ? t("chat.masterThinking") : (isMobile ? t("chat.requestMasterResponse") : t("chat.requestMasterShortcut"))}>
       <Button
         type="default"
         size="small"
@@ -272,6 +276,7 @@ export const ChatGameView = ({ disabled, userId, isAdmin }: { disabled?: boolean
         onStepsError={handleStepsError}
         onStepsResync={handleStepsResync}
         footerAction={requestBtn}
+        onRequestAi={canRequestMaster ? handleRequestMaster : undefined}
         rollStrip={<RollStrip rolls={(rolls ?? []).filter(r => r.status !== "completed")} currentUserId={userId} onExecuteRoll={(id) => executeRollMutation.mutate(id, { onError: (e) => notification.error({ title: t(e instanceof Error ? e.message : "errors.unknownError") }) })} executing={executeRollMutation.isPending} disabled={typing} />}
       />
       <Modal

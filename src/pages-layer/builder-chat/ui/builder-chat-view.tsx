@@ -16,6 +16,7 @@ import type { TBuilderMode } from "@/src/shared/actions/builder/set-builder-mode
 import { getBuilderMessagesAction, type IBuilderMessage } from "@/src/shared/actions/builder/get-messages";
 import { stopBuilderAction } from "@/src/shared/actions/builder/stop-builder";
 import { requestBuilderResponseAction } from "@/src/shared/actions/builder/request-builder-response";
+import { useMobileMenu } from "@/src/shared/ui/page-header";
 import { checkProcessingAction } from "@/src/shared/actions/builder/check-processing";
 import { useAgentTranscript } from "@/src/shared/api/agents/use-agent-transcript";
 import type { ITranscriptRow } from "@/src/shared/actions/agents/get-agent-transcript";
@@ -39,6 +40,7 @@ async function uploadFile(file: File): Promise<{ fileId: string; filename: strin
 
 export const BuilderChatView = () => {
   const { t } = useTranslation();
+  const { isMobile } = useMobileMenu();
   const { notification } = App.useApp();
   const queryClient = useQueryClient();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -230,6 +232,8 @@ export const BuilderChatView = () => {
     await requestMutation.mutateAsync();
   }, [sessionId, requestMutation]);
 
+  const canRequestResponse = !typing && !stopping && !uploading && !requestMutation.isPending && !!sessionId;
+
   // --- Delete ---
   const handleDelete = useCallback(
     async (messageId: string) => {
@@ -288,7 +292,7 @@ export const BuilderChatView = () => {
   ];
 
   const requestBtn = (
-    <Tooltip title={typing ? t("chat.masterThinking") : t("chat.requestMasterResponse")}>
+    <Tooltip title={typing ? t("chat.masterThinking") : (isMobile ? t("chat.requestMasterResponse") : t("chat.requestMasterShortcut"))}>
       <Button
         type="default"
         size="small"
@@ -333,6 +337,7 @@ export const BuilderChatView = () => {
         typing={typing}
         stopping={stopping}
         footerAction={requestBtn}
+        onRequestAi={canRequestResponse ? handleRequestResponse : undefined}
         stepsSessionId={sessionId ?? undefined}
         debugRows={debugRows}
         onStepsStart={() => { setTyping(true); setStopping(false); if (stoppingTimeoutRef.current) { clearTimeout(stoppingTimeoutRef.current); stoppingTimeoutRef.current = null; } queryClient.invalidateQueries({ queryKey: ["builder", "messages", sessionId] }); queryClient.invalidateQueries({ queryKey: ["agent", "transcript", sessionId] }); }}

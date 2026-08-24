@@ -9,23 +9,8 @@ import { parseFormulaBlocks } from "@/src/shared/lib/formula/parser";
 import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
-import { numberLines } from "@/src/shared/lib/documents/line-utils";
-import { extractHeadings } from "@/src/shared/lib/documents/headings";
-import { cleanHeading, sliceSectionByAnchor } from "@/src/shared/lib/documents/sections";
-
-interface ITocEntry {
-  heading: string;
-  level: number;
-  offset: number;
-}
-
-function extractToc(content: string): ITocEntry[] {
-  return extractHeadings(content).map((h) => ({
-    heading: cleanHeading(h.text),
-    level: h.level,
-    offset: h.offset,
-  }));
-}
+import { numberLines, countLines } from "@/src/shared/lib/documents/line-utils";
+import { buildLineToc, sliceSectionByAnchor } from "@/src/shared/lib/documents/sections";
 
 export const readDocumentTool = {
   description: TOOL_DESCRIPTIONS.read_document,
@@ -70,7 +55,8 @@ export const readDocumentTool = {
     // The model always sees glossary/ prefixed links — normalize on the fly.
     const content = await normalizeReadContent(prisma, doc.masterId, doc.category, doc.content);
 
-    const toc = extractToc(content);
+    const toc = buildLineToc(content);
+    const totalLines = countLines(content);
 
     // TOC-only: cheap structural read for long documents — no content, no
     // formula evaluation (nothing to compute on a navigation view).
@@ -84,6 +70,7 @@ export const readDocumentTool = {
         path: doc.path,
         source: doc.category,
         mode: "toc",
+        totalLines,
         toc,
       };
     }
@@ -133,14 +120,15 @@ export const readDocumentTool = {
     }
 
     // Anchor read: only the section under the heading — not the whole document.
-    // The response is explicitly mode:'section' with the section's offsets and
-    // hasMore, so the model knows it got a piece (like an offset/limit chunk),
-    // and can fall back to a full read when the section is not enough.
+    // The response is explicitly mode:'section' with the section's offsets,
+    // line range and hasMore, so the model knows it got a piece (like an
+    // offset/limit chunk), and can fall back to a full read or read_lines.
     if (args.anchor !== undefined) {
       const slice = sliceSectionByAnchor(content, args.anchor);
       if (!slice) throw new Error("errors.anchorNotFound");
       const sectionText = slice.text;
       const text = args.limit !== undefined ? sectionText.slice(0, Math.max(0, args.limit)) : sectionText;
+      const lineEntry = toc.find((t) => t.offset === slice.start);
       return {
         id: doc.id,
         title: doc.title,
@@ -157,6 +145,10 @@ export const readDocumentTool = {
         sectionStart: slice.start,
         sectionEnd: slice.end,
         sectionSize: slice.end - slice.start,
+        sectionStartLine: lineEntry?.startLine,
+        sectionEndLine: lineEntry?.endLine,
+        sectionLineCount: lineEntry?.lineCount,
+        totalLines,
         hasMore: text.length < sectionText.length,
         toc,
         ...formulaData,
@@ -180,6 +172,7 @@ export const readDocumentTool = {
         offset: safeOffset,
         length: chunk.length,
         totalSize,
+        totalLines,
         hasMore,
         toc,
         ...formulaData,
@@ -189,6 +182,6 @@ export const readDocumentTool = {
     // Full read: the Builder creates, edits and splits documents, so it needs
     // the WHOLE content in one call. No hard cap here — capping forced the
     // model to re-read a 25KB doc in 4 chunks (4 LLM steps instead of 1).
-    return { ...doc, source: doc.category, toc, ...formulaData };
+    return { ...doc, source: doc.category, toc, totalLines, ...formulaData };
   },
 };

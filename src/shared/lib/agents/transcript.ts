@@ -56,6 +56,7 @@ function parseJson(value: string | null): unknown {
 // Read tools whose results mean "the agent studied these documents".
 export const STUDY_TOOLS = new Set([
   "read_document",
+  "read_lines",
   "get_brain",
   "get_gm_notes",
   "get_scene_state",

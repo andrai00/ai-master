@@ -49,6 +49,72 @@ export function countLines(content: string): number {
   return splitLines(content).length;
 }
 
+/** Char offset where each 1-based line starts in `content` (counts the dominant
+ * EOL, so the result matches splitLines/numberLines line numbering). */
+function lineStartOffsets(content: string, eol: string): number[] {
+  const starts = [0];
+  let i = 0;
+  while ((i = content.indexOf(eol, i)) !== -1) {
+    starts.push(i + eol.length);
+    i += eol.length;
+  }
+  return starts;
+}
+
+/** 1-based line number for a character offset in `content`. */
+export function lineNumberAt(content: string, offset: number): number {
+  const starts = lineStartOffsets(content, detectEol(content));
+  let lo = 0;
+  let hi = starts.length - 1;
+  let ans = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (starts[mid] <= offset) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return ans + 1;
+}
+
+export interface TLineRange {
+  /** Plain text of the read lines, joined with the document's EOL. */
+  text: string;
+  /** 1-based first line actually returned (clamped). */
+  startLine: number;
+  /** 1-based last line actually returned (clamped). */
+  endLine: number;
+  /** Total lines in the document. */
+  totalLines: number;
+  /** True when more lines follow after endLine. */
+  hasMore: boolean;
+}
+
+/**
+ * Reads an inclusive 1-based line range [startLine..endLine] as plain text.
+ * Line numbers match numberLines (the numbered edit view) and the line-based
+ * toc built by buildLineToc. Out-of-range requests clamp to the document
+ * bounds and never throw — an empty range returns empty text.
+ */
+export function readLineRange(content: string, startLine = 1, endLine?: number): TLineRange {
+  const lines = splitLines(content);
+  const total = lines.length;
+  const from = Math.max(1, Math.floor(startLine));
+  const to = endLine === undefined ? total : Math.max(1, Math.min(Math.floor(endLine), total));
+  if (from > total || from > to) {
+    return { text: "", startLine: from, endLine: from - 1, totalLines: total, hasMore: to < total };
+  }
+  return {
+    text: lines.slice(from - 1, to).join(detectEol(content)),
+    startLine: from,
+    endLine: to,
+    totalLines: total,
+    hasMore: to < total,
+  };
+}
+
 /**
  * Builds a numbered view of the document: `   12 | line content` rows with
  * absolute 1-based numbers, so the model can target exact lines in edits.

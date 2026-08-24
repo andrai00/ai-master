@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitLines, countLines, numberLines, applyLineEdits } from "./line-utils";
+import { splitLines, countLines, numberLines, readLineRange, lineNumberAt, applyLineEdits } from "./line-utils";
 
 describe("splitLines / countLines", () => {
   it("splits on LF", () => {
@@ -52,6 +52,68 @@ describe("numberLines", () => {
     const out = numberLines("a\nb", 99, 1);
     expect(out.view).toBe("");
     expect(out.hasMore).toBe(false);
+  });
+});
+
+describe("readLineRange", () => {
+  const doc = "## Бой\n\nИнициатива: 10\nХиты: 30\n\nЗаметки:";
+
+  it("returns the requested inclusive line range as plain text", () => {
+    const r = readLineRange(doc, 3, 4);
+    expect(r.text).toBe("Инициатива: 10\nХиты: 30");
+    expect(r.startLine).toBe(3);
+    expect(r.endLine).toBe(4);
+    expect(r.totalLines).toBe(6);
+    expect(r.hasMore).toBe(true);
+  });
+
+  it("returns every line when endLine is omitted", () => {
+    const r = readLineRange(doc, 1);
+    expect(r.text).toBe(doc);
+    expect(r.totalLines).toBe(6);
+    expect(r.hasMore).toBe(false);
+  });
+
+  it("clamps out-of-range ends to the document bounds", () => {
+    const r = readLineRange(doc, 5, 99);
+    expect(r.text).toBe("\nЗаметки:");
+    expect(r.startLine).toBe(5);
+    expect(r.endLine).toBe(6);
+    expect(r.hasMore).toBe(false);
+  });
+
+  it("returns an empty range with zero span for start past the end", () => {
+    const r = readLineRange(doc, 99, 100);
+    expect(r.text).toBe("");
+    expect(r.endLine).toBe(98);
+    expect(r.hasMore).toBe(false);
+  });
+
+  it("matches the numbered view's line numbering", () => {
+    const r = readLineRange(doc, 2, 3);
+    const num = numberLines(doc, 2, 2);
+    expect(r.text.split("\n")).toEqual(num.view.split("\n").map((l) => l.replace(/^\s*\d+ \| /, "")));
+  });
+
+  it("preserves CRLF line endings", () => {
+    const crlf = "a\r\nb\r\nc";
+    const r = readLineRange(crlf, 2, 2);
+    expect(r.text).toBe("b");
+  });
+});
+
+describe("lineNumberAt", () => {
+  it("maps a heading offset to its 1-based line", () => {
+    const content = "# A\n## B\n# C";
+    // "# A" starts at 0 (line 1), "## B" at 4 (line 2), "# C" at 9 (line 3).
+    expect(lineNumberAt(content, 0)).toBe(1);
+    expect(lineNumberAt(content, 4)).toBe(2);
+    expect(lineNumberAt(content, 9)).toBe(3);
+  });
+
+  it("maps a char offset inside a line to that line", () => {
+    const content = "abc\ndef";
+    expect(lineNumberAt(content, 5)).toBe(2); // 'e' is inside line 2
   });
 });
 

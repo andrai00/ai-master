@@ -7,12 +7,11 @@ import { evaluateFormulas } from "@/src/shared/lib/formula/evaluator";
 import { normalizeReadContent } from "@/src/shared/lib/documents/read-normalize";
 import { resolveDocId } from "../tools/resolve-doc-id";
 import { supportsFormulaCategory } from "@/src/shared/lib/formula";
-import { numberLines } from "@/src/shared/lib/documents/line-utils";
-import { extractHeadings } from "@/src/shared/lib/documents/headings";
-import { cleanHeading, sliceSectionByAnchor } from "@/src/shared/lib/documents/sections";
+import { numberLines, countLines } from "@/src/shared/lib/documents/line-utils";
+import { buildLineToc, sliceSectionByAnchor } from "@/src/shared/lib/documents/sections";
 
 export const gmReadDocumentTool = {
-  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc (markdown headings with their character offsets). For LONG documents prefer reading a section instead of the whole thing: toc_only: true shows the structure cheaply, then anchor: '<exact heading text from toc>' returns ONLY that section (mode:'section') — not the whole document; a long section sets hasMore, continue with offset=sectionStart+text.length. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
+  description: "Read a document by ID, path, title, or a link target from a [[...]] wiki-link (e.g. 'races/217-plasmoid', 'glossary/races/217-plasmoid', 'Бой D&D 5e'). Works for all categories: glossary, brain, game_hidden, game_visible. Formula blocks (```formula) are evaluated on the WHOLE document and returned as formulaValues. Returns a toc of markdown headings WITH their line ranges: totalLines (whole file) and each heading's startLine..endLine/lineCount — so you can read exactly a section via read_lines(id, startLine, endLine). For LONG documents prefer reading a section instead of the whole thing: toc_only: true shows the structure cheaply, then anchor: '<exact heading text from toc>' returns ONLY that section (mode:'section', with sectionStartLine..sectionEndLine), or read_lines with the section's line range. By default only the first 3000 chars are returned (with hasMore/totalSize) — pass offset/limit to read a specific slice or continue reading. To EDIT specific lines, pass numbered: true — the document is returned as absolute 1-based numbered lines (with start_line/line_limit paging), which you then target in update_document edits.",
   inputSchema: zodSchema(
     z.object({
       id: z.string().describe("Document ID (UUID), path, title, or a link target from a [[...]] wiki-link. Auto-resolves."),
@@ -53,14 +52,13 @@ export const gmReadDocumentTool = {
     // internal links on the fly (storage stays as imported).
     const content = await normalizeReadContent(prisma, activeGame.currentMasterId, doc.category, doc.content);
 
-    // Table of contents — markdown headings with their offsets, so the model
-    // can jump straight to the section it needs instead of reading from 0.
-    // Fence-aware: #-comments inside ```formula blocks are not headings.
-    // Heading text is cleaned so the model can copy it straight into `anchor`.
-    const toc: Array<{ heading: string; offset: number }> = extractHeadings(content, 4).map((h) => ({
-      heading: cleanHeading(h.text),
-      offset: h.offset,
-    }));
+    // Table of contents — markdown headings with their LINE RANGES, so the
+    // model can jump straight to a section via read_lines(id, startLine,
+    // endLine) instead of reading from 0. Fence-aware: #-comments inside
+    // ```formula blocks are not headings. Heading text is cleaned so the
+    // model can copy it straight into `anchor`.
+    const toc = buildLineToc(content, 4);
+    const totalLines = countLines(content);
 
     // TOC-only: cheap structural read for long documents — no content, no
     // formula evaluation (nothing to compute on a navigation view).
@@ -76,6 +74,7 @@ export const gmReadDocumentTool = {
         source: doc.category,
         updatedAt: doc.updatedAt,
         mode: "toc",
+        totalLines,
         toc,
       };
     }
@@ -125,15 +124,17 @@ export const gmReadDocumentTool = {
     }
 
     // Anchor read: only the section under the heading — not the whole document.
-    // The response is explicitly mode:'section' with the section's offsets and
-    // hasMore, so the model knows it got a piece and can continue reading
-    // (offset=sectionStart+text.length) or fall back to a full read.
+    // The response is explicitly mode:'section' with the section's offsets,
+    // line range and hasMore, so the model knows it got a piece and can
+    // continue reading (offset=sectionStart+text.length or read_lines with the
+    // section's startLine..endLine) or fall back to a full read.
     if (args.anchor !== undefined) {
       const slice = sliceSectionByAnchor(content, args.anchor);
       if (!slice) throw new Error("errors.anchorNotFound");
       const sectionText = slice.text;
       const cap = Math.min(args.limit ?? 3000, 8000);
       const text = sectionText.slice(0, cap);
+      const lineEntry = toc.find((t) => t.offset === slice.start);
       return {
         id: doc.id,
         title: doc.title,
@@ -152,6 +153,10 @@ export const gmReadDocumentTool = {
         sectionStart: slice.start,
         sectionEnd: slice.end,
         sectionSize: slice.end - slice.start,
+        sectionStartLine: lineEntry?.startLine,
+        sectionEndLine: lineEntry?.endLine,
+        sectionLineCount: lineEntry?.lineCount,
+        totalLines,
         hasMore: text.length < sectionText.length,
         toc,
         ...formulaData,
@@ -181,6 +186,7 @@ export const gmReadDocumentTool = {
       offset: safeOffset,
       length: text.length,
       totalSize,
+      totalLines,
       hasMore: safeOffset + text.length < totalSize,
       ...formulaData,
     };

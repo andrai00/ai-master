@@ -116,6 +116,18 @@ const TOOL_HANDLERS: Record<string, IHandler> = {
       return `"${quote}"${len !== undefined ? ` (${len} chars)` : ""}`;
     },
   },
+  read_lines: {
+    label: "read lines",
+    tone: "read",
+    format(a, r) {
+      const title = asStr(r.title) || asStr(a.id) || "doc";
+      const quote = title.length > 60 ? title.slice(0, 57) + "…" : title;
+      const range = typeof r.startLine === "number" && typeof r.endLine === "number"
+        ? `lines ${r.startLine}-${r.endLine}/${r.totalLines}`
+        : "";
+      return `"${quote}" ${range}`;
+    },
+  },
   get_gm_notes: {
     label: "notes",
     tone: "read",

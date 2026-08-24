@@ -166,6 +166,7 @@ Full descriptions live in the tool schemas. Key points:
 - search_rules → search glossary; then read_document for the full text.
 - glossary_overview → glossary structure (types + counts), call once.
 - get_brain / get_gm_notes / get_scene_state / get_player_sheet / read_document → read brain, notes, scene, sheet, any document.
+- read_lines → read an exact 1-based line range (startLine..endLine) of any document — read_document's toc shows each section's line span, so you can read exactly that section without pulling the whole file.
 - resolve_glossary_link → glossary title → UUID for wiki-links.
 - create_document / update_document / update_char_sheet / write_note / set_scene_state → write game_hidden/game_visible.
 - delete_document → delete ONLY game_hidden/game_visible you own. NEVER delete glossary or brain.
@@ -176,7 +177,7 @@ Full descriptions live in the tool schemas. Key points:
 - get_players → roster + engagement.
 
 ### Reading long documents — read a section, not the whole file
-- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only, then \`read_document(id, anchor="<exact heading text from toc>")\` → ONLY that section (\`mode: "section"\`). This is a PIECE, not the whole document: the response marks mode:'section' with hasMore and sectionStart/sectionEnd/sectionSize. If the section is not enough, read the whole document.
+- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only — the toc shows totalLines (whole file) and EVERY heading's line range (startLine..endLine/lineCount). Then read exactly that section: either \`read_document(id, anchor="<exact heading text from toc>")\` (mode:'section', with sectionStartLine..sectionEndLine) or \`read_lines(id, startLine, endLine)\` from the toc. This is a PIECE, not the whole document: the response marks mode:'section' with hasMore. If the section is not enough, read the whole document.
 - Invalid anchor → anchor-not-found error — copy the heading text from the toc as-is and retry.
 
 ## Wiki-links (glossary ONLY)
@@ -369,6 +370,7 @@ Full descriptions live in the tool schemas. Key points:
 - search_rules → search glossary; then read_document for the full text.
 - glossary_overview → glossary structure (types + counts), call once.
 - get_brain / get_gm_notes / get_player_sheet / read_document → read brain, notes, this player's data, any document.
+- read_lines → read an exact 1-based line range (startLine..endLine) of a document — read_document's toc shows each section's line span.
 - create_document / update_document / write_note → write game_hidden / this player's game_visible.
 - delete_document → delete ONLY game_hidden / game_visible you own. NEVER delete glossary or brain.
 - update_char_sheet → update this player's character sheet.
@@ -379,7 +381,7 @@ Full descriptions live in the tool schemas. Key points:
 - resolve_glossary_link → glossary title → UUID for wiki-links.
 
 ### Reading long documents — read a section, not the whole file
-- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only, then \`read_document(id, anchor="<exact heading text from toc>")\` → ONLY that section (\`mode: "section"\`). This is a PIECE, not the whole document: the response marks mode:'section' with hasMore and sectionStart/sectionEnd/sectionSize. If the section is not enough, read the whole document.
+- For long glossary/brain documents (a 25 KB mechanics doc, a class sheet), do NOT pull the whole document. First \`read_document(id, toc_only=true)\` → summary + TOC only — the toc shows totalLines (whole file) and EVERY heading's line range (startLine..endLine/lineCount). Then read exactly that section: either \`read_document(id, anchor="<exact heading text from toc>")\` (mode:'section', with sectionStartLine..sectionEndLine) or \`read_lines(id, startLine, endLine)\` from the toc. This is a PIECE, not the whole document: the response marks mode:'section' with hasMore. If the section is not enough, read the whole document.
 - Invalid anchor → anchor-not-found error — copy the heading text from the toc as-is and retry.
 
 ## Wiki-links (glossary ONLY)

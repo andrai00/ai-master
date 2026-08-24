@@ -21,6 +21,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_gm_notes: "read gm notes",
   get_player_sheet: "read sheets",
   read_document: "read documents",
+  read_lines: "read document lines",
   get_brain: "read brain",
   get_rolls: "read rolls",
   get_scene_state: "read scene",

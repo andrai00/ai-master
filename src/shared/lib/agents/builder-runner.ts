@@ -6,6 +6,7 @@ import { getSession } from "@/src/shared/lib/auth/session";
 import { createDocumentTool } from "./tools/create-document.tool";
 import { updateDocumentTool } from "./tools/update-document.tool";
 import { readDocumentTool } from "./tools/read-document.tool";
+import { readLinesTool } from "./tools/read-lines.tool";
 import { listUploadedFilesTool } from "./tools/list-uploaded-files.tool";
 import { exploreArchiveTool } from "./tools/explore-archive.tool";
 import { readFileTool } from "./tools/read-file.tool";
@@ -222,6 +223,7 @@ function getTools(builderMode: string): ToolSet {
     glossary_overview: gmGlossaryOverviewTool,
     get_brain: gmGetBrainTool,
     read_document: readDocumentTool,
+    read_lines: readLinesTool,
     list_all_documents: listAllDocumentsTool,
     create_document: createDocumentTool,
     update_document: updateDocumentTool,
@@ -314,8 +316,8 @@ async function buildContext(sessionId: string) {
 
   const toolsNote =
     builderMode === "memory"
-      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, create_document, update_document, delete_document, get_builder_guide, get_chat_summary, update_chat_summary.`
-      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, create_document, update_document, delete_document, delete_documents_by_type, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
+      ? `\n\n## Your tools (MEMORY mode)\nget_gm_notes, get_scene_state, get_player_sheet, search_rules, glossary_overview, get_brain, get_players, resolve_glossary_link, read_document, read_lines, create_document, update_document, delete_document, get_builder_guide, get_chat_summary, update_chat_summary.`
+      : `\n\n## Your tools (BRAIN mode)\nsearch_rules, glossary_overview, get_brain, read_document, read_lines, create_document, update_document, delete_document, delete_documents_by_type, bulk_import_to_glossary, explore_archive, list_uploaded_files, read_file, delete_uploaded_files, get_builder_guide, get_chat_summary, update_chat_summary.`;
   systemPrompt += toolsNote;
 
   let dynamic = "";

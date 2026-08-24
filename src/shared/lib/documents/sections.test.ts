@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanHeading, findHeadingByAnchor, hasAnchor, sliceSectionByAnchor } from "./sections";
+import { cleanHeading, findHeadingByAnchor, hasAnchor, sliceSectionByAnchor, buildLineToc } from "./sections";
 
 const content = [
   "# Лист класса",
@@ -77,6 +77,56 @@ describe("findHeadingByAnchor", () => {
   it("returns the matching heading entry with clean text", () => {
     const h = findHeadingByAnchor(content, "Штормовое колдовство");
     expect(h).toMatchObject({ level: 2, clean: "Штормовое колдовство" });
+  });
+});
+
+describe("buildLineToc", () => {
+  const tocContent = [
+    "# Заголовок 1",
+    "строка A",
+    "",
+    "## Подраздел",
+    "строка B",
+    "",
+    "# Заголовок 2",
+    "строка C",
+  ].join("\n");
+
+  it("assigns each section its exact 1-based line range", () => {
+    const toc = buildLineToc(tocContent);
+    expect(toc).toEqual([
+      { heading: "Заголовок 1", level: 1, offset: 0, startLine: 1, endLine: 6, lineCount: 6 },
+      { heading: "Подраздел", level: 2, offset: 24, startLine: 4, endLine: 6, lineCount: 3 },
+      { heading: "Заголовок 2", level: 1, offset: 47, startLine: 7, endLine: 8, lineCount: 2 },
+    ]);
+  });
+
+  it("slices the last section to the end of the document", () => {
+    const toc = buildLineToc("# A\nx\n## B\ny");
+    expect(toc[1]).toMatchObject({ heading: "B", startLine: 3, endLine: 4, lineCount: 2 });
+  });
+
+  it("returns an empty array for a document without headings", () => {
+    expect(buildLineToc("просто текст\nбез заголовков")).toEqual([]);
+  });
+
+  it("ignores headings inside formula fences", () => {
+    const c = "# Настоящий\n```formula\n# не заголовок\nx = 1\n```\n## Следующий";
+    const toc = buildLineToc(c);
+    expect(toc.map((t) => t.heading)).toEqual(["Настоящий", "Следующий"]);
+  });
+
+  it("respects maxLevel", () => {
+    const c = "# A\n## B\n### C";
+    expect(buildLineToc(c, 2).map((t) => t.heading)).toEqual(["A", "B"]);
+  });
+
+  it("start lines match the heading positions and ranges are monotonic", () => {
+    const toc = buildLineToc(tocContent);
+    expect(toc[0].startLine).toBe(1);
+    expect(toc[1].startLine).toBeGreaterThan(toc[0].startLine);
+    expect(toc[2].startLine).toBeGreaterThan(toc[1].endLine);
+    expect(toc[2].endLine).toBe(8);
   });
 });
 

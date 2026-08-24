@@ -1,5 +1,6 @@
 import GithubSlugger from "github-slugger";
 import { extractHeadings, headingSlugText, type IHeadingEntry } from "./headings";
+import { splitLines, lineNumberAt } from "./line-utils";
 
 /**
  * Heading text as the rendered TOC sees it: wiki-links collapse to their
@@ -45,6 +46,52 @@ function findHeadingByAnchorIn(headings: IHeadingEntry[], anchor: string): IHead
 
 export function findHeadingByAnchor(content: string, anchor: string, maxLevel = 6): IHeadingMatch | null {
   return findHeadingByAnchorIn(extractHeadings(content, maxLevel), anchor);
+}
+
+export interface ISectionLineEntry {
+  /** Cleaned heading text (copy into `anchor` or display). */
+  heading: string;
+  level: number;
+  /** Character offset of the heading line start in `content`. */
+  offset: number;
+  /** 1-based first line of the section (the heading line itself). */
+  startLine: number;
+  /** 1-based last line of the section (exclusive of the next same-level heading). */
+  endLine: number;
+  /** Number of lines the section spans: endLine - startLine + 1. */
+  lineCount: number;
+}
+
+/**
+ * Table of contents with LINE RANGES. For every heading — the 1-based line
+ * span its section occupies ([startLine..endLine], the same rule as
+ * sliceSectionByAnchor) and the line count. The agent uses these numbers to
+ * jump straight to a section via read_lines(id, startLine, endLine) instead of
+ * pulling the whole document. Line numbers match numberLines / readLineRange.
+ */
+export function buildLineToc(content: string, maxLevel = 6): ISectionLineEntry[] {
+  const headings = extractHeadings(content, maxLevel);
+  if (headings.length === 0) return [];
+  const totalLines = splitLines(content).length;
+  return headings.map((h, i) => {
+    const startLine = lineNumberAt(content, h.offset);
+    let endLine = totalLines;
+    for (let j = i + 1; j < headings.length; j++) {
+      if (headings[j].level <= h.level) {
+        endLine = lineNumberAt(content, headings[j].offset) - 1;
+        break;
+      }
+    }
+    if (endLine < startLine) endLine = startLine;
+    return {
+      heading: cleanHeading(h.text),
+      level: h.level,
+      offset: h.offset,
+      startLine,
+      endLine,
+      lineCount: endLine - startLine + 1,
+    };
+  });
 }
 
 export interface ISectionSlice {

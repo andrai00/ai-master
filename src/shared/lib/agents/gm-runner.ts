@@ -4,6 +4,7 @@ import { getPrisma } from "@/src/shared/lib/db/prisma";
 import { getActiveGame } from "@/src/shared/lib/db/active-game";
 import { getSession } from "@/src/shared/lib/auth/session";
 import { gmReadDocumentTool } from "./gm-tools/gm-read-document.tool";
+import { gmReadLinesTool } from "./gm-tools/gm-read-lines.tool";
 import { gmSearchRulesTool } from "./gm-tools/gm-search-rules.tool";
 import { gmGetBrainTool } from "./gm-tools/gm-get-brain.tool";
 import { gmGetGmNotesTool } from "./gm-tools/gm-get-gm-notes.tool";
@@ -192,6 +193,7 @@ function getGameTools(sessionId: string): ToolSet {
     get_scene_state: gmGetSceneStateTool,
     get_player_sheet: gmGetPlayerSheetTool,
     read_document: gmReadDocumentTool,
+    read_lines: gmReadLinesTool,
     create_document: gmCreateDocumentTool,
     update_document: gmUpdateDocumentTool,
     update_char_sheet: gmUpdateCharSheetTool,
@@ -224,6 +226,7 @@ function getPersonalTools(sessionId: string): ToolSet {
     get_gm_notes: gmGetGmNotesTool,
     get_player_sheet: gmGetPlayerSheetTool,
     read_document: gmReadDocumentTool,
+    read_lines: gmReadLinesTool,
     create_document: gmCreateDocumentTool,
     update_document: gmUpdateDocumentTool,
     update_char_sheet: gmUpdateCharSheetTool,
@@ -467,7 +470,7 @@ async function buildGameContext(sessionId: string) {
   // Full system prompt (Pass) — the complete operating instructions.
   const system =
     GM_GAME_SYSTEM +
-    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the players see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
+    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the players see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. For long documents use the toc's line ranges (totalLines, per-heading startLine..endLine) and read_lines(id, startLine, endLine) to read only the section you need. Then use search_rules for specific rules (filter by type if needed), get_gm_notes and get_scene_state for game memory, and get_player_sheet for a player's data. Use get_players to track which players are active. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries of key events. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
     dynamic;
 
   return {
@@ -558,7 +561,7 @@ async function buildPersonalContext(sessionId: string, playerId: string) {
 
   const system =
     GM_PERSONAL_SYSTEM +
-    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the player will see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
+    `\n\nWork in one pass: FIRST call plan_turn (declare your plan; write/roll tools are blocked without it), then study what you need (read/search tools), then act (write/roll tools), then call review_turn before the FINAL reply — the text the player will see. Never re-read a document already in your context (brain preload, study journal, this window). The brain is PRELOADED in the context (## Brain (preloaded)) — index + sections. Read it from there; use get_brain(topic) only to read one section in full. For long documents use the toc's line ranges (totalLines, per-heading startLine..endLine) and read_lines(id, startLine, endLine) to read only the section you need. Then use search_rules for specific rules (filter by type if needed), get_gm_notes for your hidden notes, and get_player_sheet to read this player's character data. Use get_rolls ONLY for old/historical rolls or roll details — completed rolls already appear in the conversation. Use update_chat_summary to save summaries. When a document contains formula blocks, read_document returns formulaValues (name → computed number) and formulaErrors (name → reason). Substitute $name in the text with the computed value when you answer; if a formula errored, mention it honestly («ошибка в формуле X») instead of guessing.` +
     dynamic;
 
   return {

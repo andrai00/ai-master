@@ -39,7 +39,7 @@
 - [ ] Я тронул domain rule → обновил AGENTS.md invariants
 - [ ] Я добавил новую директорию с нетривиальным кодом → создал AGENTS.md
 - [ ] Я наткнулся на реальный gotcha → записал в ANTI-PATTERNS.md
-- [ ] Я нашёл/починил баг → добавил строку в incidents.md
+- [ ] Я нашёл/починил баг → добавил строку в `docs/incidents/README.md`
 - [ ] Я изменил сложный flow → обновил flow-документацию
 
 ## Mobile / Adaptive

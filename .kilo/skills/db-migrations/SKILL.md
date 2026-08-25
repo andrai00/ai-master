@@ -11,8 +11,8 @@
 ## KEY FILES
 - `prisma/schema.prisma` — схема БД
 - `src/shared/lib/db/prisma.ts` — singleton getPrisma()
-- `docs/GOLDEN-RULES.md` — G14 (@updatedAt + @default), G17 (db push + generate)
-- `docs/ANTI-PATTERNS.md` — Prisma & Database секция
+- `docs/reference/GOLDEN-RULES.md` — G14 (@updatedAt + @default), G17 (db push + generate)
+- `docs/reference/ANTI-PATTERNS.md` — Prisma & Database секция
 
 ## WORKFLOW
 

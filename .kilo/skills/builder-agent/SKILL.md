@@ -21,8 +21,9 @@
 - `src/shared/actions/builder/` — server actions (send-message, stop-builder, clear-chat)
 - `src/shared/lib/realtime/server.ts` — Socket.IO hub (глобальные + step-события, presence, typing)
 - `src/app/api/builder/upload/route.ts` — загрузка файлов
-- `docs/GOLDEN-RULES.md` — G19 (fire-and-forget), G18 (Socket.IO-push)
-- `docs/ANTI-PATTERNS.md` — Builder Agent секция
+- `docs/reference/GOLDEN-RULES.md` — G19 (fire-and-forget), G18 (Socket.IO-push)
+- `docs/reference/ANTI-PATTERNS.md` — Builder Agent секция
+- `docs/reference/AGENT-RUNTIME.md` — раннеры, тулы, стоп, ретраи, транскрипт
 
 ## WORKFLOW
 

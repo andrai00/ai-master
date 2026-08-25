@@ -1,9 +1,9 @@
 # Архитектура и паттерны
 
 > ⚠️ **Канонический FSD-шаблон.** Для ai-master переопределён:
-> - `docs/SERVER-ACTIONS.md` — Server Actions вместо axios/httpServer
-> - `docs/UI-DESIGN.md` — дизайн-система проекта
-> - `docs/CODING.md` — актуальные правила кодинга
+> - `docs/reference/BACKEND.md` — Server Actions вместо axios/httpServer
+> - `docs/reference/FRONTEND.md` — дизайн-система проекта
+> - `docs/reference/AGENT-RUNTIME.md` — правила AI-агентов
 
 Универсальная инструкция по архитектуре и паттернам для всех наших проектов на
 Next.js + React + TypeScript. Описывает базовый стек, структуру кода, правила

@@ -7,13 +7,12 @@
 - Создать страницу → `src/pages-layer/<domain>/ui/<view>.tsx`
 - Создать переиспользуемый компонент → `src/features/<name>/ui/<component>.tsx`
 - Создать виджет → `src/widgets/<name>/ui/<widget>.tsx`
-- Изменить дизайн-систему → `docs/UI-DESIGN.md`
+- Изменить дизайн-систему → `docs/reference/FRONTEND.md`
 
 ## KEY FILES
-- `docs/UI-DESIGN.md` — 🎨 дизайн-система (сайдбар, чат, формы, таблицы, модалки)
-- `docs/INTERFACE-STRUCTURE.md` — раскладка UI, страницы
-- `docs/ANTI-PATTERNS.md` — UI / Ant Design + Стили секции
-- `docs/GOLDEN-RULES.md` — G3 (цвета), G4 (i18n), G5 (Tooltip), G6 (pagination), G7 (подтверждение), G8 (danger), G9 (modal), G13 (Switch), G16 (usePathname)
+- `docs/reference/FRONTEND.md` — 🎨 дизайн-система + структура интерфейса
+- `docs/reference/ANTI-PATTERNS.md` — UI / Ant Design + Стили секции
+- `docs/reference/GOLDEN-RULES.md` — G3 (цвета), G4 (i18n), G5 (Tooltip), G6 (pagination), G7 (подтверждение), G8 (danger), G9 (modal), G13 (Switch), G16 (usePathname)
 - `src/app/globals.css` — глобальные CSS-переменные
 - `src/app-layer/index.tsx` — ConfigProvider, тема, провайдеры
 

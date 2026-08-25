@@ -20,7 +20,7 @@ docker compose up -d --build
 
 ## Запуск вручную (pnpm)
 
-Требуется **Node.js 20.9+** (проверено на 22) и **pnpm 10**:
+Требуется **Node.js** и **pnpm**:
 
 ```sh
 git clone https://github.com/andrai00/ai-master ai-master
@@ -31,12 +31,6 @@ pnpm exec prisma db push       # создать схему в data/ai-master.db
 pnpm exec prisma generate      # сгенерировать Prisma-клиент
 pnpm build
 pnpm start                     # production, порт 3015
-```
-
-Для разработки:
-
-```sh
-pnpm dev
 ```
 
 ---

@@ -16,20 +16,6 @@ docker compose up -d --build
 
 Открой <http://localhost:3015> и пройди первоначальную настройку (см. ниже).
 
-Остальные команды:
-
-```sh
-docker compose logs -f          # логи
-docker compose down             # остановить (данные сохранятся)
-docker compose down -v          # остановить И стереть базу данных
-```
-
-**Бэкап/перенос:** останови контейнер (`docker compose stop`), затем скопируй файл из тома:
-
-```sh
-docker cp ai-master:/app/data/ai-master.db ./ai-master-backup.db
-```
-
 ---
 
 ## Запуск вручную (pnpm)

@@ -1,36 +1,172 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ai-master — ИИ-мастер для настольных ролевых игр
 
-## Getting Started
+**ai-master** — это самостоятельный веб-сервер (как Foundry VTT) для игры в настольные ролевые игры с AI-мастером. Два агента:
 
-First, run the development server:
+- **Builder** — изучает твои правила и настраивает игру (режим разработки).
+- **Game Master (GM)** — ведёт игру с игроками: описывает сцены, ведёт персонажей, делает броски кубиков (режим игры).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Стек: Next.js 16 + React 19 + TypeScript + Ant Design, SQLite (Prisma), Socket.IO для real-time. Все данные хранятся локально — один файл базы.
+
+---
+
+## Быстрый старт (Docker)
+
+Требуется только Docker + Docker Compose.
+
+```sh
+git clone <url-репозитория> ai-master
+cd ai-master
+docker compose up -d --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Открой <http://localhost:3015> и пройди первоначальную настройку (см. ниже).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Секрет сессий (`JWT_SECRET`) создастся сам при первом запуске и сохранится в volume. Свой можно задать в файле `.env` рядом с compose — не обязательно.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Остальные команды:
 
-## Learn More
+```sh
+docker compose logs -f          # логи
+docker compose down             # остановить (данные сохранятся)
+docker compose down -v          # остановить И стереть базу данных
+```
 
-To learn more about Next.js, take a look at the following resources:
+**Где данные:** named volume `ai-master-data` монтируется в `/app/data` (файл `ai-master.db`). Он переживает `down`, пересборку образа и `up`. Стирается только командой `down -v`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Бэкап/перенос:** останови контейнер (`docker compose stop`), затем скопируй файл из тома:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+docker cp ai-master:/app/data/ai-master.db ./ai-master-backup.db
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Запуск вручную (pnpm)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Требуется **Node.js 20.9+** (проверено на 22) и **pnpm 10**:
+
+```sh
+git clone <url-репозитория> ai-master
+cd ai-master
+
+cp .env.example .env    # при желании задать JWT_SECRET и флаги
+pnpm install
+pnpm exec prisma db push       # создать схему в data/ai-master.db
+pnpm exec prisma generate      # сгенерировать Prisma-клиент
+pnpm build
+pnpm start                     # production, порт 3015
+```
+
+Для разработки:
+
+```sh
+pnpm dev
+```
+
+После изменения схемы БД — обязательно `pnpm exec prisma db push && pnpm exec prisma generate` перед перезапуском.
+
+---
+
+## Первая настройка
+
+1. Открой <http://localhost:3015>.
+2. Первый запуск покажет страницу **/setup** — создай аккаунт администратора.
+3. Зайди в **Админ панель → AI настройки**:
+   - провайдер (OpenAI, OpenRouter, Groq, Anthropic, Ollama или свой совместимый с OpenAI API),
+   - `baseUrl`, API-ключ, модель,
+   - нажми «Проверить подключение» — должен показаться список моделей.
+
+Без настроенного AI-провайдера агенты работать не будут.
+
+---
+
+## Как начать играть
+
+1. **Создай игру.** В админке — список игр → «Создать игру», задай название.
+2. **Загрузи правила.** В разделе Builder (чат настройки) загрузи архив `*.zip` из Markdown-файлов (или одиночный `.md`). Builder разберёт структуру и наполнит глоссарий и «мозг» мастера.
+3. **Проверь/донастрой правила** в чате Builder: поправь то, что агент понял неверно, ответь на его вопросы.
+4. **Создай игроков.** Админ панель → Пользователи → «Создать игрока» (логин + пароль). Игроки не регистрируются сами.
+5. **Запусти игру.** В админке нажми «Запустить игру» (переключение в game-режим). Builder-инструменты закроются, глоссарий и мозг станут read-only.
+6. **Игроки заходят** на <http://<твой-ip>:3015>, логинятся и играют в общем чате; личные вопросы — в чате «Вопрос мастеру».
+
+## Игра по сети (несколько человек)
+
+Играть можно по локальной сети — как в Minecraft-сервер. Если друзья не в одной сети, хост поднимает **Radmin VPN** или **Hamachi** (бесплатный виртуальный LAN):
+
+1. Хост создаёт сеть и добавляет туда друзей.
+2. Друзья ставят Radmin/Hamachi и заходят в эту сеть.
+3. Все играют по ссылке `http://<IP-хоста>:3015` — хост даёт игрокам свой IP из Radmin/Hamachi.
+
+Важно: на ПК хоста должен быть открыт порт **3015** в брандмауэре Windows, иначе друзья не подключатся.
+
+### Идеальный архив правил
+
+Агент не читает всю базу сразу — он навигируется по ссылкам. Поэтому правила удобнее готовить так:
+
+```
+правила.zip
+└── _index.md              ← оглавление: что есть и как связаны разделы
+    rules/
+      combat.md            ← одна тема = один файл
+      damage.md
+      races/elf.md
+      spells/fireball.md
+    bestiary/goblin.md
+```
+
+- Обычный Markdown, UTF-8, одна тема в одном файле, без дублей.
+- Связывай файлы ссылками — оба формата работают:
+
+```markdown
+[[rules/races/elf]]               вики-ссылка
+[[rules/races/elf|Эльф]]          с подписью
+[Эльф](/rules/races/elf.md)       обычная markdown-ссылка
+```
+
+- Секция ≤ ~6-7 КБ; большие темы — на под-секции.
+- Пути без пробелов и заглавных (например `rules/spells/fireball.md`).
+
+Подробнее о структуре ссылок и категориях — в `docs/reference/AGENT-RUNTIME.md`.
+
+---
+
+## Документация
+
+Вся документация лежит в репозитории и рассчитана и на людей, и на AI-агентов. Точка входа — корневой `AGENTS.md`.
+
+| Документ | Что внутри |
+|---|---|
+| `AGENTS.md` | Карта проекта: куда смотреть и когда |
+| `docs/reference/GOLDEN-RULES.md` | Незыблемые правила проекта (G1..G43) |
+| `docs/reference/ARCHITECTURE.md` | Архитектура (FSD, слои, паттерны) |
+| `docs/reference/BACKEND.md` | Сервер: Server Actions, БД, авторизация, Socket.IO |
+| `docs/reference/FRONTEND.md` | Фронтенд: дизайн-система, UI-паттерны |
+| `docs/reference/AGENT-RUNTIME.md` | Как работают агенты Builder/GM, тулы, формулы |
+| `docs/reference/COMMANDS.md` | Все команды (pnpm, prisma) |
+| `docs/reference/GLOSSARY.md` | Термины проекта |
+| `docs/reference/COMPLETION-GATE.md` | Чеклист перед коммитом |
+| `docs/incidents/README.md` | Журнал багов и их причин |
+| `docs/planning/` | Концепция, роадмап, открытые вопросы |
+
+---
+
+## FAQ / Частые вопросы
+
+**Игра по LAN/Hamachi не открывается, или вход «не работает» по HTTP.**
+Кука сессии по умолчанию работает и по HTTP, и по HTTPS (`COOKIE_SECURE=false`). Если ты обслуживаешься только по HTTPS и кука не ставится — задай `COOKIE_SECURE=true`. НЕ включай его для обычного HTTP.
+
+**Где база данных?** `data/ai-master.db` (в Docker — в volume `ai-master-data`). Аватары и загруженные файлы хранятся внутри БД, отдельных папок нет.
+
+**Как сменить порт?** `PORT` (по умолчанию 3015). В Docker — поменяй проброс в `docker-compose.yml`.
+
+**Хочу использовать локальную нейросеть.** Задай провайдер Ollama в AI-настройках (`http://localhost:11434/v1`) — и Ollama запусти на хосте (не в контейнере).
+
+**Это бесплатно?** Сама программа да. Платишь только за API нейросети (OpenAI/OpenRouter/...) либо используешь локальную через Ollama.
+
+**Диагностика агентов.** Для отладки промтов и тулов можно включить `AGENT_TRACE=1` (пишет каждый запрос/вызов в таблицу TraceEvent) и `AGENT_DEBUG=1` (показывает тулы в чате админу). После анализа — выключи.
+
+---
+
+## Лицензия
+
+Пока без лицензии. Свяжись с автором перед коммерческим использованием.

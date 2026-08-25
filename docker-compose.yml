@@ -1,0 +1,25 @@
+services:
+  ai-master:
+    build: .
+    image: ai-master:latest
+    container_name: ai-master
+    restart: unless-stopped
+    ports:
+      - "3015:3015"
+    environment:
+      # Prisma CLI (db push) uses this; the app runtime hardcodes data/ai-master.db
+      DATABASE_URL: ${DATABASE_URL:-file:./data/ai-master.db}
+      # Если не задан — сгенерируется случайный при первом старте
+      # и сохранится в volume (data/jwt-secret). Можно задать свой в .env.
+      JWT_SECRET: ${JWT_SECRET:-}
+      # false = cookie работает и по HTTP (LAN/Hamachi). true — только HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      PORT: "3015"
+      HOSTNAME: 0.0.0.0
+      AGENT_TRACE: ${AGENT_TRACE:-}
+      AGENT_DEBUG: ${AGENT_DEBUG:-}
+    volumes:
+      - ai-master-data:/app/data
+
+volumes:
+  ai-master-data:

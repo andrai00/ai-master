@@ -12,7 +12,8 @@ services:
       # Если не задан — сгенерируется случайный при первом старте
       # и сохранится в volume (data/jwt-secret). Можно задать свой в .env.
       JWT_SECRET: ${JWT_SECRET:-}
-      # false = cookie работает и по HTTP (LAN/Hamachi). true — только HTTPS.
+      # false = кука работает и по HTTP (LAN/Hamachi), и по HTTPS — дефолт для игры.
+      # true — только HTTPS, ломает вход по HTTP на LAN/Hamachi.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PORT: "3015"
       HOSTNAME: 0.0.0.0

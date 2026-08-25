@@ -16,8 +16,6 @@ docker compose up -d --build
 
 Открой <http://localhost:3015> и пройди первоначальную настройку (см. ниже).
 
-Секрет сессий (`JWT_SECRET`) создастся сам при первом запуске и сохранится в volume. Свой можно задать в файле `.env` рядом с compose — не обязательно.
-
 Остальные команды:
 
 ```sh
@@ -25,8 +23,6 @@ docker compose logs -f          # логи
 docker compose down             # остановить (данные сохранятся)
 docker compose down -v          # остановить И стереть базу данных
 ```
-
-**Где данные:** named volume `ai-master-data` монтируется в `/app/data` (файл `ai-master.db`). Он переживает `down`, пересборку образа и `up`. Стирается только командой `down -v`.
 
 **Бэкап/перенос:** останови контейнер (`docker compose stop`), затем скопируй файл из тома:
 
@@ -44,7 +40,6 @@ docker cp ai-master:/app/data/ai-master.db ./ai-master-backup.db
 git clone https://github.com/andrai00/ai-master ai-master
 cd ai-master
 
-cp .env.example .env    # при желании задать JWT_SECRET и флаги
 pnpm install
 pnpm exec prisma db push       # создать схему в data/ai-master.db
 pnpm exec prisma generate      # сгенерировать Prisma-клиент
@@ -57,8 +52,6 @@ pnpm start                     # production, порт 3015
 ```sh
 pnpm dev
 ```
-
-После изменения схемы БД — обязательно `pnpm exec prisma db push && pnpm exec prisma generate` перед перезапуском.
 
 ---
 
@@ -125,7 +118,7 @@ pnpm dev
 
 ## FAQ / Частые вопросы
 
-**Где база данных?** `data/ai-master.db` (в Docker — в volume `ai-master-data`). Аватары и загруженные файлы хранятся внутри БД, отдельных папок нет.
+**Где хранятся данные?** В одном файле `data/ai-master.db` (в Docker — в volume). Аватары и загруженные файлы тоже внутри БД.
 
 **Как сменить порт?** `PORT` (по умолчанию 3015). В Docker — поменяй проброс в `docker-compose.yml`.
 

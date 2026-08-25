@@ -2,6 +2,7 @@
   "name": "ai-master",
   "version": "0.1.0",
   "private": true,
+  "author": "avd <avd13.aaa@ya.ru>",
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "dev": "node server.mjs",

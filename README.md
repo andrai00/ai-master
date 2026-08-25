@@ -9,7 +9,7 @@
 Требуется только Docker + Docker Compose.
 
 ```sh
-git clone <url-репозитория> ai-master
+git clone https://github.com/andrai00/ai-master ai-master
 cd ai-master
 docker compose up -d --build
 ```
@@ -41,7 +41,7 @@ docker cp ai-master:/app/data/ai-master.db ./ai-master-backup.db
 Требуется **Node.js 20.9+** (проверено на 22) и **pnpm 10**:
 
 ```sh
-git clone <url-репозитория> ai-master
+git clone https://github.com/andrai00/ai-master ai-master
 cd ai-master
 
 cp .env.example .env    # при желании задать JWT_SECRET и флаги
